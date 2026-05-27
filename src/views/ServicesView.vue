@@ -232,7 +232,7 @@ function validateUrl(_rule: any, value: string, callback: Function) {
   }
 }
 
-const dialogWidth = computed(() => window.innerWidth < 768 ? '90%' : '500px')
+const dialogWidth = '500px'
 
 const form = reactive({
   name: '',
