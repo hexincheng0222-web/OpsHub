@@ -11,7 +11,8 @@ const router = createRouter({
     {
       path: '/services',
       name: 'Services',
-      component: () => import('../views/ServicesView.vue')
+      component: () => import('../views/ServicesView.vue'),
+      meta: { title: '内网服务管理' }
     },
     {
       path: '/operations',

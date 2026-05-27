@@ -8,6 +8,8 @@ export interface Service {
   status: 'online' | 'offline' | 'maintenance' | 'checking'
 }
 
+export const SERVICE_CATEGORIES = ['DevOps', '监控', '基础设施', '协作'] as const
+
 export const mockServices: Service[] = [
   {
     id: 1,

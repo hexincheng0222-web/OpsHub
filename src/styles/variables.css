@@ -1,0 +1,17 @@
+:root {
+  --ops-bg-page: #0a0e14;
+  --ops-bg-card: #12161e;
+  --ops-bg-card-hover: #161b24;
+  --ops-border-card: #1e2430;
+  --ops-text-primary: #e6edf3;
+  --ops-text-secondary: #8b949e;
+  --ops-text-tertiary: #6e7681;
+  --ops-accent-blue: #58a6ff;
+  --ops-accent-green: #3fb950;
+  --ops-accent-yellow: #d29922;
+  --ops-accent-gray: #484f58;
+  --ops-status-online: #3fb950;
+  --ops-status-offline: #484f58;
+  --ops-status-maintenance: #d29922;
+  --ops-shadow-card: 0 4px 16px rgba(0,0,0,0.3);
+}
