@@ -3,6 +3,7 @@ export interface Service {
   name: string
   url: string
   description: string
+  notes?: string
   icon: string
   category: string
   status: 'online' | 'offline' | 'maintenance' | 'checking'

@@ -1,0 +1,615 @@
+     1|<template>
+     2|  <div class="home-dark">
+     3|    <!-- 背景光斑 -->
+     4|    <div class="bg-orbs">
+     5|      <div class="orb orb-1" />
+     6|      <div class="orb orb-2" />
+     7|      <div class="orb orb-3" />
+     8|    </div>
+     9|
+    10|    <!-- 网格纹理 -->
+    11|    <div class="grid-overlay" />
+    12|
+    13|    <!-- 粒子背景 -->
+    14|    <div class="particles">
+    15|      <div v-for="i in 40" :key="i" class="particle" :style="particleStyle(i)" />
+    16|    </div>
+    17|
+    18|    <!-- 标题区 -->
+    19|    <div class="hero">
+    20|      <div class="title-glow" />
+    21|      <div class="title-icon">
+    22|        <el-icon :size="48"><Monitor /></el-icon>
+    23|      </div>
+    24|      <h1 class="main-title">
+    25|        <span class="title-text">运维中心</span>
+    26|      </h1>
+    27|      <p class="intro-text">
+    28|        一站式运维管理平台 — 集中管理内网服务、运维工单流程、公司设备资产与打印机
+    29|      </p>
+    30|    </div>
+    31|
+    32|    <!-- 4 大功能卡片 -->
+    33|    <div class="big-cards">
+    34|      <!-- 内网服务 — 蓝色 -->
+    35|      <div class="big-card card-blue" @click="$router.push('/services')">
+    36|        <div class="card-glow" />
+    37|        <div class="card-shine" />
+    38|        <div class="card-top-line" />
+    39|        <div class="card-icon-wrap">
+    40|          <el-icon :size="32"><Link /></el-icon>
+    41|        </div>
+    42|        <div class="card-body">
+    43|          <h3>内网服务</h3>
+    44|          <p>管理所有内网部署服务，一键跳转访问</p>
+    45|        </div>
+    46|        <div class="card-stat">
+    47|          <span class="stat-num">{{ servicesStore.services.length }}</span>
+    48|          <span class="stat-label">个服务</span>
+    49|        </div>
+    50|      </div>
+    51|
+    52|      <!-- 系统运维 — 绿色 -->
+    53|      <div class="big-card card-green" @click="$router.push('/operations')">
+    54|        <div class="card-glow" />
+    55|        <div class="card-shine" />
+    56|        <div class="card-top-line" />
+    57|        <div class="card-icon-wrap">
+    58|          <el-icon :size="32"><Operation /></el-icon>
+    59|        </div>
+    60|        <div class="card-body">
+    61|          <h3>系统运维操作</h3>
+    62|          <p>运维工单流程管理，操作记录汇总查看</p>
+    63|        </div>
+    64|        <div class="card-stat">
+    65|          <span class="stat-num">{{ opsStore.total }}</span>
+    66|          <span class="stat-label">个工单</span>
+    67|          <span class="stat-sub">进行中 {{ opsStore.activeCount }}</span>
+    68|        </div>
+    69|      </div>
+    70|
+    71|      <!-- 设备信息 — 紫色 -->
+    72|      <div class="big-card card-purple" @click="$router.push('/devices')">
+    73|        <div class="card-glow" />
+    74|        <div class="card-shine" />
+    75|        <div class="card-top-line" />
+    76|        <div class="card-icon-wrap">
+    77|          <el-icon :size="32"><Cpu /></el-icon>
+    78|        </div>
+    79|        <div class="card-body">
+    80|          <h3>设备信息</h3>
+    81|          <p>公司设备资产详情，分类查询与管理</p>
+    82|        </div>
+    83|        <div class="card-stat">
+    84|          <span class="stat-num">{{ devicesStore.total }}</span>
+    85|          <span class="stat-label">台设备</span>
+    86|          <span class="stat-sub">正常 {{ devicesStore.normalCount }}</span>
+    87|        </div>
+    88|      </div>
+    89|
+    90|      <!-- 打印机管理 — 橙色 -->
+    91|      <div class="big-card card-orange" @click="$router.push('/printers')">
+    92|        <div class="card-glow" />
+    93|        <div class="card-shine" />
+    94|        <div class="card-top-line" />
+    95|        <div class="card-icon-wrap">
+    96|          <el-icon :size="32"><Printer /></el-icon>
+    97|        </div>
+    98|        <div class="card-body">
+    99|          <h3>打印机管理</h3>
+   100|          <p>打印机列表、状态监控与耗材管理</p>
+   101|        </div>
+   102|        <div class="card-stat">
+   103|          <span class="stat-num">{{ printersStore.total }}</span>
+   104|          <span class="stat-label">台打印机</span>
+   105|          <span class="stat-sub">缺墨/故障 {{ printersStore.lowInkCount }}</span>
+   106|        </div>
+   107|      </div>
+   108|    </div>
+   109|
+   110|    <!-- 主题切换按钮 -->
+   111|    <div class="theme-toggle" @click="themeStore.toggleTheme()">
+   112|      <el-icon :size="22">
+   113|        <Sunny v-if="themeStore.isDark" />
+   114|        <Moon v-else />
+   115|      </el-icon>
+   116|    </div>
+   117|  </div>
+   118|</template>
+   119|
+   120|<script setup lang="ts">
+   121|import { useServicesStore } from '../stores/services'
+   122|import { useOperationsStore } from '../stores/operations'
+   123|import { useDevicesStore } from '../stores/devices'
+   124|import { usePrintersStore } from '../stores/printers'
+   125|import { useThemeStore } from '../stores/theme'
+   126|
+   127|const servicesStore = useServicesStore()
+   128|const opsStore = useOperationsStore()
+   129|const devicesStore = useDevicesStore()
+   130|const printersStore = usePrintersStore()
+   131|const themeStore = useThemeStore()
+   132|
+   133|const COLORS = ['#58a6ff', '#3fb950', '#a371f7', '#d29922', '#79c0ff', '#7ee787', '#bc8cff', '#e3b341']
+   134|
+   135|function particleStyle(i: number) {
+   136|  const color = COLORS[i % COLORS.length]
+   137|  const size = 3 + Math.random() * 6
+   138|  return {
+   139|    left: `${Math.random() * 100}%`,
+   140|    top: `${60 + Math.random() * 40}%`,
+   141|    width: `${size}px`,
+   142|    height: `${size}px`,
+   143|    background: color,
+   144|    boxShadow: `0 0 ${size * 3}px ${color}44, 0 0 ${size * 6}px ${color}22`,
+   145|    animationDelay: `${Math.random() * 8}s`,
+   146|    animationDuration: `${6 + Math.random() * 8}s`,
+   147|    opacity: 0
+   148|  }
+   149|}
+   150|</script>
+   151|
+   152|<style scoped>
+   153|.home-dark {
+   154|  min-height: 100vh;
+   155|  background: var(--ops-bg-page);
+   156|  padding: 70px 40px 60px;
+   157|  display: flex;
+   158|  flex-direction: column;
+   159|  align-items: center;
+   160|  position: relative;
+   161|  overflow: hidden;
+   162|}
+   163|
+   164|/* ======== 背景光斑 ======== */
+   165|.bg-orbs {
+   166|  position: absolute;
+   167|  inset: 0;
+   168|  pointer-events: none;
+   169|  z-index: 0;
+   170|}
+   171|
+   172|.orb {
+   173|  position: absolute;
+   174|  border-radius: 50%;
+   175|  filter: blur(120px);
+   176|  opacity: 0.15;
+   177|}
+   178|
+   179|.orb-1 {
+   180|  width: 600px;
+   181|  height: 600px;
+   182|  background: var(--ops-accent-blue);
+   183|  top: -200px;
+   184|  left: -150px;
+   185|  animation: orbFloat1 12s ease-in-out infinite;
+   186|}
+   187|
+   188|.orb-2 {
+   189|  width: 500px;
+   190|  height: 500px;
+   191|  background: var(--ops-accent-purple);
+   192|  top: 30%;
+   193|  right: -200px;
+   194|  animation: orbFloat2 15s ease-in-out infinite;
+   195|}
+   196|
+   197|.orb-3 {
+   198|  width: 400px;
+   199|  height: 400px;
+   200|  background: var(--ops-accent-green);
+   201|  bottom: -100px;
+   202|  left: 40%;
+   203|  animation: orbFloat3 18s ease-in-out infinite;
+   204|}
+   205|
+   206|@keyframes orbFloat1 {
+   207|  0%, 100% { transform: translate(0, 0) scale(1); }
+   208|  33%  { transform: translate(60px, 40px) scale(1.1); }
+   209|  66%  { transform: translate(-30px, -20px) scale(0.95); }
+   210|}
+   211|
+   212|@keyframes orbFloat2 {
+   213|  0%, 100% { transform: translate(0, 0) scale(1); }
+   214|  50%  { transform: translate(-50px, -50px) scale(1.15); }
+   215|}
+   216|
+   217|@keyframes orbFloat3 {
+   218|  0%, 100% { transform: translate(0, 0) scale(1); }
+   219|  50%  { transform: translate(30px, -40px) scale(1.2); }
+   220|}
+   221|
+   222|/* ======== 网格纹理 ======== */
+   223|.grid-overlay {
+   224|  position: absolute;
+   225|  inset: 0;
+   226|  pointer-events: none;
+   227|  z-index: 0;
+   228|  opacity: 0.03;
+   229|  background-image:
+   230|    linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+   231|    linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+   232|  background-size: 48px 48px;
+   233|}
+   234|
+   235|/* ======== 粒子 ======== */
+   236|.particles {
+   237|  position: absolute;
+   238|  inset: 0;
+   239|  pointer-events: none;
+   240|  z-index: 1;
+   241|}
+   242|
+   243|.particle {
+   244|  position: absolute;
+   245|  border-radius: 50%;
+   246|  animation: particleRise linear infinite;
+   247|  will-change: transform, opacity;
+   248|}
+   249|
+   250|@keyframes particleRise {
+   251|  0%   { transform: translateY(0) scale(0.9); opacity: 0; }
+   252|  10%  { opacity: 0.6; }
+   253|  90%  { opacity: 0.6; }
+   254|  100% { transform: translateY(-100vh) scale(1.4); opacity: 0; }
+   255|}
+   256|
+   257|/* ======== 标题区 ======== */
+   258|.hero {
+   259|  text-align: center;
+   260|  margin-bottom: 56px;
+   261|  position: relative;
+   262|  z-index: 2;
+   263|}
+   264|
+   265|.title-glow {
+   266|  position: absolute;
+   267|  top: -120px;
+   268|  left: 50%;
+   269|  transform: translateX(-50%);
+   270|  width: 500px;
+   271|  height: 500px;
+   272|  background: radial-gradient(ellipse, rgba(88,166,255,0.10) 0%, transparent 65%);
+   273|  pointer-events: none;
+   274|  animation: titleGlowPulse 4s ease-in-out infinite;
+   275|}
+   276|
+   277|@keyframes titleGlowPulse {
+   278|  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+   279|  50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+   280|}
+   281|
+   282|.title-icon {
+   283|  width: 72px;
+   284|  height: 72px;
+   285|  border-radius: 20px;
+   286|  background: linear-gradient(135deg, rgba(88,166,255,0.20), rgba(88,166,255,0.05));
+   287|  border: 1px solid rgba(88,166,255,0.15);
+   288|  display: flex;
+   289|  align-items: center;
+   290|  justify-content: center;
+   291|  margin: 0 auto 18px;
+   292|  color: var(--ops-accent-blue);
+   293|  animation: float 4s ease-in-out infinite;
+   294|  backdrop-filter: blur(10px);
+   295|}
+   296|
+   297|@keyframes float {
+   298|  0%, 100% { transform: translateY(0); }
+   299|  50% { transform: translateY(-8px); }
+   300|}
+   301|
+   302|.main-title {
+   303|  margin: 0 0 14px 0;
+   304|}
+   305|
+   306|.title-text {
+   307|  font-size: 40px;
+   308|  font-weight: 800;
+   309|  letter-spacing: 10px;
+   310|  color: var(--ops-text-primary);
+   311|  background: linear-gradient(180deg, var(--ops-text-primary) 0%, var(--ops-text-secondary) 40%, var(--ops-text-tertiary) 100%);
+   312|  -webkit-background-clip: text;
+   313|  -webkit-text-fill-color: transparent;
+   314|  background-clip: text;
+   315|}
+   316|
+   317|.intro-text {
+   318|  font-size: 14px;
+   319|  color: var(--ops-text-secondary);
+   320|  max-width: 520px;
+   321|  line-height: 1.8;
+   322|  margin: 0 auto;
+   323|  letter-spacing: 0.5px;
+   324|}
+   325|
+   326|/* ======== 卡片网格 ======== */
+   327|.big-cards {
+   328|  display: grid;
+   329|  grid-template-columns: repeat(2, 1fr);
+   330|  gap: 22px;
+   331|  max-width: 900px;
+   332|  width: 100%;
+   333|  position: relative;
+   334|  z-index: 2;
+   335|}
+   336|
+   337|/* ======== 单张卡片 ======== */
+   338|.big-card {
+   339|  position: relative;
+   340|  background: rgba(13, 17, 23, 0.70);
+   341|  backdrop-filter: blur(24px);
+   342|  -webkit-backdrop-filter: blur(24px);
+   343|  border: 1px solid rgba(255, 255, 255, 0.06);
+   344|  border-radius: 20px;
+   345|  padding: 26px 28px 22px;
+   346|  cursor: pointer;
+   347|  overflow: hidden;
+   348|  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+   349|  display: flex;
+   350|  flex-direction: column;
+   351|  gap: 18px;
+   352|}
+   353|
+   354|.big-card::before {
+   355|  content: '';
+   356|  position: absolute;
+   357|  inset: 0;
+   358|  border-radius: inherit;
+   359|  background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.03), transparent 40%);
+   360|  opacity: 0;
+   361|  transition: opacity 0.4s ease;
+   362|  pointer-events: none;
+   363|  z-index: 0;
+   364|}
+   365|
+   366|.big-card:hover::before {
+   367|  opacity: 1;
+   368|}
+   369|
+   370|.big-card:hover {
+   371|  transform: translateY(-4px);
+   372|  border-color: rgba(255, 255, 255, 0.10);
+   373|}
+   374|
+   375|/* 顶部高光线 */
+   376|.card-top-line {
+   377|  position: absolute;
+   378|  top: 0;
+   379|  left: 20px;
+   380|  right: 20px;
+   381|  height: 1px;
+   382|  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+   383|  opacity: 0;
+   384|  transition: opacity 0.4s ease;
+   385|  z-index: 1;
+   386|}
+   387|
+   388|.big-card:hover .card-top-line {
+   389|  opacity: 1;
+   390|}
+   391|
+   392|/* 发光边框层 */
+   393|.card-glow {
+   394|  position: absolute;
+   395|  inset: -1px;
+   396|  border-radius: inherit;
+   397|  opacity: 0;
+   398|  transition: opacity 0.4s ease;
+   399|  pointer-events: none;
+   400|  z-index: 0;
+   401|}
+   402|
+   403|.big-card:hover .card-glow {
+   404|  opacity: 1;
+   405|}
+   406|
+   407|/* 反光条纹 */
+   408|.card-shine {
+   409|  position: absolute;
+   410|  top: -50%;
+   411|  left: -50%;
+   412|  width: 200%;
+   413|  height: 200%;
+   414|  background: radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, transparent 60%);
+   415|  opacity: 0;
+   416|  transition: opacity 0.4s ease;
+   417|  pointer-events: none;
+   418|  z-index: 0;
+   419|  transform: rotate(-15deg);
+   420|}
+   421|
+   422|.big-card:hover .card-shine {
+   423|  opacity: 1;
+   424|}
+   425|
+   426|/* ---- 各色卡片 ---- */
+   427|.card-blue .card-glow {
+   428|  background: linear-gradient(135deg, rgba(88,166,255,0.30), transparent 45%, rgba(88,166,255,0.06));
+   429|}
+   430|.card-blue:hover {
+   431|  border-color: rgba(88,166,255,0.35);
+   432|  box-shadow:
+   433|    0 0 60px rgba(88,166,255,0.08),
+   434|    0 0 120px rgba(88,166,255,0.04),
+   435|    0 8px 32px rgba(0,0,0,0.5);
+   436|}
+   437|
+   438|.card-green .card-glow {
+   439|  background: linear-gradient(135deg, rgba(63,185,80,0.30), transparent 45%, rgba(63,185,80,0.06));
+   440|}
+   441|.card-green:hover {
+   442|  border-color: rgba(63,185,80,0.35);
+   443|  box-shadow:
+   444|    0 0 60px rgba(63,185,80,0.08),
+   445|    0 0 120px rgba(63,185,80,0.04),
+   446|    0 8px 32px rgba(0,0,0,0.5);
+   447|}
+   448|
+   449|.card-purple .card-glow {
+   450|  background: linear-gradient(135deg, rgba(163,113,247,0.30), transparent 45%, rgba(163,113,247,0.06));
+   451|}
+   452|.card-purple:hover {
+   453|  border-color: rgba(163,113,247,0.35);
+   454|  box-shadow:
+   455|    0 0 60px rgba(163,113,247,0.08),
+   456|    0 0 120px rgba(163,113,247,0.04),
+   457|    0 8px 32px rgba(0,0,0,0.5);
+   458|}
+   459|
+   460|.card-orange .card-glow {
+   461|  background: linear-gradient(135deg, rgba(210,153,34,0.30), transparent 45%, rgba(210,153,34,0.06));
+   462|}
+   463|.card-orange:hover {
+   464|  border-color: rgba(210,153,34,0.35);
+   465|  box-shadow:
+   466|    0 0 60px rgba(210,153,34,0.08),
+   467|    0 0 120px rgba(210,153,34,0.04),
+   468|    0 8px 32px rgba(0,0,0,0.5);
+   469|}
+   470|
+   471|/* ======== 图标容器 ======== */
+   472|.card-icon-wrap {
+   473|  width: 52px;
+   474|  height: 52px;
+   475|  border-radius: 16px;
+   476|  display: flex;
+   477|  align-items: center;
+   478|  justify-content: center;
+   479|  position: relative;
+   480|  z-index: 1;
+   481|  transition: transform 0.35s ease, box-shadow 0.35s ease;
+   482|}
+   483|
+   484|.big-card:hover .card-icon-wrap {
+   485|  transform: scale(1.08);
+   486|}
+   487|
+   488|.card-blue .card-icon-wrap {
+   489|  background: linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.06));
+   490|  color: var(--ops-accent-blue);
+   491|  box-shadow: 0 0 20px rgba(88,166,255,0.10);
+   492|}
+   493|.card-blue:hover .card-icon-wrap {
+   494|  box-shadow: 0 0 30px rgba(88,166,255,0.25);
+   495|}
+   496|
+   497|.card-green .card-icon-wrap {
+   498|  background: linear-gradient(135deg, rgba(63,185,80,0.18), rgba(63,185,80,0.06));
+   499|  color: var(--ops-accent-green);
+   500|  box-shadow: 0 0 20px rgba(63,185,80,0.10);
+   501|}
+.card-green:hover .card-icon-wrap {
+  box-shadow: 0 0 30px rgba(63,185,80,0.25);
+}
+
+.card-purple .card-icon-wrap {
+  background: linear-gradient(135deg, rgba(163,113,247,0.18), rgba(163,113,247,0.06));
+  color: var(--ops-accent-purple);
+  box-shadow: 0 0 20px rgba(163,113,247,0.10);
+}
+.card-purple:hover .card-icon-wrap {
+  box-shadow: 0 0 30px rgba(163,113,247,0.25);
+}
+
+.card-orange .card-icon-wrap {
+  background: linear-gradient(135deg, rgba(210,153,34,0.18), rgba(210,153,34,0.06));
+  color: var(--ops-accent-orange);
+  box-shadow: 0 0 20px rgba(210,153,34,0.10);
+}
+.card-orange:hover .card-icon-wrap {
+  box-shadow: 0 0 30px rgba(210,153,34,0.25);
+}
+
+/* ======== 文字 ======== */
+.card-body {
+  position: relative;
+  z-index: 1;
+}
+
+.card-body h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ops-text-primary);
+  margin: 0 0 5px 0;
+  letter-spacing: 0.3px;
+}
+
+.card-body p {
+  font-size: 13px;
+  color: var(--ops-text-tertiary);
+  margin: 0;
+  line-height: 1.55;
+  letter-spacing: 0.2px;
+}
+
+/* ======== 统计区 ======== */
+.card-stat {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ops-border-card);
+}
+
+.stat-num {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  line-height: 1;
+  transition: transform 0.3s ease;
+}
+
+.big-card:hover .stat-num {
+  transform: scale(1.05);
+}
+
+.card-blue .stat-num { color: var(--ops-accent-blue); }
+.card-green .stat-num { color: var(--ops-accent-green); }
+.card-purple .stat-num { color: var(--ops-accent-purple); }
+.card-orange .stat-num { color: var(--ops-accent-orange); }
+
+.stat-label {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  margin-right: auto;
+  font-weight: 500;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--ops-accent-gray);
+  letter-spacing: 0.2px;
+}
+
+/* ======== 主题切换按钮 ======== */
+.theme-toggle {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ops-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--ops-border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+  z-index: 1000;
+  color: var(--ops-text-secondary);
+}
+
+.theme-toggle:hover {
+  border-color: var(--ops-accent-blue);
+  color: var(--ops-accent-blue);
+  box-shadow: 0 0 32px color-mix(in srgb, var(--ops-accent-blue) 15%, transparent);
+  transform: scale(1.08);
+}
+</style>

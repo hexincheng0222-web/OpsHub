@@ -5,9 +5,6 @@
       <el-breadcrumb-item>内网服务管理</el-breadcrumb-item>
     </el-breadcrumb>
     <div class="top-bar">
-      <span class="back-btn" @click="$router.push('/')">
-        <el-icon><ArrowLeft /></el-icon> 返回首页
-      </span>
       <h3>内网服务管理</h3>
       <div class="top-actions">
         <el-button
@@ -61,11 +58,7 @@
             </div>
             <el-skeleton-item variant="text" style="width: 90%;" />
             <el-skeleton-item variant="text" style="width: 70%;" />
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-              <el-skeleton-item variant="button" style="width: 60px; height: 28px;" />
-              <el-skeleton-item variant="button" style="width: 60px; height: 28px;" />
-              <el-skeleton-item variant="button" style="width: 60px; height: 28px;" />
-            </div>
+            <el-skeleton-item variant="button" style="width: 100%; height: 36px; margin-top: 8px;" />
           </div>
         </template>
       </el-skeleton>
@@ -88,31 +81,26 @@
         class="svc-card"
         :class="'status-' + svc.status"
         :style="{ animationDelay: index * 80 + 'ms' }"
+        @click="openDetailDialog(svc)"
       >
         <div class="status-bar" />
         <div class="svc-top">
           <div class="svc-icon">
             <el-icon :size="28"><component :is="svc.icon" /></el-icon>
+            <span class="status-dot" :class="'dot-' + svc.status" />
           </div>
           <div class="svc-info">
             <span class="svc-name">{{ svc.name }}</span>
-            <el-tag size="small">{{ svc.category }}</el-tag>
+            <el-tag :type="statusType(svc.status)" size="small" effect="dark">{{ statusLabel(svc.status) }}</el-tag>
           </div>
-          <el-tag :type="statusType(svc.status)" size="small" effect="dark">{{ statusLabel(svc.status) }}</el-tag>
         </div>
         <p class="svc-desc">{{ svc.description }}</p>
-        <div class="svc-url" @click.stop="openService(svc.url)">
-          <el-icon :size="14"><Link /></el-icon>
-          <span>{{ svc.url }}</span>
+        <div class="svc-meta">
+          <el-tag size="small" type="info">{{ svc.category }}</el-tag>
+          <span class="svc-url">{{ svc.url }}</span>
         </div>
-        <div class="svc-actions">
-          <el-button size="small" type="primary" plain @click="openService(svc.url)">访问</el-button>
-          <el-button size="small" plain @click="openEditDialog(svc)">编辑</el-button>
-          <el-popconfirm :title="`确定删除「${svc.name}」吗？`" @confirm="servicesStore.deleteService(svc.id)">
-            <template #reference>
-              <el-button size="small" type="danger" plain>删除</el-button>
-            </template>
-          </el-popconfirm>
+        <div class="quick-visit" @click.stop="openService(svc.url)" title="快速访问">
+          <el-icon :size="18"><Position /></el-icon>
         </div>
       </div>
     </div>
@@ -120,18 +108,29 @@
     <!-- 新增/编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="editingService ? '编辑服务' : '添加服务'"
-      :width="dialogWidth"
+      :title="editingService ? '编辑服务' : '添加新服务'"
+      width="520px"
+      class="service-dialog"
     >
-      <el-form ref="serviceFormRef" :model="form" :rules="formRules" label-width="80px">
-        <el-form-item label="服务名称" prop="name">
-          <el-input v-model="form.name" placeholder="如：Jenkins CI/CD" />
-        </el-form-item>
+      <el-form ref="serviceFormRef" :model="form" :rules="formRules" label-width="80px" label-position="top">
+        <div class="form-row">
+          <el-form-item label="服务名称" prop="name" class="form-item-half">
+            <el-input v-model="form.name" placeholder="如：Jenkins CI/CD" />
+          </el-form-item>
+          <el-form-item label="分类" prop="category" class="form-item-half">
+            <el-select v-model="form.category" filterable allow-create placeholder="选择分类" style="width: 100%">
+              <el-option v-for="cat in SERVICE_CATEGORIES" :key="cat" :label="cat" :value="cat" />
+            </el-select>
+          </el-form-item>
+        </div>
         <el-form-item label="服务地址" prop="url">
           <el-input v-model="form.url" placeholder="如：http://192.168.1.100:8080" />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input v-model="form.description" placeholder="简要描述服务功能" />
+          <el-input v-model="form.description" type="textarea" :rows="2" placeholder="简要描述服务功能" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="form.notes" type="textarea" :rows="3" placeholder="添加备注信息，如账号密码、使用说明等" />
         </el-form-item>
         <el-form-item label="图标">
           <div class="icon-picker">
@@ -143,26 +142,89 @@
               @click="form.icon = icon"
             >
               <el-icon :size="24"><component :is="icon" /></el-icon>
-              <span class="icon-label">{{ icon }}</span>
             </div>
           </div>
         </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-select v-model="form.category" filterable allow-create placeholder="选择或输入分类">
-            <el-option v-for="cat in SERVICE_CATEGORIES" :key="cat" :label="cat" :value="cat" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
-            <el-radio value="online">在线</el-radio>
-            <el-radio value="offline">离线</el-radio>
-            <el-radio value="maintenance">维护中</el-radio>
+            <el-radio-button value="online">在线</el-radio-button>
+            <el-radio-button value="offline">离线</el-radio-button>
+            <el-radio-button value="maintenance">维护中</el-radio-button>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="saveService">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="saveService">
+          {{ editingService ? '保存修改' : '添加服务' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 详情弹窗 -->
+    <el-dialog
+      v-model="detailVisible"
+      :title="selectedService?.name || '服务详情'"
+      width="480px"
+      class="detail-dialog"
+    >
+      <div v-if="selectedService" class="detail-content">
+        <div class="detail-header">
+          <div class="detail-icon" :class="'status-' + selectedService.status">
+            <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
+          </div>
+          <div class="detail-title">
+            <h3>{{ selectedService.name }}</h3>
+            <div class="detail-tags">
+              <el-tag size="small">{{ selectedService.category }}</el-tag>
+              <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
+                {{ statusLabel(selectedService.status) }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+
+        <el-divider />
+
+        <div class="detail-section">
+          <div class="detail-label">服务地址</div>
+          <div class="detail-url">
+            <el-icon><Link /></el-icon>
+            <span>{{ selectedService.url }}</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">描述</div>
+          <div class="detail-value">{{ selectedService.description || '暂无描述' }}</div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-label">备注</div>
+          <div class="detail-notes">{{ selectedService.notes || '暂无备注' }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="detail-footer">
+          <div class="detail-actions-left">
+            <el-button @click="openEditDialog(selectedService!)">
+              <el-icon><Edit /></el-icon> 编辑
+            </el-button>
+            <el-popconfirm
+              :title="`确定删除「${selectedService?.name}」吗？`"
+              @confirm="deleteAndClose"
+            >
+              <template #reference>
+                <el-button type="danger">
+                  <el-icon><Delete /></el-icon> 删除
+                </el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+          <el-button type="primary" @click="openService(selectedService!.url)">
+            <el-icon><Position /></el-icon> 访问服务
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -207,6 +269,8 @@ const filteredServices = computed(() => {
 const filteredCount = computed(() => filteredServices.value.length)
 
 const dialogVisible = ref(false)
+const detailVisible = ref(false)
+const selectedService = ref<Service | null>(null)
 const editingService = ref<Service | null>(null)
 const serviceFormRef = ref()
 
@@ -232,12 +296,11 @@ function validateUrl(_rule: any, value: string, callback: Function) {
   }
 }
 
-const dialogWidth = computed(() => window.innerWidth < 768 ? '90%' : '500px')
-
 const form = reactive({
   name: '',
   url: '',
   description: '',
+  notes: '',
   icon: 'Setting',
   category: '',
   status: 'online' as Service['status']
@@ -248,6 +311,7 @@ function openAddDialog() {
   form.name = ''
   form.url = ''
   form.description = ''
+  form.notes = ''
   form.icon = 'Setting'
   form.category = ''
   form.status = 'online'
@@ -255,14 +319,31 @@ function openAddDialog() {
 }
 
 function openEditDialog(row: Service) {
+  detailVisible.value = false
   editingService.value = row
   form.name = row.name
   form.url = row.url
   form.description = row.description
+  form.notes = row.notes || ''
   form.icon = row.icon
   form.category = row.category
   form.status = row.status
-  dialogVisible.value = true
+  setTimeout(() => {
+    dialogVisible.value = true
+  }, 200)
+}
+
+function openDetailDialog(svc: Service) {
+  selectedService.value = svc
+  detailVisible.value = true
+}
+
+function deleteAndClose() {
+  if (selectedService.value) {
+    servicesStore.deleteService(selectedService.value.id)
+    detailVisible.value = false
+    selectedService.value = null
+  }
 }
 
 function saveService() {
@@ -308,11 +389,11 @@ function statusLabel(status: string) {
 
 <style scoped>
 .services-page {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px 0;
-  background: var(--ops-bg-page);
-  color-scheme: dark;
+  padding: 20px;
+  min-height: 100vh;
 }
 
 .breadcrumb-nav {
@@ -335,20 +416,6 @@ function statusLabel(status: string) {
   margin-bottom: 20px;
   padding: 16px 0;
   border-bottom: 1px solid var(--ops-border-card);
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--ops-text-tertiary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.2s;
-}
-.back-btn:hover {
-  color: var(--ops-accent-blue);
 }
 
 .top-bar h3 {
@@ -405,19 +472,21 @@ function statusLabel(status: string) {
   background: var(--ops-bg-card);
   border-radius: 12px;
   border: 1px solid var(--ops-border-card);
-  padding: 20px 20px 16px;
+  padding: 20px;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 220px;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
 .svc-card:hover {
   border-color: var(--ops-border-card);
   box-shadow: var(--ops-shadow-card);
   background: var(--ops-bg-card-hover);
+  transform: translateY(-2px);
 }
 
 .svc-card.status-online {
@@ -464,6 +533,26 @@ function statusLabel(status: string) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* 状态圆点 */
+.status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--ops-bg-card);
+}
+.dot-online { background: var(--ops-status-online); }
+.dot-offline { background: var(--ops-status-offline); }
+.dot-maintenance { background: var(--ops-status-maintenance); }
+.dot-checking { background: var(--ops-accent-blue); animation: pulse-dot 0.8s ease-in-out infinite; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .status-online .svc-icon { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
@@ -471,30 +560,19 @@ function statusLabel(status: string) {
 .status-maintenance .svc-icon { background: rgba(210, 153, 34, 0.15); color: var(--ops-status-maintenance); }
 .status-checking .svc-icon { background: rgba(88, 166, 255, 0.15); color: var(--ops-accent-blue); }
 
-@media (prefers-reduced-motion: no-preference) {
-  .svc-card {
-    transition: all 0.25s ease;
-  }
-  .svc-card:hover {
-    transform: translateY(-2px) scale(1.01);
-  }
-  .svc-icon {
-    transition: all 0.3s ease;
-  }
-  .status-checking .status-bar {
-    animation: pulse-bar 0.8s ease-in-out infinite;
-  }
-  .status-checking .svc-icon {
-    animation: pulse-icon 0.8s ease-in-out infinite;
-  }
-  @keyframes pulse-bar {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-  @keyframes pulse-icon {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
+.status-checking .status-bar {
+  animation: pulse-bar 0.8s ease-in-out infinite;
+}
+.status-checking .svc-icon {
+  animation: pulse-icon 0.8s ease-in-out infinite;
+}
+@keyframes pulse-bar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes pulse-icon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .svc-info {
@@ -526,35 +604,54 @@ function statusLabel(status: string) {
   overflow: hidden;
 }
 
-/* URL 行 */
-.svc-url {
+/* 元信息行 */
+.svc-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--ops-accent-blue);
-  font-family: monospace;
-  background: var(--ops-bg-card);
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  overflow: hidden;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--ops-border-card);
 }
-.svc-url span {
+
+/* URL 行 */
+.svc-url {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  font-family: monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.svc-url:hover {
-  background: rgba(88, 166, 255, 0.1);
+  flex: 1;
+  min-width: 0;
 }
 
-/* 底部操作 */
-.svc-actions {
+/* 悬浮快速访问按钮 */
+.quick-visit {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--ops-accent-blue);
+  color: #fff;
   display: flex;
-  gap: 8px;
-  padding-top: 4px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3);
+}
+.svc-card:hover .quick-visit {
+  opacity: 1;
+  transform: translateY(0);
+}
+.quick-visit:hover {
+  background: #79b8ff;
+  transform: scale(1.05);
 }
 
 /* ---- 图标网格选择器 ---- */
@@ -565,10 +662,9 @@ function statusLabel(status: string) {
 }
 .icon-option {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px;
+  justify-content: center;
+  padding: 10px;
   border-radius: 8px;
   border: 2px solid transparent;
   cursor: pointer;
@@ -581,8 +677,142 @@ function statusLabel(status: string) {
   border-color: var(--ops-accent-blue);
   background: rgba(88, 166, 255, 0.15);
 }
-.icon-label {
-  font-size: 11px;
+
+/* ---- 表单行 ---- */
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+.form-item-half {
+  flex: 1;
+}
+
+/* ---- 详情弹窗 ---- */
+.detail-content {
+  padding: 0;
+}
+
+.detail-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.detail-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.detail-icon.status-online { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
+.detail-icon.status-offline { background: rgba(72, 79, 88, 0.3); color: var(--ops-text-tertiary); }
+.detail-icon.status-maintenance { background: rgba(210, 153, 34, 0.15); color: var(--ops-status-maintenance); }
+.detail-icon.status-checking { background: rgba(88, 166, 255, 0.15); color: var(--ops-accent-blue); }
+
+.detail-title {
+  flex: 1;
+}
+
+.detail-title h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ops-text-primary);
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-section {
+  margin-bottom: 16px;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ops-accent-blue);
+  font-family: monospace;
+  background: var(--ops-bg-page);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.detail-value {
+  font-size: 14px;
   color: var(--ops-text-secondary);
+  line-height: 1.6;
+}
+
+.detail-notes {
+  font-size: 14px;
+  color: var(--ops-text-secondary);
+  line-height: 1.6;
+  background: var(--ops-bg-page);
+  padding: 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.detail-actions-left {
+  display: flex;
+  gap: 8px;
+}
+
+:deep(.el-dialog) {
+  background: var(--ops-bg-card);
+  border: 1px solid var(--ops-border-card);
+}
+
+:deep(.el-dialog__header) {
+  border-bottom: 1px solid var(--ops-border-card);
+  padding: 16px 20px;
+  margin: 0;
+}
+
+:deep(.el-dialog__title) {
+  color: var(--ops-text-primary);
+  font-weight: 600;
+}
+
+:deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+:deep(.el-dialog__footer) {
+  border-top: 1px solid var(--ops-border-card);
+  padding: 16px 20px;
+}
+
+:deep(.el-form-item__label) {
+  color: var(--ops-text-secondary);
+  font-size: 13px;
+}
+
+:deep(.el-divider) {
+  border-color: var(--ops-border-card);
+  margin: 16px 0;
 }
 </style>

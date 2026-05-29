@@ -1,4 +1,5 @@
 :root {
+  /* 深色主题（默认） */
   --ops-bg-page: #0a0e14;
   --ops-bg-card: #12161e;
   --ops-bg-card-hover: #161b24;
@@ -9,9 +10,54 @@
   --ops-accent-blue: #58a6ff;
   --ops-accent-green: #3fb950;
   --ops-accent-yellow: #d29922;
+  --ops-accent-purple: #a371f7;
+  --ops-accent-orange: #d29922;
   --ops-accent-gray: #484f58;
   --ops-status-online: #3fb950;
   --ops-status-offline: #484f58;
   --ops-status-maintenance: #d29922;
   --ops-shadow-card: 0 4px 16px rgba(0,0,0,0.3);
+  
+  /* Element Plus 深色主题变量 */
+  --el-bg-color: #0a0e14;
+  --el-bg-color-overlay: #12161e;
+  --el-text-color-primary: #e6edf3;
+  --el-text-color-regular: #8b949e;
+  --el-text-color-secondary: #6e7681;
+  --el-border-color: #1e2430;
+  --el-border-color-light: #2d333b;
+  --el-fill-color-blank: #12161e;
+  --el-fill-color-light: #161b24;
+}
+
+/* 浅色主题 */
+.light-theme {
+  --ops-bg-page: #f6f8fa;
+  --ops-bg-card: #ffffff;
+  --ops-bg-card-hover: #f0f2f5;
+  --ops-border-card: #d0d7de;
+  --ops-text-primary: #1f2328;
+  --ops-text-secondary: #656d76;
+  --ops-text-tertiary: #8b949e;
+  --ops-accent-blue: #0969da;
+  --ops-accent-green: #1a7f37;
+  --ops-accent-yellow: #9a6700;
+  --ops-accent-purple: #8250df;
+  --ops-accent-orange: #9a6700;
+  --ops-accent-gray: #57606a;
+  --ops-status-online: #1a7f37;
+  --ops-status-offline: #57606a;
+  --ops-status-maintenance: #9a6700;
+  --ops-shadow-card: 0 4px 16px rgba(0,0,0,0.08);
+  
+  /* Element Plus 浅色主题变量 */
+  --el-bg-color: #f6f8fa;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #1f2328;
+  --el-text-color-regular: #656d76;
+  --el-text-color-secondary: #8b949e;
+  --el-border-color: #d0d7de;
+  --el-border-color-light: #e0e4e8;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f0f2f5;
 }
