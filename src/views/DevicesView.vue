@@ -44,12 +44,7 @@
         <el-option label="UPS" value="ups" />
         <el-option label="PDU" value="pdu" />
       </el-select>
-      <el-select v-model="filterDept" placeholder="部门" clearable class="filter-select">
-        <el-option label="技术部" value="技术部" />
-        <el-option label="运维部" value="运维部" />
-        <el-option label="产品部" value="产品部" />
-      </el-select>
-      <span v-if="searchQuery || filterType || filterDept" class="filter-result">
+      <span v-if="searchQuery || filterType" class="filter-result">
         {{ filteredDeviceCount }} 个
       </span>
     </div>
@@ -238,12 +233,8 @@
         <el-form-item label="端口数">
           <el-input-number v-model="deviceForm.ports" :min="0" :max="48" />
         </el-form-item>
-        <el-form-item label="所属部门">
-          <el-select v-model="deviceForm.dept" style="width: 100%">
-            <el-option label="技术部" value="技术部" />
-            <el-option label="运维部" value="运维部" />
-            <el-option label="产品部" value="产品部" />
-          </el-select>
+        <el-form-item v-if="needsIp" label="IP 地址">
+          <el-input v-model="deviceForm.ip" placeholder="如：10.0.1.100" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="deviceForm.status">
@@ -279,6 +270,11 @@
               <div class="drawer-value">{{ selectedDevice.model }}</div>
             </div>
 
+            <div v-if="selectedDevice.ip" class="drawer-section">
+              <div class="drawer-label">IP 地址</div>
+              <div class="drawer-value drawer-ip">{{ selectedDevice.ip }}</div>
+            </div>
+
             <div class="drawer-section">
               <div class="drawer-label">占用 U 数</div>
               <div class="drawer-value">{{ selectedDevice.u }}U</div>
@@ -287,11 +283,6 @@
             <div class="drawer-section">
               <div class="drawer-label">端口数</div>
               <div class="drawer-value">{{ selectedDevice.ports }}</div>
-            </div>
-
-            <div class="drawer-section">
-              <div class="drawer-label">所属部门</div>
-              <div class="drawer-value">{{ selectedDevice.dept }}</div>
             </div>
 
             <div class="drawer-section">
@@ -339,7 +330,15 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', onMouseMove)
   document.removeEventListener('mouseup', onMouseUp)
+  document.removeEventListener('selectstart', preventDragSelect)
 })
+
+// 拖拽过程中阻止文本选择
+function preventDragSelect(e: Event) {
+  if (dragState.active) {
+    e.preventDefault()
+  }
+}
 
 const showAddDeviceDialog = ref(false)
 const showAddRackDialog = ref(false)
@@ -353,7 +352,6 @@ const editingRack = ref<Rack | null>(null)
 const editRackName = ref('')
 const searchQuery = ref('')
 const filterType = ref('')
-const filterDept = ref('')
 const newRackForm = reactive({
   name: '',
   totalU: 42
@@ -363,8 +361,10 @@ const newRackForm = reactive({
 const dragState = {
   active: false,
   rackId: '',
-  startU: -1,
+  startOffset: -1,    // 源位置：从顶部起的 0-based 偏移量
   devId: -1,
+  targetRackId: '',   // 目标机柜 ID
+  targetOffset: -1,   // 目标位置：从顶部起的 0-based 偏移量
   ghostEl: null as HTMLElement | null,
   sourceEl: null as HTMLElement | null,
   currentHighlight: null as HTMLElement | null,
@@ -386,8 +386,12 @@ const deviceForm = reactive({
   model: '',
   u: 1,
   ports: 4,
-  dept: '技术部',
-  status: '正常' as Device['status']
+  status: '正常' as Device['status'],
+  ip: ''
+})
+
+const needsIp = computed(() => {
+  return ['server', 'switch', 'router', 'firewall', 'storage'].includes(deviceForm.type)
 })
 
 interface SlotInfo {
@@ -424,7 +428,6 @@ function matchesFilter(dev: Device): boolean {
     }
   }
   if (filterType.value && dev.type !== filterType.value) return false
-  if (filterDept.value && dev.dept !== filterDept.value) return false
   return true
 }
 
@@ -462,8 +465,8 @@ function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
     deviceForm.model = ''
     deviceForm.u = 1
     deviceForm.ports = 4
-    deviceForm.dept = '技术部'
     deviceForm.status = '正常'
+    deviceForm.ip = ''
     showAddDeviceDialog.value = true
   } else if (slot.type === 'device' && slot.device) {
     openDeviceDrawer(rack.id, slot.device)
@@ -494,7 +497,7 @@ function openEditDialog() {
   deviceForm.model = selectedDevice.value.model
   deviceForm.u = selectedDevice.value.u
   deviceForm.ports = selectedDevice.value.ports
-  deviceForm.dept = selectedDevice.value.dept
+  deviceForm.ip = selectedDevice.value.ip || ''
   showAddDeviceDialog.value = true
 }
 
@@ -610,7 +613,8 @@ function saveRackName() {
   }
 }
 
-// ---- 鼠标拖拽：mousedown ----
+// ---- 鼠标拖拽系统 ----
+// 统一坐标：offset = 从顶部起的 0-based 偏移量（索引0 = 最顶部U位）
 function onMouseDown(e: MouseEvent) {
   const slotEl = (e.target as HTMLElement).closest('.u-slot.device') as HTMLElement | null
   if (!slotEl) return
@@ -630,12 +634,14 @@ function onMouseDown(e: MouseEvent) {
   const slotData = getSlotData(rack)[index]
   if (!slotData || slotData.type !== 'device' || !slotData.device) return
 
-  const uNumber = rack.totalU - index
   dragState.active = true
   dragState.rackId = rack.id
-  dragState.startU = uNumber
+  dragState.startOffset = index        // 从顶部起的偏移量
   dragState.devId = slotData.device.id
   dragState.sourceEl = slotEl
+
+  // 注册拖拽时阻止文本选择
+  document.addEventListener('selectstart', preventDragSelect)
 
   slotEl.classList.add('drag-source')
 
@@ -657,9 +663,10 @@ function onMouseMove(e: MouseEvent) {
   dragState.ghostEl.style.left = (e.clientX - dragState.ghostEl.offsetWidth / 2) + 'px'
   dragState.ghostEl.style.top = (e.clientY - 14) + 'px'
 
-  dragState.ghostEl.style.pointerEvents = 'none'
+  // 临时隐藏 ghost 以便 elementFromPoint 获取下方元素
+  dragState.ghostEl.style.display = 'none'
   const elBelow = document.elementFromPoint(e.clientX, e.clientY)
-  dragState.ghostEl.style.pointerEvents = ''
+  dragState.ghostEl.style.display = ''
 
   clearHighlights()
   if (!elBelow) return
@@ -678,60 +685,54 @@ function onMouseMove(e: MouseEvent) {
   const targetIndex = slotEls.indexOf(targetSlot)
   if (targetIndex < 0) return
 
-  const targetU = targetRack.totalU - targetIndex
   const device = findDevice(dragState.devId)
   if (!device) return
 
-  if (canPlace(targetRack, targetU, device.u, dragState.devId)) {
-    targetSlot.classList.add('drop-ok')
+  if (canPlaceAtOffset(targetRack, targetIndex, device.u, dragState.devId)) {
+    highlightDropZone(targetRack, targetIndex, device.u, true)
   } else {
     targetSlot.classList.add('drop-no')
   }
   dragState.currentHighlight = targetSlot
+  dragState.targetRackId = targetRack.id
+  dragState.targetOffset = targetIndex
 }
 
 // ---- 鼠标拖拽：mouseup ----
-function onMouseUp(e: MouseEvent) {
+function onMouseUp(_e: MouseEvent) {
   if (!dragState.active) return
 
   dragState.sourceEl?.classList.remove('drag-source')
   dragState.ghostEl?.remove()
 
-  if (dragState.ghostEl) dragState.ghostEl.style.display = 'none'
-  const elBelow = document.elementFromPoint(e.clientX, e.clientY)
-  if (dragState.ghostEl) dragState.ghostEl.style.display = ''
-
   clearHighlights()
 
-  if (elBelow) {
-    const targetSlot = elBelow.closest('.u-slot')
-    if (targetSlot) {
-      const targetRackEl = targetSlot.closest('.rack-container')
-      const targetRackTitle = targetRackEl?.querySelector('.rack-title')?.textContent?.trim() || ''
-      const targetRack = store.floorRacks.find(r => r.name === targetRackTitle)
-      if (targetRack) {
-        const slotsEl = targetSlot.closest('.u-slots')
-        const slotEls = Array.from(slotsEl!.children).filter(el => el.classList.contains('u-slot'))
-        const targetIndex = slotEls.indexOf(targetSlot)
-        const targetU = targetRack.totalU - targetIndex
-        const device = findDevice(dragState.devId)
-        if (device && canPlace(targetRack, targetU, device.u, dragState.devId)) {
-          doMove(targetRack, targetU, device)
-        }
-      }
+  // 使用 move 阶段记录的目标位置执行移动
+  if (dragState.targetRackId && dragState.targetOffset >= 0) {
+    const targetRack = store.racks.find(r => r.id === dragState.targetRackId)
+    const device = findDevice(dragState.devId)
+    if (targetRack && device && canPlaceAtOffset(targetRack, dragState.targetOffset, device.u, dragState.devId)) {
+      doMove(targetRack, dragState.targetOffset, device)
     }
   }
 
   dragState.active = false
   dragState.rackId = ''
-  dragState.startU = -1
+  dragState.startOffset = -1
   dragState.devId = -1
   dragState.ghostEl = null
   dragState.sourceEl = null
   dragState.currentHighlight = null
+  dragState.targetRackId = ''
+  dragState.targetOffset = -1
+
+  // 移除拖拽时阻止文本选择的监听
+  document.removeEventListener('selectstart', preventDragSelect)
 }
 
 // ---- 拖拽辅助函数 ----
+// 所有坐标统一为 offset（从顶部起的 0-based 偏移量）
+
 function findDevice(devId: number): Device | null {
   for (const rack of store.racks) {
     for (const dev of rack.devices) {
@@ -741,48 +742,247 @@ function findDevice(devId: number): Device | null {
   return null
 }
 
-function canPlace(targetRack: Rack, targetU: number, uSize: number, excludeDevId: number): boolean {
-  if (targetU < 1 || targetU + uSize - 1 > targetRack.totalU) return false
-  for (let u = targetU; u < targetU + uSize; u++) {
-    const dev = getDeviceAtU(targetRack, u)
-    if (dev === undefined) return false
-    if (dev === null) continue
-    if (dev.id === excludeDevId) continue
-    return false
+// 获取指定 offset 位置的设备（返回 null=空位, undefined=越界, Device=设备）
+function getDeviceAtOffset(rack: Rack, offset: number): Device | null | undefined {
+  if (offset < 0 || offset >= rack.totalU) return undefined
+  // rack.devices 按从顶部到底部的顺序排列
+  // 需要遍历 devices 数组，累加 U 位来找到 offset 位置的设备
+  let pos = 0
+  for (const dev of rack.devices) {
+    if (dev === null) {
+      // 空位占 1U
+      if (pos === offset) return null
+      pos++
+    } else {
+      // 设备占 dev.u 个 U 位
+      for (let k = 0; k < dev.u; k++) {
+        if (pos + k === offset) return dev
+      }
+      pos += dev.u
+    }
+    if (pos > rack.totalU) break
+  }
+  // 超出 devices 范围，说明是空位
+  return pos <= rack.totalU && offset >= pos ? null : undefined
+}
+
+// 检查从 offset 开始放置 uSize 个 U 的设备是否可行
+function canPlaceAtOffset(targetRack: Rack, offset: number, uSize: number, excludeDevId: number): boolean {
+  if (offset < 0 || offset + uSize > targetRack.totalU) return false
+  for (let i = offset; i < offset + uSize; i++) {
+    const dev = getDeviceAtOffset(targetRack, i)
+    if (dev === undefined) return false  // 越界
+    if (dev === null) continue           // 空位
+    if (dev.id === excludeDevId) continue // 是自己（源位置）
+    return false                          // 被其他设备占用
   }
   return true
 }
 
-function getDeviceAtU(rack: Rack, u: number): Device | null | undefined {
-  let currentU = 1
-  for (const dev of rack.devices) {
-    if (dev === null) {
-      if (currentU === u) return null
-      currentU++
-    } else {
-      for (let k = 0; k < dev.u; k++) {
-        if (currentU + k === u) return dev
+// 高亮多 U 设备的放置区域
+function highlightDropZone(rack: Rack, offset: number, uSize: number, ok: boolean) {
+  // 找到所有属于该机柜的 .u-slots 容器
+  const rackEls = document.querySelectorAll('.rack-container')
+  for (const rackEl of rackEls) {
+    const titleEl = rackEl.querySelector('.rack-title')
+    if (titleEl?.textContent?.trim() === rack.name) {
+      const slotsEl = rackEl.querySelector('.u-slots')
+      if (!slotsEl) return
+      const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
+      for (let i = offset; i < offset + uSize && i < slotEls.length; i++) {
+        slotEls[i].classList.add(ok ? 'drop-ok' : 'drop-no')
       }
-      currentU += dev.u
+      return
     }
-    if (currentU > rack.totalU + 1) break
   }
-  return currentU <= rack.totalU ? null : undefined
 }
 
-function doMove(targetRack: Rack, targetU: number, device: Device) {
+// 执行移动：从源机柜移除设备，插入到目标机柜的指定 offset
+function doMove(targetRack: Rack, targetOffset: number, device: Device) {
   const sourceRack = store.racks.find(r => r.devices.some(d => d && d.id === device.id))
   if (!sourceRack) return
 
-  store.removeDeviceFromRack(sourceRack.id, device.id)
+  const sameRack = sourceRack.id === targetRack.id
 
-  const existingDev = getDeviceAtU(targetRack, targetU)
-  if (existingDev && existingDev.id !== device.id) {
-    store.removeDeviceFromRack(targetRack.id, existingDev.id)
-    store.addDeviceToRack(sourceRack.id, dragState.startU, existingDev)
+  if (sameRack) {
+    // 同一机柜内移动：直接操作 occupied 映射
+    moveWithinRack(targetRack, device, targetOffset)
+  } else {
+    // 跨机柜移动
+    // 1. 先收集目标位置的设备（要在移除源设备之前做）
+    const existingDev = getDeviceAtOffset(targetRack, targetOffset)
+    // 2. 从源机柜移除
+    store.removeDeviceFromRack(sourceRack.id, device.id)
+    // 3. 如果目标位置有设备，先移除
+    if (existingDev && existingDev.id !== device.id) {
+      store.removeDeviceFromRack(targetRack.id, existingDev.id)
+      // 把原设备放回源机柜原来的位置
+      insertDeviceAtOffset(sourceRack, dragState.startOffset, existingDev)
+    }
+    // 4. 插入到目标位置
+    insertDeviceAtOffset(targetRack, targetOffset, device)
+  }
+}
+
+// 同一机柜内移动设备
+function moveWithinRack(rack: Rack, device: Device, targetOffset: number) {
+  const totalU = rack.totalU
+  const uSize = device.u
+
+  // 构建 occupied 映射
+  const occupied: (Device | null)[] = new Array(totalU).fill(null)
+  let pos = 0
+  for (const dev of rack.devices) {
+    if (dev === null) {
+      if (pos < totalU) occupied[pos] = null
+      pos++
+    } else {
+      for (let k = 0; k < dev.u && pos + k < totalU; k++) {
+        occupied[pos + k] = dev
+      }
+      pos += dev.u
+    }
+    if (pos >= totalU) break
   }
 
-  store.addDeviceToRack(targetRack.id, targetU, device)
+  // 找到设备当前占用的起始位置
+  let devStart = -1
+  for (let i = 0; i < totalU; i++) {
+    if (occupied[i] && occupied[i]!.id === device.id) {
+      devStart = i
+      break
+    }
+  }
+  if (devStart === -1) return
+
+  // 收集目标区域中已有的其他设备（需要交换）
+  const displacedDevices: { device: Device; originalOffset: number }[] = []
+  for (let i = targetOffset; i < targetOffset + uSize && i < totalU; i++) {
+    const dev = occupied[i]
+    if (dev && dev.id !== device.id) {
+      // 检查是否已经在列表中（多 U 设备）
+      if (!displacedDevices.some(d => d.device.id === dev.id)) {
+        displacedDevices.push({ device: dev, originalOffset: i })
+      }
+    }
+  }
+
+  // 从 occupied 中移除被拖拽设备
+  for (let k = 0; k < uSize; k++) {
+    if (devStart + k < totalU) occupied[devStart + k] = null
+  }
+
+  // 从 occupied 中移除被挤占的设备
+  for (const displaced of displacedDevices) {
+    for (let k = 0; k < displaced.device.u; k++) {
+      if (displaced.originalOffset + k < totalU) {
+        occupied[displaced.originalOffset + k] = null
+      }
+    }
+  }
+
+  // 在目标位置放置被拖拽设备
+  for (let k = 0; k < uSize && targetOffset + k < totalU; k++) {
+    occupied[targetOffset + k] = device
+  }
+
+  // 把被挤占的设备放到源位置（如果源位置现在为空）
+  let sourcePtr = devStart
+  for (const displaced of displacedDevices) {
+    const dSize = displaced.device.u
+    // 检查源区域是否足够放下
+    let canFit = true
+    for (let k = 0; k < dSize; k++) {
+      if (sourcePtr + k >= totalU || (occupied[sourcePtr + k] !== null && occupied[sourcePtr + k]!.id !== displaced.device.id)) {
+        canFit = false
+        break
+      }
+    }
+    if (canFit) {
+      for (let k = 0; k < dSize; k++) {
+        occupied[sourcePtr + k] = displaced.device
+      }
+      sourcePtr += dSize
+    } else {
+      // 放不下，找第一个可用的空位
+      let placed = false
+      for (let i = 0; i < totalU; i++) {
+        let slotOk = true
+        for (let k = 0; k < dSize; k++) {
+          if (i + k >= totalU || (occupied[i + k] !== null && occupied[i + k]!.id !== displaced.device.id)) {
+            slotOk = false
+            break
+          }
+        }
+        if (slotOk) {
+          for (let k = 0; k < dSize; k++) {
+            occupied[i + k] = displaced.device
+          }
+          placed = true
+          break
+        }
+      }
+    }
+  }
+
+  // 从 occupied 重建紧凑的 devices 数组
+  const newDevices: (Device | null)[] = []
+  let i = 0
+  while (i < totalU) {
+    const dev = occupied[i]
+    if (dev === null) {
+      newDevices.push(null)
+      i++
+    } else {
+      newDevices.push(dev)
+      i += dev.u
+    }
+  }
+
+  rack.devices = newDevices
+}
+
+// 在机柜的指定 offset 位置插入设备（用于跨机柜）
+function insertDeviceAtOffset(rack: Rack, offset: number, device: Device) {
+  // 把 rack.devices 展开为每个 U 位的占用映射，然后重建
+  const totalU = rack.totalU
+  const occupied: (Device | null)[] = new Array(totalU).fill(null)
+
+  // 按现有顺序填充
+  let pos = 0
+  for (const dev of rack.devices) {
+    if (dev === null) {
+      if (pos < totalU) occupied[pos] = null
+      pos++
+    } else {
+      for (let k = 0; k < dev.u && pos + k < totalU; k++) {
+        occupied[pos + k] = dev
+      }
+      pos += dev.u
+    }
+    if (pos >= totalU) break
+  }
+
+  // 在 offset 位置放置新设备
+  for (let k = 0; k < device.u && offset + k < totalU; k++) {
+    occupied[offset + k] = device
+  }
+
+  // 从 occupied 重建紧凑的 devices 数组
+  const newDevices: (Device | null)[] = []
+  let i = 0
+  while (i < totalU) {
+    const dev = occupied[i]
+    if (dev === null) {
+      newDevices.push(null)
+      i++
+    } else {
+      newDevices.push(dev)
+      i += dev.u
+    }
+  }
+
+  rack.devices = newDevices
 }
 
 function clearHighlights() {
@@ -793,9 +993,20 @@ function clearHighlights() {
 
 function getUBadge(slot: SlotInfo, index: number): string {
   if (!slot.device) return ''
-  const startU = 42 - index
-  const endU = startU - slot.device.u + 1
-  return slot.device.u > 1 ? `U${endU}-${startU}` : `U${startU}`
+  // 找到包含当前 slot 的 rack，需要从 DOM 反向查找
+  // 模板中每个 rack 渲染时调用此函数，我们需要找到对应的 rack totalU
+  // 使用一个简单方法：遍历所有 floorRacks，通过设备 ID 匹配
+  const device = slot.device
+  for (const rack of store.floorRacks) {
+    if (rack.devices.some(d => d && d.id === device.id)) {
+      const totalU = rack.totalU
+      const startU = totalU - index
+      const endU = startU - device.u + 1
+      return device.u > 1 ? `U${endU}-${startU}` : `U${startU}`
+    }
+  }
+  // 兜底
+  return device.u > 1 ? `${device.u}U` : ''
 }
 </script>
 
@@ -1523,6 +1734,15 @@ function getUBadge(slot: SlotInfo, index: number): string {
   font-size: 14px;
   color: #c0c8d4;
   line-height: 1.6;
+}
+
+.drawer-ip {
+  font-family: 'Consolas', monospace;
+  color: #4af0c0;
+  background: rgba(74,240,192,0.08);
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
 }
 
 .drawer-footer {
