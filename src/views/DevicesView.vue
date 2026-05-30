@@ -139,6 +139,68 @@
         <el-button type="primary" @click="confirmAddDevice">确定添加</el-button>
       </template>
     </el-dialog>
+
+    <!-- 设备详情抽屉 -->
+    <Transition name="drawer-slide">
+      <div v-if="drawerVisible" class="drawer-overlay" @click.self="drawerVisible = false">
+        <div class="drawer-panel" v-if="selectedDevice">
+          <div class="drawer-header">
+            <h3>{{ selectedDevice.name }}</h3>
+            <button class="drawer-close" @click="drawerVisible = false">✕</button>
+          </div>
+          <div class="drawer-content">
+            <div class="drawer-icon" :class="'device-' + selectedDevice.type">
+              <el-icon :size="32"><component :is="getTypeIcon(selectedDevice.type)" /></el-icon>
+            </div>
+            <el-tag :type="getTypeTagType(selectedDevice.type)" size="small" effect="dark">
+              {{ getTypeLabel(selectedDevice.type) }}
+            </el-tag>
+
+            <div class="drawer-section">
+              <div class="drawer-label">品牌型号</div>
+              <div class="drawer-value">{{ selectedDevice.model }}</div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">占用 U 数</div>
+              <div class="drawer-value">{{ selectedDevice.u }}U</div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">端口数</div>
+              <div class="drawer-value">{{ selectedDevice.ports }}</div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">所属部门</div>
+              <div class="drawer-value">{{ selectedDevice.dept }}</div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">状态</div>
+              <div class="drawer-value">{{ selectedDevice.status }}</div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <div class="drawer-actions-left">
+              <el-button @click="openEditDialog">
+                <el-icon><Edit /></el-icon> 编辑
+              </el-button>
+              <el-popconfirm
+                :title="`确定删除「${selectedDevice?.name}」吗？`"
+                @confirm="deleteSelectedDevice"
+              >
+                <template #reference>
+                  <el-button type="danger">
+                    <el-icon><Delete /></el-icon> 删除
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -153,6 +215,9 @@ const showAddDeviceDialog = ref(false)
 const showAddRackDialog = ref(false)
 const pendingRackId = ref('')
 const pendingSlotIndex = ref(0)
+const drawerVisible = ref(false)
+const selectedDevice = ref<Device | null>(null)
+const selectedRackId = ref('')
 
 const deviceForm = reactive({
   name: '',
@@ -231,6 +296,8 @@ function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
     deviceForm.ports = 4
     deviceForm.dept = '技术部'
     showAddDeviceDialog.value = true
+  } else if (slot.type === 'device' && slot.device) {
+    openDeviceDrawer(rack.id, slot.device)
   }
 }
 
@@ -242,6 +309,55 @@ function confirmAddDevice() {
   }
   store.addDeviceToRack(pendingRackId.value, pendingSlotIndex.value, newDevice)
   showAddDeviceDialog.value = false
+}
+
+function openDeviceDrawer(rackId: string, device: Device) {
+  selectedDevice.value = device
+  selectedRackId.value = rackId
+  drawerVisible.value = true
+}
+
+function openEditDialog() {
+  if (!selectedDevice.value) return
+  drawerVisible.value = false
+  deviceForm.name = selectedDevice.value.name
+  deviceForm.type = selectedDevice.value.type
+  deviceForm.model = selectedDevice.value.model
+  deviceForm.u = selectedDevice.value.u
+  deviceForm.ports = selectedDevice.value.ports
+  deviceForm.dept = selectedDevice.value.dept
+  showAddDeviceDialog.value = true
+}
+
+function deleteSelectedDevice() {
+  if (!selectedDevice.value) return
+  store.deleteDevice(selectedDevice.value.id)
+  drawerVisible.value = false
+  selectedDevice.value = null
+}
+
+function getTypeIcon(type: string): string {
+  const icons: Record<string, string> = {
+    server: 'Monitor', switch: 'Connection', storage: 'Box',
+    router: 'Share', firewall: 'Lock', ups: 'Lightning', pdu: 'Plug'
+  }
+  return icons[type] || 'Monitor'
+}
+
+function getTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    server: '服务器', switch: '交换机', storage: '存储',
+    router: '路由器', firewall: '防火墙', ups: 'UPS', pdu: 'PDU'
+  }
+  return labels[type] || type
+}
+
+function getTypeTagType(type: string): string {
+  const types: Record<string, string> = {
+    server: 'primary', switch: 'success', storage: 'warning',
+    router: 'danger', firewall: 'danger', ups: 'info', pdu: 'info'
+  }
+  return types[type] || 'info'
 }
 </script>
 
@@ -654,4 +770,130 @@ function confirmAddDevice() {
 .lc-firewall { background: #5c1a1a; border: 1px solid #8a2a2a; }
 .lc-ups { background: #3a3a1a; border: 1px solid #6a6a2a; }
 .lc-pdu { background: #2a2a3a; border: 1px solid #40405a; }
+
+/* 抽屉面板 */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer-panel {
+  width: 400px;
+  height: 100%;
+  background: #141924;
+  border-left: 1px solid #2a3040;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a3040;
+}
+
+.drawer-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  color: #606878;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.drawer-close:hover {
+  background: #1e2433;
+  color: #e6edf3;
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-icon.device-server { background: rgba(42,90,138,0.2); color: #4af0c0; }
+.drawer-icon.device-switch { background: rgba(42,122,90,0.2); color: #4af0c0; }
+.drawer-icon.device-storage { background: rgba(90,58,138,0.2); color: #a070ff; }
+.drawer-icon.device-router { background: rgba(138,90,42,0.2); color: #ffb04a; }
+.drawer-icon.device-firewall { background: rgba(138,42,42,0.2); color: #ff4a4a; }
+.drawer-icon.device-ups { background: rgba(106,106,42,0.2); color: #e0d04a; }
+.drawer-icon.device-pdu { background: rgba(64,64,90,0.2); color: #7090ff; }
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawer-label {
+  font-size: 12px;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.drawer-value {
+  font-size: 14px;
+  color: #c0c8d4;
+  line-height: 1.6;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid #2a3040;
+}
+
+.drawer-actions-left {
+  display: flex;
+  gap: 8px;
+}
+
+/* 抽屉动画 */
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: opacity 0.3s ease;
+}
+.drawer-slide-enter-active .drawer-panel,
+.drawer-slide-leave-active .drawer-panel {
+  transition: transform 0.3s ease;
+}
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  opacity: 0;
+}
+.drawer-slide-enter-from .drawer-panel,
+.drawer-slide-leave-to .drawer-panel {
+  transform: translateX(100%);
+}
 </style>
