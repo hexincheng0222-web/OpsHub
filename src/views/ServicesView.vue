@@ -908,53 +908,46 @@ function statusLabel(status: string) {
 /* ---- 右侧抽屉面板 ---- */
 .drawer-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
 }
 
 .drawer-panel {
-  width: 420px;
-  max-width: 90vw;
+  width: 400px;
   height: 100%;
   background: var(--ops-bg-card);
   border-left: 1px solid var(--ops-border-card);
   display: flex;
   flex-direction: column;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
 }
 
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--ops-border-card);
 }
 
 .drawer-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ops-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .drawer-close {
   background: none;
   border: none;
-  font-size: 20px;
   color: var(--ops-text-tertiary);
+  font-size: 18px;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -966,15 +959,15 @@ function statusLabel(status: string) {
 .drawer-content {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .drawer-icon {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 16px;
   display: flex;
   align-items: center;
@@ -984,7 +977,6 @@ function statusLabel(status: string) {
 .drawer-icon.status-online { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
 .drawer-icon.status-offline { background: rgba(72, 79, 88, 0.3); color: var(--ops-text-tertiary); }
 .drawer-icon.status-maintenance { background: rgba(210, 153, 34, 0.15); color: var(--ops-status-maintenance); }
-.drawer-icon.status-checking { background: rgba(88, 166, 255, 0.15); color: var(--ops-accent-blue); }
 
 .drawer-section {
   display: flex;
@@ -1025,13 +1017,14 @@ function statusLabel(status: string) {
   padding: 12px;
   border-radius: 8px;
   white-space: pre-wrap;
+  font-family: monospace;
 }
 
 .drawer-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 16px 20px;
   border-top: 1px solid var(--ops-border-card);
 }
 
