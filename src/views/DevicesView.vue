@@ -123,7 +123,7 @@ import { useDevicesStore } from '../stores/devices'
 import type { Device } from '../mock/devices'
 
 const store = useDevicesStore()
-const devices = store.devices
+const devices = computed(() => store.devices)
 
 const search = ref('')
 const filterType = ref('')
