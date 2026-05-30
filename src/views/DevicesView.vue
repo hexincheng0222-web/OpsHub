@@ -5,7 +5,7 @@
         <el-icon><ArrowLeft /></el-icon> 返回首页
       </span>
       <h3>设备信息</h3>
-      <el-button type="primary" @click="addRack">
+      <el-button type="primary" @click="openAddRackDialog">
         <el-icon><Plus /></el-icon> 添加机柜
       </el-button>
     </div>
@@ -176,6 +176,26 @@
       </div>
     </div>
 
+    <!-- 添加机柜弹窗 -->
+    <el-dialog v-model="showAddRackDialog" title="添加机柜" width="400px">
+      <el-form :model="newRackForm" label-width="80px">
+        <el-form-item label="机柜名称">
+          <el-input v-model="newRackForm.name" placeholder="如：机柜 C" />
+        </el-form-item>
+        <el-form-item label="U 位数">
+          <el-select v-model="newRackForm.totalU" style="width: 100%">
+            <el-option label="42U（标准机柜）" :value="42" />
+            <el-option label="24U（中型机柜）" :value="24" />
+            <el-option label="12U（小型机柜）" :value="12" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showAddRackDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmAddRack">确定添加</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 编辑机柜名称弹窗 -->
     <el-dialog v-model="showEditRackDialog" title="编辑机柜名称" width="400px">
       <el-input v-model="editRackName" placeholder="请输入机柜名称" />
@@ -309,6 +329,10 @@ const editRackName = ref('')
 const searchQuery = ref('')
 const filterType = ref('')
 const filterDept = ref('')
+const newRackForm = reactive({
+  name: '',
+  totalU: 42
+})
 
 const filteredDeviceCount = computed(() => {
   let count = 0
@@ -515,15 +539,23 @@ const deviceTypeStats = computed(() => {
 })
 
 // 机柜管理
-function addRack() {
+function openAddRackDialog() {
+  newRackForm.name = ''
+  newRackForm.totalU = 42
+  showAddRackDialog.value = true
+}
+
+function confirmAddRack() {
+  if (!newRackForm.name) return
   const newRack: Rack = {
     id: 'rack-' + Date.now(),
-    name: '新机柜',
+    name: newRackForm.name,
     floor: store.selectedFloor,
-    totalU: 42,
+    totalU: newRackForm.totalU,
     devices: []
   }
   store.addRack(newRack)
+  showAddRackDialog.value = false
 }
 
 function deleteRack(rackId: string) {
@@ -546,7 +578,7 @@ function saveRackName() {
 
 <style scoped>
 .devices-page {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
@@ -795,7 +827,7 @@ function saveRackName() {
 
 /* 机柜主体 */
 .rack {
-  width: 420px;
+  width: 340px;
   background: linear-gradient(180deg, #141924 0%, #0f131a 100%);
   border: 1px solid #2a3040;
   border-radius: 8px;
