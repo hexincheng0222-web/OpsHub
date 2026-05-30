@@ -85,14 +85,14 @@
                 v-for="(slot, index) in getSlotData(rack)"
                 :key="index"
                 class="u-slot"
-                :class="[getSlotClass(slot), { 'drag-over': dragOverRackId === rack.id && dragOverIndex === index }]"
+                :class="[getSlotClass(slot), { 'drag-over': isDragOver(rack.id, index) }]"
                 :style="getSlotStyle(slot)"
                 @click="onSlotClick(rack, index, slot)"
-                @dragover.prevent="onDragOver(rack, index)"
+                @dragover.prevent="onDragOver(rack.id, index)"
                 @dragleave="onDragLeave"
-                @drop="onDrop(rack, index)"
+                @drop.prevent="onDrop(rack, index)"
               >
-                <div v-if="dragOverRackId === rack.id && dragOverIndex === index" class="drag-indicator"></div>
+                <div v-if="isDragOver(rack.id, index)" class="drag-indicator"></div>
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
                   <div
@@ -359,6 +359,10 @@ const dragData = ref<{ rackId: string; index: number; device: Device } | null>(n
 const dragOverRackId = ref('')
 const dragOverIndex = ref(-1)
 
+function isDragOver(rackId: string, index: number): boolean {
+  return dragOverRackId.value === rackId && dragOverIndex.value === index
+}
+
 const filteredDeviceCount = computed(() => {
   let count = 0
   for (const rack of store.floorRacks) {
@@ -606,8 +610,8 @@ function onDragStart(rack: Rack, index: number, slot: SlotInfo) {
   }
 }
 
-function onDragOver(rack: Rack, index: number) {
-  dragOverRackId.value = rack.id
+function onDragOver(rackId: string, index: number) {
+  dragOverRackId.value = rackId
   dragOverIndex.value = index
 }
 
