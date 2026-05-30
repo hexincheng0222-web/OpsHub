@@ -27,7 +27,7 @@
     <div class="filter-bar">
       <el-input
         v-model="searchQuery"
-        placeholder="搜索设备名称、型号..."
+        placeholder="搜索设备..."
         clearable
         class="search-input"
       >
@@ -35,7 +35,7 @@
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-select v-model="filterType" placeholder="设备类型" clearable class="filter-select">
+      <el-select v-model="filterType" placeholder="类型" clearable class="filter-select">
         <el-option label="服务器" value="server" />
         <el-option label="交换机" value="switch" />
         <el-option label="存储" value="storage" />
@@ -44,13 +44,13 @@
         <el-option label="UPS" value="ups" />
         <el-option label="PDU" value="pdu" />
       </el-select>
-      <el-select v-model="filterDept" placeholder="所属部门" clearable class="filter-select">
+      <el-select v-model="filterDept" placeholder="部门" clearable class="filter-select">
         <el-option label="技术部" value="技术部" />
         <el-option label="运维部" value="运维部" />
         <el-option label="产品部" value="产品部" />
       </el-select>
       <span v-if="searchQuery || filterType || filterDept" class="filter-result">
-        找到 {{ filteredDeviceCount }} 个设备
+        {{ filteredDeviceCount }} 个
       </span>
     </div>
 
@@ -88,13 +88,24 @@
                 :class="getSlotClass(slot)"
                 :style="getSlotStyle(slot)"
                 @click="onSlotClick(rack, index, slot)"
+                @dragover.prevent
+                @drop="onDrop(rack, index)"
               >
+                <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
-                  <div class="device-inner" :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }">
+                  <div
+                    class="device-inner"
+                    :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }"
+                    draggable="true"
+                    @dragstart="onDragStart(rack, index, slot)"
+                    @dragover.prevent
+                    @drop="onDrop(rack, index)"
+                  >
                     <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
                       <div class="led led-solid"></div>
                       <div class="led led-blink"></div>
                     </div>
+                    <span class="device-u-badge">{{ getUBadge(slot, index) }}</span>
                     <span class="device-name">{{ slot.device!.name }}</span>
                     <span class="device-model">{{ slot.device!.model }}</span>
                     <div v-if="slot.device!.ports > 0" class="device-ports">
@@ -242,7 +253,6 @@
         <el-form-item label="状态">
           <el-radio-group v-model="deviceForm.status">
             <el-radio value="正常">正常</el-radio>
-            <el-radio value="维修中">维修中</el-radio>
             <el-radio value="停用">停用</el-radio>
           </el-radio-group>
         </el-form-item>
@@ -293,7 +303,6 @@
               <div class="drawer-label">状态</div>
               <el-radio-group v-model="selectedDevice.status" @change="updateDeviceStatus">
                 <el-radio value="正常">正常</el-radio>
-                <el-radio value="维修中">维修中</el-radio>
                 <el-radio value="停用">停用</el-radio>
               </el-radio-group>
             </div>
@@ -345,6 +354,7 @@ const newRackForm = reactive({
   name: '',
   totalU: 42
 })
+const dragData = ref<{ rackId: string; index: number; device: Device } | null>(null)
 
 const filteredDeviceCount = computed(() => {
   let count = 0
@@ -585,6 +595,29 @@ function saveRackName() {
     showEditRackDialog.value = false
   }
 }
+
+// 拖拽功能
+function onDragStart(rack: Rack, index: number, slot: SlotInfo) {
+  if (slot.device) {
+    dragData.value = { rackId: rack.id, index, device: slot.device }
+  }
+}
+
+function onDrop(rack: Rack, index: number) {
+  if (!dragData.value) return
+  // 从原位置移除
+  store.removeDeviceFromRack(dragData.value.rackId, dragData.value.device.id)
+  // 添加到新位置
+  store.addDeviceToRack(rack.id, index, dragData.value.device)
+  dragData.value = null
+}
+
+function getUBadge(slot: SlotInfo, index: number): string {
+  if (!slot.device) return ''
+  const startU = 42 - index
+  const endU = startU - slot.device.u + 1
+  return slot.device.u > 1 ? `U${endU}-${startU}` : `U${startU}`
+}
 </script>
 
 <style scoped>
@@ -653,20 +686,20 @@ function saveRackName() {
 /* 搜索筛选栏 */
 .filter-bar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 12px 16px;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 10px 12px;
   background: #141924;
   border: 1px solid #2a3040;
-  border-radius: 10px;
+  border-radius: 8px;
   align-items: center;
 }
 
-.search-input { flex: 1; min-width: 200px; }
-.filter-select { width: 140px; }
+.search-input { flex: 1; min-width: 150px; }
+.filter-select { width: 100px; }
 
 .filter-result {
-  font-size: 12px;
+  font-size: 11px;
   color: #606878;
   white-space: nowrap;
 }
@@ -674,7 +707,7 @@ function saveRackName() {
 /* 设备高亮/暗淡 */
 .device-inner.dimmed { opacity: 0.3; }
 .device-inner.disabled { opacity: 0.5; filter: grayscale(0.5); }
-.device-leds.led-off .led { animation: none; opacity: 0.2; box-shadow: none; }
+.device-leds.led-off .led { animation: none; opacity: 0.15; background: #2a3040; box-shadow: none; }
 
 /* 统计概览 */
 .stats-overview {
@@ -943,18 +976,20 @@ function saveRackName() {
 }
 .u-slot.empty:hover {
   background: repeating-linear-gradient(90deg, #10141c 0px, #10141c 8px, #0e1218 8px, #0e1218 9px);
-  border-color: #2a3040;
+  border-color: #3a4458;
 }
-.u-slot.empty:hover::after {
-  content: '+ 添加设备';
+.empty-slot-icon {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;
   color: #4a5568;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
+.u-slot.empty:hover .empty-slot-icon { opacity: 1; }
 
 /* 设备 */
 .u-slot.device {
@@ -965,7 +1000,7 @@ function saveRackName() {
   border: none;
   margin: -1px 0;
 }
-.u-slot.device:hover { filter: brightness(1.15); z-index: 1; }
+.u-slot.device:hover { filter: brightness(1.2); z-index: 1; box-shadow: 0 0 12px rgba(74,240,192,0.3); }
 
 .u-slot.device::before, .u-slot.device::after {
   content: '';
@@ -980,6 +1015,21 @@ function saveRackName() {
 }
 .u-slot.device::before { left: 4px; }
 .u-slot.device::after { right: 4px; }
+
+/* 设备U位标签 */
+.device-u-badge {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
+  color: #8b9bb4;
+  font-family: 'Consolas', monospace;
+  background: rgba(0,0,0,0.4);
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
 
 /* 设备类型配色 */
 .device-server {
