@@ -226,6 +226,64 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 右侧详情抽屉 -->
+    <Transition name="drawer-slide">
+      <div v-if="drawerVisible" class="drawer-overlay" @click.self="drawerVisible = false">
+        <div class="drawer-panel" v-if="selectedService">
+          <div class="drawer-header">
+            <h3>{{ selectedService.name }}</h3>
+            <button class="drawer-close" @click="drawerVisible = false">✕</button>
+          </div>
+          <div class="drawer-content">
+            <div class="drawer-icon" :class="'status-' + selectedService.status">
+              <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
+            </div>
+            <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
+              {{ statusLabel(selectedService.status) }}
+            </el-tag>
+
+            <div class="drawer-section">
+              <div class="drawer-label">服务地址</div>
+              <div class="drawer-url">
+                <el-icon><Link /></el-icon>
+                <span>{{ selectedService.url }}</span>
+              </div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">描述</div>
+              <div class="drawer-value">{{ selectedService.description || '暂无描述' }}</div>
+            </div>
+
+            <div class="drawer-section">
+              <div class="drawer-label">备注</div>
+              <div class="drawer-notes">{{ selectedService.notes || '暂无备注' }}</div>
+            </div>
+          </div>
+          <div class="drawer-footer">
+            <div class="drawer-actions-left">
+              <el-button @click="openEditFromDrawer">
+                <el-icon><Edit /></el-icon> 编辑
+              </el-button>
+              <el-popconfirm
+                :title="`确定删除「${selectedService?.name}」吗？`"
+                @confirm="deleteFromDrawer"
+              >
+                <template #reference>
+                  <el-button type="danger">
+                    <el-icon><Delete /></el-icon> 删除
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+            <el-button type="primary" @click="openService(selectedService.url)">
+              <el-icon><Position /></el-icon> 访问服务
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -269,6 +327,7 @@ const filteredCount = computed(() => filteredServices.value.length)
 
 const dialogVisible = ref(false)
 const detailVisible = ref(false)
+const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
 const editingService = ref<Service | null>(null)
 const serviceFormRef = ref()
@@ -319,6 +378,7 @@ function openAddDialog() {
 
 function openEditDialog(row: Service) {
   detailVisible.value = false
+  drawerVisible.value = false
   editingService.value = row
   form.name = row.name
   form.url = row.url
@@ -337,8 +397,23 @@ function openDetailDialog(svc: Service) {
   detailVisible.value = true
 }
 
-function openDrawer(_svc: Service) {
-  // TODO: 后续任务实现抽屉面板
+function openDrawer(svc: Service) {
+  selectedService.value = svc
+  drawerVisible.value = true
+}
+
+function openEditFromDrawer() {
+  if (selectedService.value) {
+    openEditDialog(selectedService.value)
+  }
+}
+
+function deleteFromDrawer() {
+  if (selectedService.value) {
+    servicesStore.deleteService(selectedService.value.id)
+    drawerVisible.value = false
+    selectedService.value = null
+  }
 }
 
 function deleteAndClose() {
@@ -828,5 +903,161 @@ function statusLabel(status: string) {
 :deep(.el-divider) {
   border-color: var(--ops-border-card);
   margin: 16px 0;
+}
+
+/* ---- 右侧抽屉面板 ---- */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer-panel {
+  width: 420px;
+  max-width: 90vw;
+  height: 100%;
+  background: var(--ops-bg-card);
+  border-left: 1px solid var(--ops-border-card);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--ops-border-card);
+}
+
+.drawer-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ops-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--ops-text-tertiary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.drawer-close:hover {
+  background: var(--ops-bg-card-hover);
+  color: var(--ops-text-primary);
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.drawer-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-icon.status-online { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
+.drawer-icon.status-offline { background: rgba(72, 79, 88, 0.3); color: var(--ops-text-tertiary); }
+.drawer-icon.status-maintenance { background: rgba(210, 153, 34, 0.15); color: var(--ops-status-maintenance); }
+.drawer-icon.status-checking { background: rgba(88, 166, 255, 0.15); color: var(--ops-accent-blue); }
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawer-label {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.drawer-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ops-accent-blue);
+  font-family: monospace;
+  background: var(--ops-bg-page);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.drawer-value {
+  font-size: 14px;
+  color: var(--ops-text-secondary);
+  line-height: 1.6;
+}
+
+.drawer-notes {
+  font-size: 14px;
+  color: var(--ops-text-secondary);
+  line-height: 1.6;
+  background: var(--ops-bg-page);
+  padding: 12px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid var(--ops-border-card);
+}
+
+.drawer-actions-left {
+  display: flex;
+  gap: 8px;
+}
+
+/* 抽屉过渡动画 */
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.drawer-slide-enter-active .drawer-panel,
+.drawer-slide-leave-active .drawer-panel {
+  transition: transform 0.3s ease;
+}
+
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  opacity: 0;
+}
+
+.drawer-slide-enter-from .drawer-panel,
+.drawer-slide-leave-to .drawer-panel {
+  transform: translateX(100%);
 }
 </style>
