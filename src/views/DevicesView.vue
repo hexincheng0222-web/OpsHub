@@ -85,22 +85,16 @@
                 v-for="(slot, index) in getSlotData(rack)"
                 :key="index"
                 class="u-slot"
-                :class="[getSlotClass(slot), { 'drag-over': isDragOver(rack.id, index) }]"
+                :class="getSlotClass(slot)"
                 :style="getSlotStyle(slot)"
                 @click="onSlotClick(rack, index, slot)"
-                @dragover="onSlotDragOver($event, rack.id, index)"
-                @dragleave="onSlotDragLeave($event, rack.id, index)"
-                @drop="onSlotDrop($event, rack, index)"
               >
-                <div v-if="isDragOver(rack.id, index)" class="drag-indicator"></div>
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
                   <div
                     class="device-inner"
                     :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }"
-                    draggable="true"
-                    @dragstart="onDragStart($event, rack, index, slot)"
-                    @dragend="onDragEnd"
+                    @mousedown.stop="onMouseDown"
                   >
                     <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
                       <div class="led led-solid"></div>
@@ -332,11 +326,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useDevicesStore } from '../stores/devices'
 import type { Device, Rack } from '../mock/devices'
 
 const store = useDevicesStore()
+
+onMounted(() => {
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', onMouseMove)
+  document.removeEventListener('mouseup', onMouseUp)
+})
 
 const showAddDeviceDialog = ref(false)
 const showAddRackDialog = ref(false)
@@ -355,11 +358,16 @@ const newRackForm = reactive({
   name: '',
   totalU: 42
 })
-const dragData = ref<{ rackId: string; index: number; device: Device } | null>(null)
-const dragOverKey = ref('')
 
-function isDragOver(rackId: string, index: number): boolean {
-  return dragOverKey.value === rackId + ':' + index
+// ---- 鼠标拖拽系统 ----
+const dragState = {
+  active: false,
+  rackId: '',
+  startU: -1,
+  devId: -1,
+  ghostEl: null as HTMLElement | null,
+  sourceEl: null as HTMLElement | null,
+  currentHighlight: null as HTMLElement | null,
 }
 
 const filteredDeviceCount = computed(() => {
@@ -602,61 +610,185 @@ function saveRackName() {
   }
 }
 
-// 拖拽功能
-function onDragStart(e: DragEvent, rack: Rack, index: number, slot: SlotInfo) {
-  if (!slot.device || !e.dataTransfer) return
-  dragData.value = { rackId: rack.id, index, device: slot.device }
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', String(slot.device.id))
-  requestAnimationFrame(() => {
-    if (e.target instanceof HTMLElement) e.target.style.opacity = '0.4'
+// ---- 鼠标拖拽：mousedown ----
+function onMouseDown(e: MouseEvent) {
+  const slotEl = (e.target as HTMLElement).closest('.u-slot.device') as HTMLElement | null
+  if (!slotEl) return
+
+  const container = slotEl.closest('.rack-container')
+  const titleEl = container?.querySelector('.rack-title')
+  const rackName = titleEl?.textContent?.trim() || ''
+  const rack = store.floorRacks.find(r => r.name === rackName)
+  if (!rack) return
+
+  const slotsEl = slotEl.closest('.u-slots')
+  if (!slotsEl) return
+  const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
+  const index = slotEls.indexOf(slotEl)
+  if (index < 0) return
+
+  const slotData = getSlotData(rack)[index]
+  if (!slotData || slotData.type !== 'device' || !slotData.device) return
+
+  const uNumber = rack.totalU - index
+  dragState.active = true
+  dragState.rackId = rack.id
+  dragState.startU = uNumber
+  dragState.devId = slotData.device.id
+  dragState.sourceEl = slotEl
+
+  slotEl.classList.add('drag-source')
+
+  const ghost = slotEl.cloneNode(true) as HTMLElement
+  ghost.classList.add('ghost')
+  ghost.style.width = slotEl.offsetWidth + 'px'
+  ghost.style.left = (e.clientX - slotEl.offsetWidth / 2) + 'px'
+  ghost.style.top = (e.clientY - 14) + 'px'
+  document.body.appendChild(ghost)
+  dragState.ghostEl = ghost
+
+  e.preventDefault()
+}
+
+// ---- 鼠标拖拽：mousemove ----
+function onMouseMove(e: MouseEvent) {
+  if (!dragState.active || !dragState.ghostEl) return
+
+  dragState.ghostEl.style.left = (e.clientX - dragState.ghostEl.offsetWidth / 2) + 'px'
+  dragState.ghostEl.style.top = (e.clientY - 14) + 'px'
+
+  dragState.ghostEl.style.pointerEvents = 'none'
+  const elBelow = document.elementFromPoint(e.clientX, e.clientY)
+  dragState.ghostEl.style.pointerEvents = ''
+
+  clearHighlights()
+  if (!elBelow) return
+
+  const targetSlot = elBelow.closest('.u-slot') as HTMLElement | null
+  if (!targetSlot) return
+
+  const targetRackEl = targetSlot.closest('.rack-container')
+  const targetRackTitle = targetRackEl?.querySelector('.rack-title')?.textContent?.trim() || ''
+  const targetRack = store.floorRacks.find(r => r.name === targetRackTitle)
+  if (!targetRack) return
+
+  const slotsEl = targetSlot.closest('.u-slots')
+  if (!slotsEl) return
+  const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
+  const targetIndex = slotEls.indexOf(targetSlot)
+  if (targetIndex < 0) return
+
+  const targetU = targetRack.totalU - targetIndex
+  const device = findDevice(dragState.devId)
+  if (!device) return
+
+  if (canPlace(targetRack, targetU, device.u, dragState.devId)) {
+    targetSlot.classList.add('drop-ok')
+  } else {
+    targetSlot.classList.add('drop-no')
+  }
+  dragState.currentHighlight = targetSlot
+}
+
+// ---- 鼠标拖拽：mouseup ----
+function onMouseUp(e: MouseEvent) {
+  if (!dragState.active) return
+
+  dragState.sourceEl?.classList.remove('drag-source')
+  dragState.ghostEl?.remove()
+
+  if (dragState.ghostEl) dragState.ghostEl.style.display = 'none'
+  const elBelow = document.elementFromPoint(e.clientX, e.clientY)
+  if (dragState.ghostEl) dragState.ghostEl.style.display = ''
+
+  clearHighlights()
+
+  if (elBelow) {
+    const targetSlot = elBelow.closest('.u-slot')
+    if (targetSlot) {
+      const targetRackEl = targetSlot.closest('.rack-container')
+      const targetRackTitle = targetRackEl?.querySelector('.rack-title')?.textContent?.trim() || ''
+      const targetRack = store.floorRacks.find(r => r.name === targetRackTitle)
+      if (targetRack) {
+        const slotsEl = targetSlot.closest('.u-slots')
+        const slotEls = Array.from(slotsEl!.children).filter(el => el.classList.contains('u-slot'))
+        const targetIndex = slotEls.indexOf(targetSlot)
+        const targetU = targetRack.totalU - targetIndex
+        const device = findDevice(dragState.devId)
+        if (device && canPlace(targetRack, targetU, device.u, dragState.devId)) {
+          doMove(targetRack, targetU, device)
+        }
+      }
+    }
+  }
+
+  dragState.active = false
+  dragState.rackId = ''
+  dragState.startU = -1
+  dragState.devId = -1
+  dragState.ghostEl = null
+  dragState.sourceEl = null
+  dragState.currentHighlight = null
+}
+
+// ---- 拖拽辅助函数 ----
+function findDevice(devId: number): Device | null {
+  for (const rack of store.racks) {
+    for (const dev of rack.devices) {
+      if (dev && dev.id === devId) return dev
+    }
+  }
+  return null
+}
+
+function canPlace(targetRack: Rack, targetU: number, uSize: number, excludeDevId: number): boolean {
+  if (targetU < 1 || targetU + uSize - 1 > targetRack.totalU) return false
+  for (let u = targetU; u < targetU + uSize; u++) {
+    const dev = getDeviceAtU(targetRack, u)
+    if (dev === undefined) return false
+    if (dev === null) continue
+    if (dev.id === excludeDevId) continue
+    return false
+  }
+  return true
+}
+
+function getDeviceAtU(rack: Rack, u: number): Device | null | undefined {
+  let currentU = 1
+  for (const dev of rack.devices) {
+    if (dev === null) {
+      if (currentU === u) return null
+      currentU++
+    } else {
+      for (let k = 0; k < dev.u; k++) {
+        if (currentU + k === u) return dev
+      }
+      currentU += dev.u
+    }
+    if (currentU > rack.totalU + 1) break
+  }
+  return currentU <= rack.totalU ? null : undefined
+}
+
+function doMove(targetRack: Rack, targetU: number, device: Device) {
+  const sourceRack = store.racks.find(r => r.devices.some(d => d && d.id === device.id))
+  if (!sourceRack) return
+
+  store.removeDeviceFromRack(sourceRack.id, device.id)
+
+  const existingDev = getDeviceAtU(targetRack, targetU)
+  if (existingDev && existingDev.id !== device.id) {
+    store.removeDeviceFromRack(targetRack.id, existingDev.id)
+    store.addDeviceToRack(sourceRack.id, dragState.startU, existingDev)
+  }
+
+  store.addDeviceToRack(targetRack.id, targetU, device)
+}
+
+function clearHighlights() {
+  document.querySelectorAll('.drop-ok, .drop-no').forEach(el => {
+    el.classList.remove('drop-ok', 'drop-no')
   })
-}
-
-function onSlotDragOver(e: DragEvent, rackId: string, index: number) {
-  e.preventDefault()
-  if (!dragData.value) return
-  e.dataTransfer!.dropEffect = 'move'
-  dragOverKey.value = rackId + ':' + index
-}
-
-function onSlotDragLeave(e: DragEvent, rackId: string, index: number) {
-  const related = e.relatedTarget as HTMLElement | null
-  const current = e.currentTarget as HTMLElement
-  if (related && current.contains(related)) return
-  if (dragOverKey.value === rackId + ':' + index) {
-    dragOverKey.value = ''
-  }
-}
-
-function onDragEnd(e: DragEvent) {
-  if (e.target instanceof HTMLElement) e.target.style.opacity = ''
-  dragData.value = null
-  dragOverKey.value = ''
-}
-
-function onSlotDrop(e: DragEvent, targetRack: Rack, targetIndex: number) {
-  e.preventDefault()
-  if (!dragData.value) return
-
-  const sourceRackId = dragData.value.rackId
-  const sourceIndex = dragData.value.index
-  const device = dragData.value.device
-
-  const targetSlots = getSlotData(targetRack)
-  const targetSlot = targetSlots[targetIndex]
-
-  store.removeDeviceFromRack(sourceRackId, device.id)
-
-  if (targetSlot && targetSlot.type === 'device' && targetSlot.device) {
-    store.removeDeviceFromRack(targetRack.id, targetSlot.device.id)
-    store.addDeviceToRack(sourceRackId, sourceIndex, targetSlot.device)
-  }
-
-  store.addDeviceToRack(targetRack.id, targetIndex, device)
-
-  dragData.value = null
-  dragOverKey.value = ''
 }
 
 function getUBadge(slot: SlotInfo, index: number): string {
@@ -1038,29 +1170,32 @@ function getUBadge(slot: SlotInfo, index: number): string {
 }
 .u-slot.empty:hover .empty-slot-icon { opacity: 1; }
 
-/* 拖拽状态 */
-.u-slot.drag-over {
+/* 拖拽：源设备半透明 */
+.drag-source { opacity: 0.35 !important; }
+
+/* 拖拽：幽灵元素 */
+.ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.92;
+  filter: brightness(1.15) drop-shadow(0 4px 16px rgba(74,240,192,0.4));
+  border: 1px solid rgba(74,240,192,0.5);
+  border-radius: 3px;
+}
+
+/* 拖拽：目标可放置 */
+.u-slot.drop-ok {
   background: rgba(74,240,192,0.2) !important;
   border: 2px dashed #4af0c0 !important;
   box-shadow: 0 0 16px rgba(74,240,192,0.4), inset 0 0 8px rgba(74,240,192,0.1);
 }
-.u-slot.drag-over .empty-slot-icon { opacity: 1; color: #4af0c0; font-size: 14px; font-weight: bold; }
-.u-slot.drag-over.device { background: rgba(74,240,192,0.15) !important; }
 
-/* 拖拽中的设备 */
-[draggable="true"] { cursor: grab; }
-[draggable="true"]:active { cursor: grabbing; opacity: 0.8; }
-
-/* 拖拽提示线 */
-.drag-indicator {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #4af0c0;
-  box-shadow: 0 0 8px #4af0c0;
-  z-index: 10;
-  pointer-events: none;
+/* 拖拽：目标不可放置 */
+.u-slot.drop-no {
+  background: rgba(255,80,80,0.15) !important;
+  border: 2px dashed rgba(255,80,80,0.5) !important;
+  box-shadow: 0 0 12px rgba(255,80,80,0.2);
 }
 
 /* 设备 */
