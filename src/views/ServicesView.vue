@@ -81,7 +81,7 @@
         class="svc-card"
         :class="'status-' + svc.status"
         :style="{ animationDelay: index * 80 + 'ms' }"
-        @click="openDetailDialog(svc)"
+        @click="openDrawer(svc)"
       >
         <div class="status-bar" />
         <div class="svc-top">
@@ -90,17 +90,16 @@
             <span class="status-dot" :class="'dot-' + svc.status" />
           </div>
           <div class="svc-info">
-            <span class="svc-name">{{ svc.name }}</span>
-            <el-tag :type="statusType(svc.status)" size="small" effect="dark">{{ statusLabel(svc.status) }}</el-tag>
+            <div class="svc-name-row">
+              <span class="svc-name">{{ svc.name }}</span>
+              <el-tag :type="statusType(svc.status)" size="small" effect="dark">{{ statusLabel(svc.status) }}</el-tag>
+            </div>
+            <p class="svc-desc">{{ svc.description }}</p>
           </div>
         </div>
-        <p class="svc-desc">{{ svc.description }}</p>
         <div class="svc-meta">
           <el-tag size="small" type="info">{{ svc.category }}</el-tag>
           <span class="svc-url">{{ svc.url }}</span>
-        </div>
-        <div class="quick-visit" @click.stop="openService(svc.url)" title="快速访问">
-          <el-icon :size="18"><Position /></el-icon>
         </div>
       </div>
     </div>
@@ -336,6 +335,10 @@ function openEditDialog(row: Service) {
 function openDetailDialog(svc: Service) {
   selectedService.value = svc
   detailVisible.value = true
+}
+
+function openDrawer(_svc: Service) {
+  // TODO: 后续任务实现抽屉面板
 }
 
 function deleteAndClose() {
@@ -590,6 +593,17 @@ function statusLabel(status: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.svc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.svc-name-row .svc-name {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 描述 */
