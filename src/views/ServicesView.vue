@@ -236,12 +236,17 @@
             <button class="drawer-close" @click="drawerVisible = false">✕</button>
           </div>
           <div class="drawer-content">
-            <div class="drawer-icon" :class="'status-' + selectedService.status">
-              <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
+            <div class="drawer-icon-row">
+              <div class="drawer-icon" :class="'status-' + selectedService.status">
+                <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
+              </div>
+              <div class="drawer-icon-info">
+                <h4>{{ selectedService.name }}</h4>
+                <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
+                  {{ statusLabel(selectedService.status) }}
+                </el-tag>
+              </div>
             </div>
-            <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
-              {{ statusLabel(selectedService.status) }}
-            </el-tag>
 
             <div class="drawer-section">
               <div class="drawer-label">服务地址</div>
@@ -972,6 +977,26 @@ function statusLabel(status: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.drawer-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.drawer-icon-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawer-icon-info h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ops-text-primary);
 }
 
 .drawer-icon.status-online { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
