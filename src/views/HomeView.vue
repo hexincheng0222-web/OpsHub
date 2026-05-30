@@ -90,6 +90,7 @@ function particleStyle(i: number) {
 <style scoped>
 .home-dark{min-height:100vh;background:var(--ops-bg-page);padding:70px 40px 60px;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden}
 .bg-orbs{position:absolute;inset:0;pointer-events:none;z-index:0}
+.light-theme .bg-orbs{display:none}
 .orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:.15}
 .orb-1{width:600px;height:600px;background:var(--ops-accent-blue);top:-200px;left:-150px;animation:orbFloat1 12s ease-in-out infinite}
 .orb-2{width:500px;height:500px;background:var(--ops-accent-purple);top:30%;right:-200px;animation:orbFloat2 15s ease-in-out infinite}
@@ -103,17 +104,23 @@ function particleStyle(i: number) {
 @keyframes particleRise{0%{transform:translateY(0) scale(.9);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-100vh) scale(1.4);opacity:0}}
 .hero{text-align:center;margin-bottom:56px;position:relative;z-index:2}
 .title-glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:500px;height:500px;background:radial-gradient(ellipse,rgba(88,166,255,.10) 0%,transparent 65%);pointer-events:none;animation:titleGlowPulse 4s ease-in-out infinite}
+.light-theme .title-glow{opacity:0;animation:none}
 @keyframes titleGlowPulse{0%,100%{opacity:.7;transform:translateX(-50%) scale(1)}50%{opacity:1;transform:translateX(-50%) scale(1.1)}}
 .title-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(88,166,255,.20),rgba(88,166,255,.05));border:1px solid rgba(88,166,255,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:#58a6ff;animation:float 4s ease-in-out infinite;backdrop-filter:blur(10px)}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .main-title{margin:0 0 14px 0}
 .title-text{font-size:40px;font-weight:800;letter-spacing:10px;color:#e6edf3;background:linear-gradient(180deg,#fff 0%,#e6edf3 40%,#8b949e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.light-theme .title-text{background:linear-gradient(180deg,#1f2328 0%,#1f2328 40%,#656d76 100%);-webkit-background-clip:text;background-clip:text}
 .intro-text{font-size:14px;color:#8b949e;max-width:520px;line-height:1.8;margin:0 auto;letter-spacing:.5px}
+.light-theme .intro-text{color:#656d76}
+.light-theme .title-icon{background:linear-gradient(135deg,rgba(9,105,218,.12),rgba(9,105,218,.03));border-color:rgba(9,105,218,.12);color:#0969da;backdrop-filter:none}
 .big-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;max-width:900px;width:100%;position:relative;z-index:2}
 .big-card{position:relative;background:rgba(13,17,23,.70);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:26px 28px 22px;cursor:pointer;overflow:hidden;transition:all .4s cubic-bezier(.25,.1,.25,1);display:flex;flex-direction:column;gap:18px}
 .big-card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(600px circle at var(--mouse-x,50%) var(--mouse-y,50%),rgba(255,255,255,.03),transparent 40%);opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:0}
 .big-card:hover::before{opacity:1}
 .big-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.10)}
+.light-theme .big-card{background:rgba(255,255,255,.80);border:1px solid rgba(0,0,0,.08)}
+.light-theme .big-card:hover{border-color:rgba(0,0,0,.15);box-shadow:0 0 40px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)}
 .card-top-line{position:absolute;top:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);opacity:0;transition:opacity .4s ease;z-index:1}
 .big-card:hover .card-top-line{opacity:1}
 .card-glow{position:absolute;inset:-1px;border-radius:inherit;opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:0}
