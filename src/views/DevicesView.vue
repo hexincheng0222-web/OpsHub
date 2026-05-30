@@ -23,6 +23,37 @@
       </div>
     </div>
 
+    <!-- 搜索筛选栏 -->
+    <div class="filter-bar">
+      <el-input
+        v-model="searchQuery"
+        placeholder="搜索设备名称、型号..."
+        clearable
+        class="search-input"
+      >
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+      <el-select v-model="filterType" placeholder="设备类型" clearable class="filter-select">
+        <el-option label="服务器" value="server" />
+        <el-option label="交换机" value="switch" />
+        <el-option label="存储" value="storage" />
+        <el-option label="路由器" value="router" />
+        <el-option label="防火墙" value="firewall" />
+        <el-option label="UPS" value="ups" />
+        <el-option label="PDU" value="pdu" />
+      </el-select>
+      <el-select v-model="filterDept" placeholder="所属部门" clearable class="filter-select">
+        <el-option label="技术部" value="技术部" />
+        <el-option label="运维部" value="运维部" />
+        <el-option label="产品部" value="产品部" />
+      </el-select>
+      <span v-if="searchQuery || filterType || filterDept" class="filter-result">
+        找到 {{ filteredDeviceCount }} 个设备
+      </span>
+    </div>
+
     <!-- 机柜视图 -->
     <div class="rack-wrapper">
       <div v-for="rack in store.floorRacks" :key="rack.id" class="rack-container">
@@ -59,7 +90,7 @@
                 @click="onSlotClick(rack, index, slot)"
               >
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
-                  <div class="device-inner">
+                  <div class="device-inner" :class="{ dimmed: slot.hidden }">
                     <div class="device-leds" :style="{ '--led-color': getLedColor(slot.device!.type) }">
                       <div v-for="l in Math.min(slot.device!.u * 2, 4)" :key="l" class="led"></div>
                     </div>
@@ -228,7 +259,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useDevicesStore } from '../stores/devices'
 import type { Device, Rack } from '../mock/devices'
 
@@ -244,6 +275,19 @@ const selectedRackId = ref('')
 const showEditRackDialog = ref(false)
 const editingRack = ref<Rack | null>(null)
 const editRackName = ref('')
+const searchQuery = ref('')
+const filterType = ref('')
+const filterDept = ref('')
+
+const filteredDeviceCount = computed(() => {
+  let count = 0
+  for (const rack of store.floorRacks) {
+    for (const dev of rack.devices) {
+      if (dev && matchesFilter(dev)) count++
+    }
+  }
+  return count
+})
 
 const deviceForm = reactive({
   name: '',
@@ -257,6 +301,7 @@ const deviceForm = reactive({
 interface SlotInfo {
   type: 'device' | 'empty' | 'occupied'
   device?: Device
+  hidden?: boolean
 }
 
 function getSlotData(rack: Rack): SlotInfo[] {
@@ -269,13 +314,26 @@ function getSlotData(rack: Rack): SlotInfo[] {
       currentU++
     } else {
       if (currentU < rack.totalU) {
-        slots[currentU] = { type: 'device', device: dev }
+        const matches = matchesFilter(dev)
+        slots[currentU] = { type: 'device', device: dev, hidden: !matches }
       }
       currentU += dev.u
     }
   }
 
   return slots // 顶部在前（索引0 = U42）
+}
+
+function matchesFilter(dev: Device): boolean {
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    if (!dev.name.toLowerCase().includes(q) && !dev.model.toLowerCase().includes(q)) {
+      return false
+    }
+  }
+  if (filterType.value && dev.type !== filterType.value) return false
+  if (filterDept.value && dev.dept !== filterDept.value) return false
+  return true
 }
 
 function getSlotClass(slot: SlotInfo): string {
@@ -478,6 +536,30 @@ function saveRackName() {
 }
 
 .floor-tab:hover { border-color: #3a4458; }
+
+/* 搜索筛选栏 */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: #141924;
+  border: 1px solid #2a3040;
+  border-radius: 10px;
+  align-items: center;
+}
+
+.search-input { flex: 1; min-width: 200px; }
+.filter-select { width: 140px; }
+
+.filter-result {
+  font-size: 12px;
+  color: #606878;
+  white-space: nowrap;
+}
+
+/* 设备高亮/暗淡 */
+.device-inner.dimmed { opacity: 0.3; }
 
 /* 机柜容器 */
 .rack-wrapper {
