@@ -88,9 +88,9 @@
                 :class="[getSlotClass(slot), { 'drag-over': isDragOver(rack.id, index) }]"
                 :style="getSlotStyle(slot)"
                 @click="onSlotClick(rack, index, slot)"
-                @dragover.prevent="onDragOver(rack.id, index)"
-                @dragleave="onDragLeave"
-                @drop.prevent="onDrop(rack, index)"
+                @dragover="onSlotDragOver($event, rack.id, index)"
+                @dragleave="onSlotDragLeave($event, rack.id, index)"
+                @drop="onSlotDrop($event, rack, index)"
               >
                 <div v-if="isDragOver(rack.id, index)" class="drag-indicator"></div>
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
@@ -99,7 +99,7 @@
                     class="device-inner"
                     :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }"
                     draggable="true"
-                    @dragstart="onDragStart(rack, index, slot)"
+                    @dragstart="onDragStart($event, rack, index, slot)"
                     @dragend="onDragEnd"
                   >
                     <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
@@ -356,11 +356,10 @@ const newRackForm = reactive({
   totalU: 42
 })
 const dragData = ref<{ rackId: string; index: number; device: Device } | null>(null)
-const dragOverRackId = ref('')
-const dragOverIndex = ref(-1)
+const dragOverKey = ref('')
 
 function isDragOver(rackId: string, index: number): boolean {
-  return dragOverRackId.value === rackId && dragOverIndex.value === index
+  return dragOverKey.value === rackId + ':' + index
 }
 
 const filteredDeviceCount = computed(() => {
@@ -604,55 +603,60 @@ function saveRackName() {
 }
 
 // 拖拽功能
-function onDragStart(rack: Rack, index: number, slot: SlotInfo) {
-  if (slot.device) {
-    dragData.value = { rackId: rack.id, index, device: slot.device }
+function onDragStart(e: DragEvent, rack: Rack, index: number, slot: SlotInfo) {
+  if (!slot.device || !e.dataTransfer) return
+  dragData.value = { rackId: rack.id, index, device: slot.device }
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', String(slot.device.id))
+  requestAnimationFrame(() => {
+    if (e.target instanceof HTMLElement) e.target.style.opacity = '0.4'
+  })
+}
+
+function onSlotDragOver(e: DragEvent, rackId: string, index: number) {
+  e.preventDefault()
+  if (!dragData.value) return
+  e.dataTransfer!.dropEffect = 'move'
+  dragOverKey.value = rackId + ':' + index
+}
+
+function onSlotDragLeave(e: DragEvent, rackId: string, index: number) {
+  const related = e.relatedTarget as HTMLElement | null
+  const current = e.currentTarget as HTMLElement
+  if (related && current.contains(related)) return
+  if (dragOverKey.value === rackId + ':' + index) {
+    dragOverKey.value = ''
   }
 }
 
-function onDragOver(rackId: string, index: number) {
-  dragOverRackId.value = rackId
-  dragOverIndex.value = index
-}
-
-function onDragLeave() {
-  dragOverRackId.value = ''
-  dragOverIndex.value = -1
-}
-
-function onDragEnd() {
+function onDragEnd(e: DragEvent) {
+  if (e.target instanceof HTMLElement) e.target.style.opacity = ''
   dragData.value = null
-  dragOverRackId.value = ''
-  dragOverIndex.value = -1
+  dragOverKey.value = ''
 }
 
-function onDrop(targetRack: Rack, targetIndex: number) {
+function onSlotDrop(e: DragEvent, targetRack: Rack, targetIndex: number) {
+  e.preventDefault()
   if (!dragData.value) return
 
   const sourceRackId = dragData.value.rackId
   const sourceIndex = dragData.value.index
   const device = dragData.value.device
 
-  // 获取目标位置的设备
   const targetSlots = getSlotData(targetRack)
   const targetSlot = targetSlots[targetIndex]
 
-  // 从原位置移除
   store.removeDeviceFromRack(sourceRackId, device.id)
 
-  // 如果目标位置有设备，先移除目标设备
   if (targetSlot && targetSlot.type === 'device' && targetSlot.device) {
     store.removeDeviceFromRack(targetRack.id, targetSlot.device.id)
-    // 将目标设备放到源位置
     store.addDeviceToRack(sourceRackId, sourceIndex, targetSlot.device)
   }
 
-  // 将拖拽的设备放到目标位置
   store.addDeviceToRack(targetRack.id, targetIndex, device)
 
   dragData.value = null
-  dragOverRackId.value = ''
-  dragOverIndex.value = -1
+  dragOverKey.value = ''
 }
 
 function getUBadge(slot: SlotInfo, index: number): string {
