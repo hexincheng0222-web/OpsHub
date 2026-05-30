@@ -25,13 +25,8 @@ export const useDevicesStore = defineStore('devices', () => {
   function addDeviceToRack(rackId: string, uPosition: number, device: Device) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
-    // 标记占用的 U 位
+    // 直接在指定位置放入设备，getSlotData 会根据 device.u 自动跨越多个U位
     rack.devices[uPosition] = device
-    for (let k = 1; k < device.u; k++) {
-      if (uPosition + k < rack.totalU) {
-        rack.devices[uPosition + k] = null // 占位标记
-      }
-    }
   }
 
   function removeDeviceFromRack(rackId: string, deviceId: number) {
@@ -62,5 +57,26 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  return { racks, floors, selectedFloor, floorRacks, addRack, deleteRack, updateRackName, addDeviceToRack, removeDeviceFromRack, updateDevice, deleteDevice }
+  // 统计
+  const total = computed(() => {
+    let count = 0
+    for (const rack of racks.value) {
+      for (const dev of rack.devices) {
+        if (dev !== null) count++
+      }
+    }
+    return count
+  })
+
+  const normalCount = computed(() => {
+    let count = 0
+    for (const rack of racks.value) {
+      for (const dev of rack.devices) {
+        if (dev !== null && dev.status === '正常') count++
+      }
+    }
+    return count
+  })
+
+  return { racks, floors, selectedFloor, floorRacks, addRack, deleteRack, updateRackName, addDeviceToRack, removeDeviceFromRack, updateDevice, deleteDevice, total, normalCount }
 })
