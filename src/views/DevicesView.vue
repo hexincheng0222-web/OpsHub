@@ -85,10 +85,11 @@
                 v-for="(slot, index) in getSlotData(rack)"
                 :key="index"
                 class="u-slot"
-                :class="getSlotClass(slot)"
+                :class="[getSlotClass(slot), { 'drag-over': dragOverRackId === rack.id && dragOverIndex === index }]"
                 :style="getSlotStyle(slot)"
                 @click="onSlotClick(rack, index, slot)"
-                @dragover.prevent
+                @dragover.prevent="onDragOver(rack, index)"
+                @dragleave="onDragLeave"
                 @drop="onDrop(rack, index)"
               >
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
@@ -98,8 +99,7 @@
                     :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }"
                     draggable="true"
                     @dragstart="onDragStart(rack, index, slot)"
-                    @dragover.prevent
-                    @drop="onDrop(rack, index)"
+                    @dragend="onDragEnd"
                   >
                     <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
                       <div class="led led-solid"></div>
@@ -355,6 +355,8 @@ const newRackForm = reactive({
   totalU: 42
 })
 const dragData = ref<{ rackId: string; index: number; device: Device } | null>(null)
+const dragOverRackId = ref('')
+const dragOverIndex = ref(-1)
 
 const filteredDeviceCount = computed(() => {
   let count = 0
@@ -603,13 +605,49 @@ function onDragStart(rack: Rack, index: number, slot: SlotInfo) {
   }
 }
 
-function onDrop(rack: Rack, index: number) {
-  if (!dragData.value) return
-  // 从原位置移除
-  store.removeDeviceFromRack(dragData.value.rackId, dragData.value.device.id)
-  // 添加到新位置
-  store.addDeviceToRack(rack.id, index, dragData.value.device)
+function onDragOver(rack: Rack, index: number) {
+  dragOverRackId.value = rack.id
+  dragOverIndex.value = index
+}
+
+function onDragLeave() {
+  dragOverRackId.value = ''
+  dragOverIndex.value = -1
+}
+
+function onDragEnd() {
   dragData.value = null
+  dragOverRackId.value = ''
+  dragOverIndex.value = -1
+}
+
+function onDrop(targetRack: Rack, targetIndex: number) {
+  if (!dragData.value) return
+
+  const sourceRackId = dragData.value.rackId
+  const sourceIndex = dragData.value.index
+  const device = dragData.value.device
+
+  // 获取目标位置的设备
+  const targetSlots = getSlotData(targetRack)
+  const targetSlot = targetSlots[targetIndex]
+
+  // 从原位置移除
+  store.removeDeviceFromRack(sourceRackId, device.id)
+
+  // 如果目标位置有设备，先移除目标设备
+  if (targetSlot && targetSlot.type === 'device' && targetSlot.device) {
+    store.removeDeviceFromRack(targetRack.id, targetSlot.device.id)
+    // 将目标设备放到源位置
+    store.addDeviceToRack(sourceRackId, sourceIndex, targetSlot.device)
+  }
+
+  // 将拖拽的设备放到目标位置
+  store.addDeviceToRack(targetRack.id, targetIndex, device)
+
+  dragData.value = null
+  dragOverRackId.value = ''
+  dragOverIndex.value = -1
 }
 
 function getUBadge(slot: SlotInfo, index: number): string {
@@ -990,6 +1028,18 @@ function getUBadge(slot: SlotInfo, index: number): string {
   transition: opacity 0.2s;
 }
 .u-slot.empty:hover .empty-slot-icon { opacity: 1; }
+
+/* 拖拽状态 */
+.u-slot.drag-over {
+  background: rgba(74,240,192,0.15) !important;
+  border-color: #4af0c0 !important;
+  box-shadow: 0 0 12px rgba(74,240,192,0.3);
+}
+.u-slot.drag-over .empty-slot-icon { opacity: 1; color: #4af0c0; }
+
+/* 拖拽中的设备 */
+[draggable="true"] { cursor: grab; }
+[draggable="true"]:active { cursor: grabbing; }
 
 /* 设备 */
 .u-slot.device {
