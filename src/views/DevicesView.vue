@@ -5,7 +5,7 @@
         <el-icon><ArrowLeft /></el-icon> 返回首页
       </span>
       <h3>设备信息</h3>
-      <el-button type="primary" @click="showAddRackDialog = true">
+      <el-button type="primary" @click="addRack">
         <el-icon><Plus /></el-icon> 添加机柜
       </el-button>
     </div>
@@ -26,7 +26,21 @@
     <!-- 机柜视图 -->
     <div class="rack-wrapper">
       <div v-for="rack in store.floorRacks" :key="rack.id" class="rack-container">
-        <div class="rack-title">{{ rack.name }}</div>
+        <div class="rack-title-row">
+          <span class="rack-title">{{ rack.name }}</span>
+          <div class="rack-actions">
+            <button class="rack-action-btn" @click="openEditRackDialog(rack)" title="编辑名称">
+              <el-icon :size="14"><Edit /></el-icon>
+            </button>
+            <el-popconfirm title="确定删除此机柜？" @confirm="deleteRack(rack.id)">
+              <template #reference>
+                <button class="rack-action-btn danger" title="删除机柜">
+                  <el-icon :size="14"><Delete /></el-icon>
+                </button>
+              </template>
+            </el-popconfirm>
+          </div>
+        </div>
         <div class="rack">
           <div class="rack-top">
             <div class="vent" v-for="i in 5" :key="i"></div>
@@ -99,6 +113,15 @@
       <div class="legend-item"><div class="legend-color lc-ups"></div>UPS</div>
       <div class="legend-item"><div class="legend-color lc-pdu"></div>PDU</div>
     </div>
+
+    <!-- 编辑机柜名称弹窗 -->
+    <el-dialog v-model="showEditRackDialog" title="编辑机柜名称" width="400px">
+      <el-input v-model="editRackName" placeholder="请输入机柜名称" />
+      <template #footer>
+        <el-button @click="showEditRackDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveRackName">保存</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 添加设备弹窗 -->
     <el-dialog v-model="showAddDeviceDialog" title="添加设备" width="480px">
@@ -218,6 +241,9 @@ const pendingSlotIndex = ref(0)
 const drawerVisible = ref(false)
 const selectedDevice = ref<Device | null>(null)
 const selectedRackId = ref('')
+const showEditRackDialog = ref(false)
+const editingRack = ref<Rack | null>(null)
+const editRackName = ref('')
 
 const deviceForm = reactive({
   name: '',
@@ -359,6 +385,35 @@ function getTypeTagType(type: string): string {
   }
   return types[type] || 'info'
 }
+
+// 机柜管理
+function addRack() {
+  const newRack: Rack = {
+    id: 'rack-' + Date.now(),
+    name: '新机柜',
+    floor: store.selectedFloor,
+    totalU: 42,
+    devices: []
+  }
+  store.addRack(newRack)
+}
+
+function deleteRack(rackId: string) {
+  store.deleteRack(rackId)
+}
+
+function openEditRackDialog(rack: Rack) {
+  editingRack.value = rack
+  editRackName.value = rack.name
+  showEditRackDialog.value = true
+}
+
+function saveRackName() {
+  if (editingRack.value && editRackName.value) {
+    store.updateRackName(editingRack.value.id, editRackName.value)
+    showEditRackDialog.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -442,9 +497,43 @@ function getTypeTagType(type: string): string {
   font-size: 15px;
   font-weight: 600;
   color: #8b9bb4;
-  margin-bottom: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
+}
+
+.rack-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rack-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.rack-action-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: #4a5568;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rack-action-btn:hover {
+  background: #1e2433;
+  color: #c0c8d4;
+  border-color: #2a3040;
+}
+.rack-action-btn.danger:hover {
+  background: rgba(220,50,50,0.15);
+  color: #ff6b6b;
+  border-color: rgba(220,50,50,0.3);
 }
 
 /* 机柜主体 */

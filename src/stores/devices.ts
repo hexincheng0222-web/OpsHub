@@ -13,6 +13,15 @@ export const useDevicesStore = defineStore('devices', () => {
 
   function addRack(rack: Rack) { racks.value.push(rack) }
 
+  function deleteRack(rackId: string) {
+    racks.value = racks.value.filter(r => r.id !== rackId)
+  }
+
+  function updateRackName(rackId: string, name: string) {
+    const rack = racks.value.find(r => r.id === rackId)
+    if (rack) rack.name = name
+  }
+
   function addDeviceToRack(rackId: string, uPosition: number, device: Device) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
@@ -53,5 +62,5 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  return { racks, floors, selectedFloor, floorRacks, addRack, addDeviceToRack, removeDeviceFromRack, updateDevice, deleteDevice }
+  return { racks, floors, selectedFloor, floorRacks, addRack, deleteRack, updateRackName, addDeviceToRack, removeDeviceFromRack, updateDevice, deleteDevice }
 })
