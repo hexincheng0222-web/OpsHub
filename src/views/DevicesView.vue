@@ -197,7 +197,7 @@ function getSlotStyle(slot: SlotInfo): Record<string, string> {
   if (slot.type === 'device' && slot.device) {
     return {
       flex: String(slot.device.u),
-      minHeight: (slot.device.u * 28) + 'px'
+      minHeight: (slot.device.u * 18) + 'px'
     }
   }
   return {}
@@ -407,7 +407,7 @@ function confirmAddDevice() {
   color: #3a4458;
   font-weight: 600;
   border-bottom: 1px solid #141924;
-  min-height: 28px;
+  min-height: 18px;
 }
 .u-label:last-child { border-bottom: none; }
 
@@ -422,7 +422,7 @@ function confirmAddDevice() {
 /* U位 */
 .u-slot {
   flex: 1;
-  min-height: 28px;
+  min-height: 18px;
   background: #0c0f16;
   border: 1px solid #181d28;
   border-radius: 2px;
