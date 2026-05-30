@@ -151,6 +151,9 @@ function particleStyle(i: number) {
 .light-theme .card-body h3{color:#1f2328}
 .light-theme .card-body p{color:#656d76}
 .card-stat{position:relative;z-index:1;display:flex;align-items:baseline;gap:8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05)}
+.light-theme .card-stat{border-top:1px solid rgba(0,0,0,.06)}
+.light-theme .stat-label{color:#656d76}
+.light-theme .stat-sub{color:#8b949e}
 .stat-num{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";line-height:1;transition:transform .3s ease}
 .big-card:hover .stat-num{transform:scale(1.05)}
 .card-blue .stat-num{color:#79c0ff}
