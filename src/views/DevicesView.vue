@@ -92,6 +92,7 @@
                 @dragleave="onDragLeave"
                 @drop="onDrop(rack, index)"
               >
+                <div v-if="dragOverRackId === rack.id && dragOverIndex === index" class="drag-indicator"></div>
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
                   <div
@@ -1031,15 +1032,28 @@ function getUBadge(slot: SlotInfo, index: number): string {
 
 /* 拖拽状态 */
 .u-slot.drag-over {
-  background: rgba(74,240,192,0.15) !important;
-  border-color: #4af0c0 !important;
-  box-shadow: 0 0 12px rgba(74,240,192,0.3);
+  background: rgba(74,240,192,0.2) !important;
+  border: 2px dashed #4af0c0 !important;
+  box-shadow: 0 0 16px rgba(74,240,192,0.4), inset 0 0 8px rgba(74,240,192,0.1);
 }
-.u-slot.drag-over .empty-slot-icon { opacity: 1; color: #4af0c0; }
+.u-slot.drag-over .empty-slot-icon { opacity: 1; color: #4af0c0; font-size: 14px; font-weight: bold; }
+.u-slot.drag-over.device { background: rgba(74,240,192,0.15) !important; }
 
 /* 拖拽中的设备 */
 [draggable="true"] { cursor: grab; }
-[draggable="true"]:active { cursor: grabbing; }
+[draggable="true"]:active { cursor: grabbing; opacity: 0.8; }
+
+/* 拖拽提示线 */
+.drag-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #4af0c0;
+  box-shadow: 0 0 8px #4af0c0;
+  z-index: 10;
+  pointer-events: none;
+}
 
 /* 设备 */
 .u-slot.device {
