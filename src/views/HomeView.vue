@@ -157,6 +157,14 @@ function particleStyle(i: number) {
 .card-green .stat-num{color:#7ee787}
 .card-purple .stat-num{color:#bc8cff}
 .card-orange .stat-num{color:#e3b341}
+.light-theme .card-blue .stat-num{color:#0969da}
+.light-theme .card-green .stat-num{color:#1a7f37}
+.light-theme .card-purple .stat-num{color:#8250df}
+.light-theme .card-orange .stat-num{color:#9a6700}
+.light-theme .card-blue .card-icon-wrap{background:linear-gradient(135deg,rgba(9,105,218,.12),rgba(9,105,218,.04));color:#0969da;box-shadow:0 0 20px rgba(9,105,218,.08)}
+.light-theme .card-green .card-icon-wrap{background:linear-gradient(135deg,rgba(26,127,55,.12),rgba(26,127,55,.04));color:#1a7f37;box-shadow:0 0 20px rgba(26,127,55,.08)}
+.light-theme .card-purple .card-icon-wrap{background:linear-gradient(135deg,rgba(130,80,223,.12),rgba(130,80,223,.04));color:#8250df;box-shadow:0 0 20px rgba(130,80,223,.08)}
+.light-theme .card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
 .stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
 .stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .theme-toggle{position:fixed;bottom:32px;right:32px;width:52px;height:52px;border-radius:50%;background:rgba(13,17,23,.80);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .35s cubic-bezier(.25,.1,.25,1);z-index:1000;color:#8b949e}
