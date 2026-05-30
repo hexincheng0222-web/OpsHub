@@ -1,0 +1,77 @@
+<h2>悬浮效果对比</h2>
+<p class="subtitle">鼠标移到卡片上查看效果</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 24px; background: #0a0e14; min-height: 200px;">
+      <div class="demo-card-a" style="background: rgba(13,17,23,0.7); backdrop-filter: blur(24px); border: 1px solid rgba(88,166,255,0.15); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.25,0.1,0.25,1); cursor: pointer;">
+        <div style="position: absolute; inset: -1px; border-radius: inherit; background: linear-gradient(135deg, rgba(88,166,255,0.3), transparent 45%, rgba(88,166,255,0.06)); opacity: 0; transition: opacity 0.4s ease; pointer-events: none;" class="glow-a"></div>
+        <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.06)); display: flex; align-items: center; justify-content: center; color: #79c0ff; font-size: 24px; box-shadow: 0 0 20px rgba(88,166,255,0.1); margin-bottom: 16px;">🔗</div>
+        <div style="color: #e6edf3; font-weight: 700; font-size: 18px; margin-bottom: 6px;">内网服务</div>
+        <div style="color: #8b949e; font-size: 14px; line-height: 1.5;">管理所有内网部署服务，一键跳转访问</div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 16px; padding-top: 16px; display: flex; align-items: baseline; gap: 8px;">
+          <span style="color: #79c0ff; font-size: 32px; font-weight: 800;">8</span>
+          <span style="color: #8b949e; font-size: 13px;">个服务</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 微上浮 + 光晕扩散</h3>
+      <p>悬浮时卡片上移 4px，边框光晕向外扩散，图标轻微放大</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 24px; background: #0a0e14; min-height: 200px;">
+      <div class="demo-card-b" style="background: rgba(13,17,23,0.7); backdrop-filter: blur(24px); border: 1px solid rgba(88,166,255,0.15); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; cursor: pointer;">
+        <div class="spotlight-b" style="position: absolute; inset: 0; background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.04), transparent 40%); opacity: 0; transition: opacity 0.4s ease; pointer-events: none; z-index: 0;"></div>
+        <div style="position: relative; z-index: 1;">
+          <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, rgba(88,166,255,0.18), rgba(88,166,255,0.06)); display: flex; align-items: center; justify-content: center; color: #79c0ff; font-size: 24px; box-shadow: 0 0 20px rgba(88,166,255,0.1); margin-bottom: 16px;">🔗</div>
+          <div style="color: #e6edf3; font-weight: 700; font-size: 18px; margin-bottom: 6px;">内网服务</div>
+          <div style="color: #8b949e; font-size: 14px; line-height: 1.5;">管理所有内网部署服务，一键跳转访问</div>
+          <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 16px; padding-top: 16px; display: flex; align-items: baseline; gap: 8px;">
+            <span style="color: #79c0ff; font-size: 32px; font-weight: 800;">8</span>
+            <span style="color: #8b949e; font-size: 13px;">个服务</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 内部光斑跟踪</h3>
+      <p>鼠标移动时卡片内部有跟随的光点效果</p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.demo-card-a').forEach(card => {
+  card.addEventListener('mouseenter', () => {
+    card.style.transform = 'translateY(-4px)';
+    card.style.borderColor = 'rgba(88,166,255,0.35)';
+    card.style.boxShadow = '0 0 60px rgba(88,166,255,0.08), 0 0 120px rgba(88,166,255,0.04), 0 8px 32px rgba(0,0,0,0.5)';
+    card.querySelector('.glow-a').style.opacity = '1';
+    card.querySelector('.glow-a').nextElementSibling.style.transform = 'scale(1.08)';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'translateY(0)';
+    card.style.borderColor = 'rgba(88,166,255,0.15)';
+    card.style.boxShadow = 'none';
+    card.querySelector('.glow-a').style.opacity = '0';
+    card.querySelector('.glow-a').nextElementSibling.style.transform = 'scale(1)';
+  });
+});
+
+document.querySelectorAll('.demo-card-b').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    card.style.setProperty('--mouse-x', x + '%');
+    card.style.setProperty('--mouse-y', y + '%');
+    card.querySelector('.spotlight-b').style.opacity = '1';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.querySelector('.spotlight-b').style.opacity = '0';
+  });
+});
+</script>
