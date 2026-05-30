@@ -148,6 +148,8 @@ function particleStyle(i: number) {
 .card-body{position:relative;z-index:1}
 .card-body h3{font-size:16px;font-weight:700;color:#e6edf3;margin:0 0 5px 0;letter-spacing:.3px}
 .card-body p{font-size:13px;color:#8b949e;margin:0;line-height:1.55;letter-spacing:.2px}
+.light-theme .card-body h3{color:#1f2328}
+.light-theme .card-body p{color:#656d76}
 .card-stat{position:relative;z-index:1;display:flex;align-items:baseline;gap:8px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05)}
 .stat-num{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";line-height:1;transition:transform .3s ease}
 .big-card:hover .stat-num{transform:scale(1.05)}
