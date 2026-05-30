@@ -145,6 +145,37 @@
       <div class="legend-item"><div class="legend-color lc-pdu"></div>PDU</div>
     </div>
 
+    <!-- 统计概览 -->
+    <div class="stats-overview">
+      <h4 class="stats-title">统计概览</h4>
+      <div class="stats-grid">
+        <!-- 楼层使用率 -->
+        <div class="stats-card">
+          <div class="stats-card-title">楼层机柜使用率</div>
+          <div class="floor-stats">
+            <div v-for="floor in store.floors" :key="floor" class="floor-stat-row">
+              <span class="floor-stat-label">{{ floor }}</span>
+              <div class="floor-stat-bar">
+                <div class="floor-stat-fill" :style="{ width: getFloorUsagePercent(floor) + '%' }"></div>
+              </div>
+              <span class="floor-stat-value">{{ getFloorUsedU(floor) }}/{{ getFloorTotalU(floor) }}U</span>
+            </div>
+          </div>
+        </div>
+        <!-- 设备类型分布 -->
+        <div class="stats-card">
+          <div class="stats-card-title">设备类型分布</div>
+          <div class="type-stats">
+            <div v-for="item in deviceTypeStats" :key="item.type" class="type-stat-row">
+              <div class="type-stat-color" :class="'lc-' + item.type"></div>
+              <span class="type-stat-label">{{ item.label }}</span>
+              <span class="type-stat-count">{{ item.count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 编辑机柜名称弹窗 -->
     <el-dialog v-model="showEditRackDialog" title="编辑机柜名称" width="400px">
       <el-input v-model="editRackName" placeholder="请输入机柜名称" />
@@ -444,6 +475,45 @@ function getTypeTagType(type: string): string {
   return types[type] || 'info'
 }
 
+// 统计概览
+function getFloorUsedU(floor: string): number {
+  let used = 0
+  for (const rack of store.racks.filter(r => r.floor === floor)) {
+    for (const dev of rack.devices) {
+      if (dev !== null) used += dev.u
+    }
+  }
+  return used
+}
+
+function getFloorTotalU(floor: string): number {
+  return store.racks.filter(r => r.floor === floor).reduce((sum, r) => sum + r.totalU, 0)
+}
+
+function getFloorUsagePercent(floor: string): number {
+  const total = getFloorTotalU(floor)
+  if (total === 0) return 0
+  return Math.round((getFloorUsedU(floor) / total) * 100)
+}
+
+const deviceTypeStats = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const rack of store.racks) {
+    for (const dev of rack.devices) {
+      if (dev !== null) {
+        counts[dev.type] = (counts[dev.type] || 0) + 1
+      }
+    }
+  }
+  const labels: Record<string, string> = {
+    server: '服务器', switch: '交换机', storage: '存储',
+    router: '路由器', firewall: '防火墙', ups: 'UPS', pdu: 'PDU'
+  }
+  return Object.entries(counts)
+    .map(([type, count]) => ({ type, label: labels[type] || type, count }))
+    .sort((a, b) => b.count - a.count)
+})
+
 // 机柜管理
 function addRack() {
   const newRack: Rack = {
@@ -560,6 +630,111 @@ function saveRackName() {
 
 /* 设备高亮/暗淡 */
 .device-inner.dimmed { opacity: 0.3; }
+
+/* 统计概览 */
+.stats-overview {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #1e2433;
+}
+
+.stats-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #8b9bb4;
+  margin-bottom: 16px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.stats-card {
+  background: #141924;
+  border: 1px solid #2a3040;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.stats-card-title {
+  font-size: 12px;
+  color: #606878;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 楼层使用率 */
+.floor-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.floor-stat-row:last-child { margin-bottom: 0; }
+
+.floor-stat-label {
+  font-size: 11px;
+  color: #8b9bb4;
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.floor-stat-bar {
+  flex: 1;
+  height: 6px;
+  background: #0c0f16;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.floor-stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4af0c0, #2a7a5a);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.floor-stat-value {
+  font-size: 10px;
+  color: #606878;
+  font-family: 'Consolas', monospace;
+  width: 60px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 设备类型分布 */
+.type-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.type-stat-row:last-child { margin-bottom: 0; }
+
+.type-stat-color {
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.type-stat-label {
+  font-size: 12px;
+  color: #c0c8d4;
+  flex: 1;
+}
+
+.type-stat-count {
+  font-size: 12px;
+  color: #8b9bb4;
+  font-family: 'Consolas', monospace;
+  font-weight: 600;
+}
 
 /* 机柜容器 */
 .rack-wrapper {
