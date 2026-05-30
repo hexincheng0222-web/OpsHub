@@ -91,8 +91,9 @@
               >
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
                   <div class="device-inner" :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }">
-                    <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }" :style="{ '--led-color': getLedColor(slot.device!.type, slot.device!.status) }">
-                      <div v-for="l in Math.min(slot.device!.u * 2, 4)" :key="l" class="led"></div>
+                    <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
+                      <div class="led led-solid"></div>
+                      <div class="led led-blink"></div>
                     </div>
                     <span class="device-name">{{ slot.device!.name }}</span>
                     <span class="device-model">{{ slot.device!.model }}</span>
@@ -417,11 +418,6 @@ function getSlotStyle(slot: SlotInfo): Record<string, string> {
     }
   }
   return {}
-}
-
-function getLedColor(type: string, status?: string): string {
-  if (status === '停用') return '#2a3040'
-  return '#4af0c0'
 }
 
 function getUsedU(rack: Rack): number {
@@ -1046,13 +1042,24 @@ function saveRackName() {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--led-color);
-  box-shadow: 0 0 4px var(--led-color), 0 0 8px var(--led-color);
+  background: #4af0c0;
+  box-shadow: 0 0 4px #4af0c0, 0 0 8px #4af0c0;
+}
+
+.led-solid {
+  opacity: 1;
+}
+
+.led-blink {
   animation: led-blink 2s ease-in-out infinite;
 }
-.led:nth-child(2) { animation-delay: 0.3s; }
-.led:nth-child(3) { animation-delay: 0.6s; }
-.led:nth-child(4) { animation-delay: 0.9s; }
+
+.device-leds.led-off .led {
+  animation: none;
+  opacity: 0.15;
+  background: #2a3040;
+  box-shadow: none;
+}
 
 @keyframes led-blink {
   0%, 100% { opacity: 1; }
