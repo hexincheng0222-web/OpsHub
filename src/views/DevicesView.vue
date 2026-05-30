@@ -90,8 +90,8 @@
                 @click="onSlotClick(rack, index, slot)"
               >
                 <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
-                  <div class="device-inner" :class="{ dimmed: slot.hidden }">
-                    <div class="device-leds" :style="{ '--led-color': getLedColor(slot.device!.type) }">
+                  <div class="device-inner" :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }">
+                    <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }" :style="{ '--led-color': getLedColor(slot.device!.type, slot.device!.status) }">
                       <div v-for="l in Math.min(slot.device!.u * 2, 4)" :key="l" class="led"></div>
                     </div>
                     <span class="device-name">{{ slot.device!.name }}</span>
@@ -238,6 +238,13 @@
             <el-option label="产品部" value="产品部" />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态">
+          <el-radio-group v-model="deviceForm.status">
+            <el-radio value="正常">正常</el-radio>
+            <el-radio value="维修中">维修中</el-radio>
+            <el-radio value="停用">停用</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showAddDeviceDialog = false">取消</el-button>
@@ -283,7 +290,11 @@
 
             <div class="drawer-section">
               <div class="drawer-label">状态</div>
-              <div class="drawer-value">{{ selectedDevice.status }}</div>
+              <el-radio-group v-model="selectedDevice.status" @change="updateDeviceStatus">
+                <el-radio value="正常">正常</el-radio>
+                <el-radio value="维修中">维修中</el-radio>
+                <el-radio value="停用">停用</el-radio>
+              </el-radio-group>
             </div>
           </div>
           <div class="drawer-footer">
@@ -350,7 +361,8 @@ const deviceForm = reactive({
   model: '',
   u: 1,
   ports: 4,
-  dept: '技术部'
+  dept: '技术部',
+  status: '正常' as Device['status']
 })
 
 interface SlotInfo {
@@ -407,12 +419,9 @@ function getSlotStyle(slot: SlotInfo): Record<string, string> {
   return {}
 }
 
-function getLedColor(type: string): string {
-  const colors: Record<string, string> = {
-    server: '#4af0c0', switch: '#4af0c0', storage: '#a070ff',
-    router: '#ffb04a', firewall: '#ff4a4a', ups: '#e0d04a', pdu: '#7090ff'
-  }
-  return colors[type] || '#4af0c0'
+function getLedColor(type: string, status?: string): string {
+  if (status === '停用') return '#2a3040'
+  return '#4af0c0'
 }
 
 function getUsedU(rack: Rack): number {
@@ -434,6 +443,7 @@ function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
     deviceForm.u = 1
     deviceForm.ports = 4
     deviceForm.dept = '技术部'
+    deviceForm.status = '正常'
     showAddDeviceDialog.value = true
   } else if (slot.type === 'device' && slot.device) {
     openDeviceDrawer(rack.id, slot.device)
@@ -473,6 +483,11 @@ function deleteSelectedDevice() {
   store.deleteDevice(selectedDevice.value.id)
   drawerVisible.value = false
   selectedDevice.value = null
+}
+
+function updateDeviceStatus() {
+  if (!selectedDevice.value) return
+  store.updateDevice(selectedDevice.value.id, { status: selectedDevice.value.status })
 }
 
 function getTypeIcon(type: string): string {
@@ -662,6 +677,8 @@ function saveRackName() {
 
 /* 设备高亮/暗淡 */
 .device-inner.dimmed { opacity: 0.3; }
+.device-inner.disabled { opacity: 0.5; filter: grayscale(0.5); }
+.device-leds.led-off .led { animation: none; opacity: 0.2; box-shadow: none; }
 
 /* 统计概览 */
 .stats-overview {

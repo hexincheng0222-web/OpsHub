@@ -6,7 +6,7 @@ export interface Device {
   u: number
   ports: number
   dept: string
-  status: string
+  status: '正常' | '维修中' | '停用'
 }
 
 export interface Rack {
