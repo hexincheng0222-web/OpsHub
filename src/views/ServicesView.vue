@@ -599,7 +599,7 @@ function statusLabel(status: string) {
 /* 顶部行 */
 .svc-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 }
 
@@ -657,7 +657,7 @@ function statusLabel(status: string) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
