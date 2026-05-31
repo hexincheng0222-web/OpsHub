@@ -406,35 +406,38 @@ interface SlotInfo {
 }
 
 function getSlotData(rack: Rack): SlotInfo[] {
-  const slots: SlotInfo[] = []
-  let currentU = 0
+  const totalU = rack.totalU
 
+  // 先构建 occupied 映射，精确追踪每个 U 位的状态
+  const occupied: (Device | null)[] = new Array(totalU).fill(null)
+  let pos = 0
   for (const dev of rack.devices) {
     if (dev === null) {
-      const slot: SlotInfo = { type: 'empty' }
-      ;(slot as any)._uOffset = currentU
-      slots.push(slot)
-      currentU++
+      pos++
     } else {
-      const matches = matchesFilter(dev)
-      const slot: SlotInfo = {
-        type: 'device',
-        device: dev,
-        hidden: !matches,
-        uSize: dev.u
+      for (let k = 0; k < dev.u && pos + k < totalU; k++) {
+        occupied[pos + k] = dev
       }
-      ;(slot as any)._uOffset = currentU
-      slots.push(slot)
-      currentU += dev.u
+      pos += dev.u
     }
+    if (pos >= totalU) break
   }
 
-  // 补齐剩余空位
-  while (slots.length < rack.totalU) {
-    const slot: SlotInfo = { type: 'empty' }
-    ;(slot as any)._uOffset = currentU
-    slots.push(slot)
-    currentU++
+  // 根据 occupied 生成固定 42 个 slot
+  const slots: SlotInfo[] = []
+  let i = 0
+  while (i < totalU) {
+    const dev = occupied[i]
+    if (dev === null) {
+      slots.push({ type: 'empty' })
+      i++
+    } else {
+      // 跳过多U设备的后续位置
+      const uSize = dev.u
+      const matches = matchesFilter(dev)
+      slots.push({ type: 'device', device: dev, hidden: !matches, uSize })
+      i += uSize
+    }
   }
 
   return slots
