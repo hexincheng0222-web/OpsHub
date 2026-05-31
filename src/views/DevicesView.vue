@@ -82,13 +82,17 @@
                 class="u-slot"
                 :class="getSlotClass(slot)"
                 :style="getSlotStyle(slot)"
+                :data-u-offset="slot._uOffset"
                 @click="onSlotClick(rack, index, slot)"
               >
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
-                <template v-if="slot && slot.type !== 'empty' && slot.type !== 'occupied'">
+                <template v-if="slot && slot.type === 'device'">
                   <div
                     class="device-inner"
-                    :class="{ dimmed: slot.hidden, disabled: slot.device!.status === '停用' }"
+                    :class="{
+                      dimmed: slot.hidden,
+                      disabled: slot.device!.status === '停用'
+                    }"
                     @mousedown.stop="onMouseDown"
                   >
                     <div class="device-leds" :class="{ 'led-off': slot.device!.status === '停用' }">
@@ -395,29 +399,45 @@ const needsIp = computed(() => {
 })
 
 interface SlotInfo {
-  type: 'device' | 'empty' | 'occupied'
+  type: 'device' | 'empty'
   device?: Device
   hidden?: boolean
+  uSize?: number  // 设备占用的U数，仅首U位有值
 }
 
 function getSlotData(rack: Rack): SlotInfo[] {
-  const slots: SlotInfo[] = new Array(rack.totalU).fill(null).map(() => ({ type: 'empty' }))
-
-  // 设备从顶部(U42)开始放置
+  const slots: SlotInfo[] = []
   let currentU = 0
+
   for (const dev of rack.devices) {
     if (dev === null) {
+      const slot: SlotInfo = { type: 'empty' }
+      ;(slot as any)._uOffset = currentU
+      slots.push(slot)
       currentU++
     } else {
-      if (currentU < rack.totalU) {
-        const matches = matchesFilter(dev)
-        slots[currentU] = { type: 'device', device: dev, hidden: !matches }
+      const matches = matchesFilter(dev)
+      const slot: SlotInfo = {
+        type: 'device',
+        device: dev,
+        hidden: !matches,
+        uSize: dev.u
       }
+      ;(slot as any)._uOffset = currentU
+      slots.push(slot)
       currentU += dev.u
     }
   }
 
-  return slots // 顶部在前（索引0 = U42）
+  // 补齐剩余空位
+  while (slots.length < rack.totalU) {
+    const slot: SlotInfo = { type: 'empty' }
+    ;(slot as any)._uOffset = currentU
+    slots.push(slot)
+    currentU++
+  }
+
+  return slots
 }
 
 function matchesFilter(dev: Device): boolean {
@@ -438,10 +458,10 @@ function getSlotClass(slot: SlotInfo): string {
 }
 
 function getSlotStyle(slot: SlotInfo): Record<string, string> {
-  if (slot.type === 'device' && slot.device) {
+  if (slot.type === 'device' && slot.device && slot.uSize) {
     return {
-      flex: String(slot.device.u),
-      minHeight: (slot.device.u * 18) + 'px'
+      flex: String(slot.uSize),
+      minHeight: (slot.uSize * 18) + 'px'
     }
   }
   return {}
@@ -458,7 +478,8 @@ function getUsedU(rack: Rack): number {
 function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
   if (slot.type === 'empty') {
     pendingRackId.value = rack.id
-    pendingSlotIndex.value = index
+    // 使用 U 位 offset 而非 slot 数组索引
+    pendingSlotIndex.value = (slot as any)._uOffset
     // 重置表单
     deviceForm.name = ''
     deviceForm.type = 'server'
@@ -640,16 +661,21 @@ function onMouseDown(e: MouseEvent) {
   dragState.devId = slotData.device.id
   dragState.sourceEl = slotEl
 
+  // 给源设备 slot 添加 drag-source 类
+  slotEl.classList.add('drag-source')
+  dragState.startOffset = index
+
   // 注册拖拽时阻止文本选择
   document.addEventListener('selectstart', preventDragSelect)
 
-  slotEl.classList.add('drag-source')
-
+  // 创建 ghost：克隆当前 slot（已包含完整设备高度）
   const ghost = slotEl.cloneNode(true) as HTMLElement
   ghost.classList.add('ghost')
+  // ghost 尺寸跟随原 slot（已通过 flex: uSize 设置高度）
   ghost.style.width = slotEl.offsetWidth + 'px'
+  ghost.style.height = slotEl.offsetHeight + 'px'
   ghost.style.left = (e.clientX - slotEl.offsetWidth / 2) + 'px'
-  ghost.style.top = (e.clientY - 14) + 'px'
+  ghost.style.top = (e.clientY - slotEl.offsetHeight / 2) + 'px'
   document.body.appendChild(ghost)
   dragState.ghostEl = ghost
 
@@ -679,29 +705,27 @@ function onMouseMove(e: MouseEvent) {
   const targetRack = store.floorRacks.find(r => r.name === targetRackTitle)
   if (!targetRack) return
 
-  const slotsEl = targetSlot.closest('.u-slots')
-  if (!slotsEl) return
-  const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
-  const targetIndex = slotEls.indexOf(targetSlot)
-  if (targetIndex < 0) return
+  const targetUOffset = parseInt(targetSlot.dataset.uOffset || '-1')
+  if (targetUOffset < 0) return
 
   const device = findDevice(dragState.devId)
   if (!device) return
 
-  if (canPlaceAtOffset(targetRack, targetIndex, device.u, dragState.devId)) {
-    highlightDropZone(targetRack, targetIndex, device.u, true)
+  if (canPlaceAtOffset(targetRack, targetUOffset, device.u, dragState.devId)) {
+    highlightDropZone(targetRack, targetUOffset, device.u, true)
   } else {
     targetSlot.classList.add('drop-no')
   }
   dragState.currentHighlight = targetSlot
   dragState.targetRackId = targetRack.id
-  dragState.targetOffset = targetIndex
+  dragState.targetOffset = targetUOffset
 }
 
 // ---- 鼠标拖拽：mouseup ----
 function onMouseUp(_e: MouseEvent) {
   if (!dragState.active) return
 
+  // 清除源设备 slot 的 drag-source 类
   dragState.sourceEl?.classList.remove('drag-source')
   dragState.ghostEl?.remove()
 
@@ -781,7 +805,6 @@ function canPlaceAtOffset(targetRack: Rack, offset: number, uSize: number, exclu
 
 // 高亮多 U 设备的放置区域
 function highlightDropZone(rack: Rack, offset: number, uSize: number, ok: boolean) {
-  // 找到所有属于该机柜的 .u-slots 容器
   const rackEls = document.querySelectorAll('.rack-container')
   for (const rackEl of rackEls) {
     const titleEl = rackEl.querySelector('.rack-title')
@@ -789,8 +812,12 @@ function highlightDropZone(rack: Rack, offset: number, uSize: number, ok: boolea
       const slotsEl = rackEl.querySelector('.u-slots')
       if (!slotsEl) return
       const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
-      for (let i = offset; i < offset + uSize && i < slotEls.length; i++) {
-        slotEls[i].classList.add(ok ? 'drop-ok' : 'drop-no')
+      // 根据 U 位 offset 查找对应的 slot 元素
+      for (let u = offset; u < offset + uSize; u++) {
+        const slotEl = slotEls.find(el => parseInt((el as HTMLElement).dataset.uOffset || '-1') === u)
+        if (slotEl) {
+          slotEl.classList.add(ok ? 'drop-ok' : 'drop-no')
+        }
       }
       return
     }
@@ -926,20 +953,7 @@ function moveWithinRack(rack: Rack, device: Device, targetOffset: number) {
   }
 
   // 从 occupied 重建紧凑的 devices 数组
-  const newDevices: (Device | null)[] = []
-  let i = 0
-  while (i < totalU) {
-    const dev = occupied[i]
-    if (dev === null) {
-      newDevices.push(null)
-      i++
-    } else {
-      newDevices.push(dev)
-      i += dev.u
-    }
-  }
-
-  rack.devices = newDevices
+  rack.devices = buildCompact(occupied, totalU)
 }
 
 // 在机柜的指定 offset 位置插入设备（用于跨机柜）
@@ -969,20 +983,22 @@ function insertDeviceAtOffset(rack: Rack, offset: number, device: Device) {
   }
 
   // 从 occupied 重建紧凑的 devices 数组
-  const newDevices: (Device | null)[] = []
-  let i = 0
-  while (i < totalU) {
+  rack.devices = buildCompact(occupied, totalU)
+}
+
+function buildCompact(occupied: (Device | null)[], totalU: number): (Device | null)[] {
+  const result: (Device | null)[] = []
+  const seen = new Set<number>()
+  for (let i = 0; i < totalU; i++) {
     const dev = occupied[i]
     if (dev === null) {
-      newDevices.push(null)
-      i++
-    } else {
-      newDevices.push(dev)
-      i += dev.u
+      result.push(null)
+    } else if (!seen.has(dev.id)) {
+      seen.add(dev.id)
+      result.push(dev)
     }
   }
-
-  rack.devices = newDevices
+  return result
 }
 
 function clearHighlights() {

@@ -25,20 +25,75 @@ export const useDevicesStore = defineStore('devices', () => {
   function addDeviceToRack(rackId: string, uPosition: number, device: Device) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
-    // 直接在指定位置放入设备，getSlotData 会根据 device.u 自动跨越多个U位
-    rack.devices[uPosition] = device
+    const totalU = rack.totalU
+
+    // 构建 occupied 映射
+    const occupied: (Device | null)[] = new Array(totalU).fill(null)
+    let pos = 0
+    for (const dev of rack.devices) {
+      if (dev === null) { pos++ }
+      else {
+        for (let k = 0; k < dev.u && pos + k < totalU; k++) occupied[pos + k] = dev
+        pos += dev.u
+      }
+      if (pos >= totalU) break
+    }
+
+    // 检查目标区域
+    for (let k = 0; k < device.u; k++) {
+      if (uPosition + k >= totalU || occupied[uPosition + k] !== null) return
+    }
+
+    // 放置
+    for (let k = 0; k < device.u; k++) occupied[uPosition + k] = device
+
+    // 重建：只存设备，跳过多U设备的后续位置
+    rack.devices = buildCompactDevices(occupied, totalU)
+  }
+
+  function buildCompactDevices(occupied: (Device | null)[], totalU: number): (Device | null)[] {
+    const result: (Device | null)[] = []
+    const seen = new Set<number>()
+    for (let i = 0; i < totalU; i++) {
+      const dev = occupied[i]
+      if (dev === null) {
+        result.push(null)
+      } else if (!seen.has(dev.id)) {
+        seen.add(dev.id)
+        result.push(dev)
+      }
+      // 多U设备的后续位置不加入数组
+    }
+    return result
   }
 
   function removeDeviceFromRack(rackId: string, deviceId: number) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
-    const idx = rack.devices.findIndex(d => d !== null && d.id === deviceId)
-    if (idx === -1) return
-    const device = rack.devices[idx]!
-    // 清除设备和占用的 U 位
-    for (let k = 0; k < device.u; k++) {
-      if (idx + k < rack.totalU) rack.devices[idx + k] = null
+    const totalU = rack.totalU
+    const occupied: (Device | null)[] = new Array(totalU).fill(null)
+    let pos = 0
+    for (const dev of rack.devices) {
+      if (dev === null) { pos++ }
+      else {
+        for (let k = 0; k < dev.u && pos + k < totalU; k++) occupied[pos + k] = dev
+        pos += dev.u
+      }
+      if (pos >= totalU) break
     }
+
+    // 清除目标设备
+    for (let i = 0; i < totalU; i++) {
+      if (occupied[i] && occupied[i]!.id === deviceId) {
+        const uSize = occupied[i]!.u
+        for (let k = 0; k < uSize; k++) {
+          if (i + k < totalU) occupied[i + k] = null
+        }
+        break
+      }
+    }
+
+    rack.devices = buildCompactDevices(occupied, totalU)
   }
 
   function updateDevice(deviceId: number, data: Partial<Device>) {
