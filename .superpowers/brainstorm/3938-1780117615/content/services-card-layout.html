@@ -1,0 +1,160 @@
+<h2>服务卡片排版方案</h2>
+<p class="subtitle">以下是 4 种不同的卡片排版方式</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f6f8fa;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <!-- 当前方案 -->
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px; border-left: 4px solid #1a7f37;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px;">🔗</div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #1f2328; font-weight: 600; font-size: 13px;">Jenkins</span>
+                <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+              </div>
+              <div style="color: #656d76; font-size: 11px;">CI/CD 持续集成</div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #d0d7de; padding-top: 8px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: #f6f8fa; color: #656d76; font-size: 9px; padding: 2px 6px; border-radius: 4px;">DevOps</span>
+            <span style="color: #8b949e; font-size: 9px; font-family: monospace;">192.168.1.100:8080</span>
+          </div>
+        </div>
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px; border-left: 4px solid #1a7f37;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px;">📦</div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #1f2328; font-weight: 600; font-size: 13px;">GitLab</span>
+                <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+              </div>
+              <div style="color: #656d76; font-size: 11px;">代码仓库</div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #d0d7de; padding-top: 8px; display: flex; align-items: center; gap: 6px;">
+            <span style="background: #f6f8fa; color: #656d76; font-size: 9px; padding: 2px 6px; border-radius: 4px;">DevOps</span>
+            <span style="color: #8b949e; font-size: 9px; font-family: monospace;">192.168.1.101</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 当前方案（左侧色条）</h3>
+      <p>左侧 4px 状态色条 + 图标/名称/描述 + 底部元信息</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f6f8fa;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <!-- 顶部渐变条 -->
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #1a7f37, transparent);"></div>
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px; margin-bottom: 10px;">🔗</div>
+          <div style="color: #1f2328; font-weight: 600; font-size: 13px; margin-bottom: 4px;">Jenkins CI/CD</div>
+          <div style="color: #656d76; font-size: 11px; margin-bottom: 8px;">CI/CD 持续集成与持续部署平台</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+            <span style="color: #8b949e; font-size: 9px; font-family: monospace;">192.168.1.100:8080</span>
+          </div>
+        </div>
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #1a7f37, transparent);"></div>
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px; margin-bottom: 10px;">📦</div>
+          <div style="color: #1f2328; font-weight: 600; font-size: 13px; margin-bottom: 4px;">GitLab 代码仓库</div>
+          <div style="color: #656d76; font-size: 11px; margin-bottom: 8px;">内部代码托管与版本管理</div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+            <span style="color: #8b949e; font-size: 9px; font-family: monospace;">192.168.1.101</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 顶部渐变条</h3>
+      <p>顶部 3px 渐变色条 + 大图标 + 完整描述</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f6f8fa;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <!-- 横向列表 -->
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px; flex-shrink: 0;">🔗</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+              <span style="color: #1f2328; font-weight: 600; font-size: 12px;">Jenkins</span>
+              <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 8px; padding: 1px 4px; border-radius: 3px;">在线</span>
+            </div>
+            <div style="color: #656d76; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">CI/CD 持续集成与持续部署平台</div>
+            <div style="color: #8b949e; font-size: 9px; font-family: monospace; margin-top: 2px;">192.168.1.100:8080</div>
+          </div>
+          <div style="background: #0969da; color: #fff; font-size: 10px; padding: 6px 10px; border-radius: 6px; flex-shrink: 0; cursor: pointer;">访问</div>
+        </div>
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 18px; flex-shrink: 0;">📦</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+              <span style="color: #1f2328; font-weight: 600; font-size: 12px;">GitLab</span>
+              <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 8px; padding: 1px 4px; border-radius: 3px;">在线</span>
+            </div>
+            <div style="color: #656d76; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">内部代码托管与版本管理</div>
+            <div style="color: #8b949e; font-size: 9px; font-family: monospace; margin-top: 2px;">192.168.1.101</div>
+          </div>
+          <div style="background: #0969da; color: #fff; font-size: 10px; padding: 6px 10px; border-radius: 6px; flex-shrink: 0; cursor: pointer;">访问</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 紧凑列表</h3>
+      <p>单行紧凑布局，直接显示访问按钮</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f6f8fa;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <!-- 分类卡片 -->
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 16px;">🔗</div>
+              <div>
+                <div style="color: #1f2328; font-weight: 600; font-size: 12px;">Jenkins</div>
+                <div style="color: #656d76; font-size: 10px;">CI/CD 持续集成</div>
+              </div>
+            </div>
+            <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+          </div>
+          <div style="background: #f6f8fa; border-radius: 6px; padding: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="color: #8b949e; font-size: 10px; font-family: monospace;">192.168.1.100:8080</span>
+            <span style="color: #0969da; font-size: 10px; cursor: pointer;">访问 →</span>
+          </div>
+        </div>
+        <div style="background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(26,127,55,0.1); display: flex; align-items: center; justify-content: center; color: #1a7f37; font-size: 16px;">📦</div>
+              <div>
+                <div style="color: #1f2328; font-weight: 600; font-size: 12px;">GitLab</div>
+                <div style="color: #656d76; font-size: 10px;">代码仓库管理</div>
+              </div>
+            </div>
+            <span style="background: rgba(26,127,55,0.15); color: #1a7f37; font-size: 9px; padding: 2px 6px; border-radius: 4px;">在线</span>
+          </div>
+          <div style="background: #f6f8fa; border-radius: 6px; padding: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="color: #8b949e; font-size: 10px; font-family: monospace;">192.168.1.101</span>
+            <span style="color: #0969da; font-size: 10px; cursor: pointer;">访问 →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D. 双层卡片</h3>
+      <p>上层信息 + 下层地址/访问按钮，层次分明</p>
+    </div>
+  </div>
+</div>

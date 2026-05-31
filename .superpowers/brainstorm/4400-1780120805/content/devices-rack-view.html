@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设备信息 - 机柜视图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: #c0c8d4;
+    min-height: 100vh;
+  }
+  .page { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  .top-bar { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; padding: 16px 0; border-bottom: 1px solid #1e2433; }
+  .top-bar h3 { flex: 1; font-size: 18px; font-weight: 600; color: #e6edf3; }
+  .floor-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .floor-tab { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; background: #141924; border: 1px solid #2a3040; color: #8b9bb4; transition: all 0.2s; }
+  .floor-tab.active { background: rgba(88,166,255,0.15); border-color: rgba(88,166,255,0.3); color: #79c0ff; }
+  .floor-tab:hover { border-color: #3a4458; }
+  .rack-wrapper { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
+  .rack-container { display: flex; flex-direction: column; align-items: center; }
+  .rack-title { font-size: 15px; font-weight: 600; color: #8b9bb4; margin-bottom: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  .rack { width: 420px; background: linear-gradient(180deg, #141924 0%, #0f131a 100%); border: 1px solid #2a3040; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03); position: relative; }
+  .rack-top { height: 28px; background: linear-gradient(180deg, #1a1f2e 0%, #141924 100%); border-bottom: 1px solid #2a3040; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .rack-top .vent { width: 60px; height: 3px; background: #0d1017; border-radius: 2px; }
+  .rack-bottom { height: 24px; background: linear-gradient(0deg, #0d1017 0%, #141924 100%); border-top: 1px solid #2a3040; display: flex; align-items: center; justify-content: center; }
+  .rack-bottom .feet { width: 36px; height: 4px; background: #0a0d12; border-radius: 2px; box-shadow: 0 1px 0 rgba(255,255,255,0.04); }
+  .rack::before, .rack::after { content: ''; position: absolute; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #2a3040 0%, #1a1f2e 50%, #2a3040 100%); }
+  .rack::before { left: -1px; border-radius: 8px 0 0 8px; }
+  .rack::after { right: -1px; border-radius: 0 8px 8px 0; }
+  .rack-units { display: flex; }
+  .u-labels { width: 32px; display: flex; flex-direction: column; background: #0d1017; border-right: 1px solid #1e2433; }
+  .u-label { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #3a4458; font-weight: 600; border-bottom: 1px solid #141924; min-height: 28px; }
+  .u-label:last-child { border-bottom: none; }
+  .u-slots { flex: 1; display: flex; flex-direction: column; padding: 3px; gap: 1px; }
+  .u-slot { flex: 1; min-height: 28px; background: #0c0f16; border: 1px solid #181d28; border-radius: 2px; position: relative; transition: all 0.3s ease; cursor: pointer; }
+  .u-slot.empty { background: repeating-linear-gradient(90deg, #0c0f16 0px, #0c0f16 8px, #0a0d12 8px, #0a0d12 9px); }
+  .u-slot.empty:hover { background: repeating-linear-gradient(90deg, #10141c 0px, #10141c 8px, #0e1218 8px, #0e1218 9px); border-color: #2a3040; }
+  .u-slot.empty:hover::after { content: '+ 添加设备'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #4a5568; }
+  .u-slot.device { display: flex; align-items: center; border-radius: 3px; overflow: hidden; border: none; margin: -1px 0; }
+  .u-slot.device:hover { filter: brightness(1.15); z-index: 1; }
+  .device-server { background: linear-gradient(90deg, #1a3a5c 0%, #1e4470 50%, #1a3a5c 100%); border: 1px solid #2a5a8a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(42,90,138,0.2); }
+  .device-switch { background: linear-gradient(90deg, #1a4a3a 0%, #1e5a44 50%, #1a4a3a 100%); border: 1px solid #2a7a5a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(42,122,90,0.2); }
+  .device-storage { background: linear-gradient(90deg, #3a2a5c 0%, #443070 50%, #3a2a5c 100%); border: 1px solid #5a3a8a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(90,58,138,0.2); }
+  .device-router { background: linear-gradient(90deg, #5c3a1a 0%, #70441e 50%, #5c3a1a 100%); border: 1px solid #8a5a2a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(138,90,42,0.2); }
+  .device-firewall { background: linear-gradient(90deg, #5c1a1a 0%, #701e1e 50%, #5c1a1a 100%); border: 1px solid #8a2a2a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(138,42,42,0.2); }
+  .device-ups { background: linear-gradient(90deg, #3a3a1a 0%, #4a441e 50%, #3a3a1a 100%); border: 1px solid #6a6a2a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(106,106,42,0.2); }
+  .device-inner { width: 100%; height: 100%; display: flex; align-items: center; padding: 0 10px; gap: 8px; }
+  .device-leds { display: flex; flex-direction: column; gap: 3px; align-items: center; flex-shrink: 0; }
+  .led { width: 4px; height: 4px; border-radius: 50%; background: var(--led-color, #4af0c0); box-shadow: 0 0 4px var(--led-color, #4af0c0), 0 0 8px var(--led-color, #4af0c0); animation: led-blink 2s ease-in-out infinite; }
+  .led:nth-child(2) { animation-delay: 0.3s; }
+  .led:nth-child(3) { animation-delay: 0.6s; }
+  @keyframes led-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .device-name { font-size: 11px; font-weight: 600; color: #d0d8e8; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.5px; }
+  .device-model { font-size: 9px; color: #606878; flex-shrink: 0; font-family: 'Consolas', monospace; }
+  .device-ports { display: flex; gap: 2px; margin-left: auto; flex-shrink: 0; }
+  .port { width: 6px; height: 6px; background: #0a0d10; border: 1px solid #1e2430; border-radius: 1px; }
+  .port.active { background: #1a2a1a; border-color: #2a4a2a; box-shadow: inset 0 0 2px #4af0c0; }
+  .device-badge { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 8px; color: #3a4458; font-family: 'Consolas', monospace; background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 2px; }
+  .u-slot.device::before, .u-slot.device::after { content: ''; position: absolute; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; background: #2a3040; border-radius: 50%; box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); }
+  .u-slot.device::before { left: 4px; }
+  .u-slot.device::after { right: 4px; }
+  .stats { margin-top: 20px; display: flex; gap: 30px; justify-content: center; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 24px; font-weight: 700; font-family: 'Consolas', monospace; }
+  .stat-label { font-size: 10px; color: #4a5568; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .legend { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 420px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #606878; }
+  .legend-color { width: 14px; height: 10px; border-radius: 2px; }
+  .lc-server { background: #1a3a5c; border: 1px solid #2a5a8a; }
+  .lc-switch { background: #1a4a3a; border: 1px solid #2a7a5a; }
+  .lc-storage { background: #3a2a5c; border: 1px solid #5a3a8a; }
+  .lc-router { background: #5c3a1a; border: 1px solid #8a5a2a; }
+  .lc-firewall { background: #5c1a1a; border: 1px solid #8a2a2a; }
+  .lc-ups { background: #3a3a1a; border: 1px solid #6a6a2a; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top-bar">
+    <h3>设备信息</h3>
+    <button style="background: rgba(88,166,255,0.15); border: 1px solid rgba(88,166,255,0.3); color: #79c0ff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;">+ 添加机柜</button>
+  </div>
+
+  <div class="floor-tabs">
+    <div class="floor-tab active">1F 核心机房</div>
+    <div class="floor-tab">2F 办公区</div>
+    <div class="floor-tab">3F 开发区</div>
+  </div>
+
+  <div class="rack-wrapper">
+    <div class="rack-container">
+      <div class="rack-title">机柜 A — 核心机房</div>
+      <div class="rack">
+        <div class="rack-top">
+          <div class="vent"></div><div class="vent"></div><div class="vent"></div><div class="vent"></div><div class="vent"></div>
+        </div>
+        <div class="rack-units">
+          <div class="u-labels" id="labels-a"></div>
+          <div class="u-slots" id="slots-a"></div>
+        </div>
+        <div class="rack-bottom">
+          <div class="feet" style="margin-right:60px"></div>
+          <div class="feet" style="margin-left:60px"></div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-value" id="used-a" style="color:#4af0c0">0</div><div class="stat-label">已用 U</div></div>
+        <div class="stat"><div class="stat-value" id="free-a" style="color:#606878">0</div><div class="stat-label">空闲 U</div></div>
+        <div class="stat"><div class="stat-value" style="color:#8b9bb4">42</div><div class="stat-label">总 U 数</div></div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color lc-server"></div>服务器</div>
+        <div class="legend-item"><div class="legend-color lc-switch"></div>交换机</div>
+        <div class="legend-item"><div class="legend-color lc-storage"></div>存储</div>
+        <div class="legend-item"><div class="legend-color lc-router"></div>路由器</div>
+        <div class="legend-item"><div class="legend-color lc-firewall"></div>防火墙</div>
+        <div class="legend-item"><div class="legend-color lc-ups"></div>UPS</div>
+      </div>
+    </div>
+
+    <div class="rack-container">
+      <div class="rack-title">机柜 B — 网络机房</div>
+      <div class="rack">
+        <div class="rack-top">
+          <div class="vent"></div><div class="vent"></div><div class="vent"></div><div class="vent"></div><div class="vent"></div>
+        </div>
+        <div class="rack-units">
+          <div class="u-labels" id="labels-b"></div>
+          <div class="u-slots" id="slots-b"></div>
+        </div>
+        <div class="rack-bottom">
+          <div class="feet" style="margin-right:60px"></div>
+          <div class="feet" style="margin-left:60px"></div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-value" id="used-b" style="color:#4af0c0">0</div><div class="stat-label">已用 U</div></div>
+        <div class="stat"><div class="stat-value" id="free-b" style="color:#606878">0</div><div class="stat-label">空闲 U</div></div>
+        <div class="stat"><div class="stat-value" style="color:#8b9bb4">42</div><div class="stat-label">总 U 数</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const racks = {
+  a: {
+    totalU: 42,
+    devices: [
+      { type: 'pdu', name: 'PDU-A1', model: 'APC 3kW', u: 1, ports: 0 },
+      { type: 'pdu', name: 'PDU-A2', model: 'APC 3kW', u: 1, ports: 0 },
+      null,
+      { type: 'switch', name: 'Core-SW-01', model: 'S6730-H48X6C', u: 1, ports: 48 },
+      { type: 'switch', name: 'Core-SW-02', model: 'S6730-H48X6C', u: 1, ports: 48 },
+      null,
+      { type: 'server', name: 'ESXi-01', model: 'Dell R750', u: 2, ports: 4 },
+      { type: 'server', name: 'ESXi-02', model: 'Dell R750', u: 2, ports: 4 },
+      null, null,
+      { type: 'server', name: 'DB-Master', model: 'Dell R750xa', u: 2, ports: 4 },
+      { type: 'server', name: 'DB-Slave', model: 'Dell R750xa', u: 2, ports: 4 },
+      null,
+      { type: 'storage', name: 'SAN-01', model: 'OceanStor 5310', u: 3, ports: 8 },
+      { type: 'storage', name: 'SAN-02', model: 'OceanStor 5310', u: 3, ports: 8 },
+      null, null, null, null,
+      { type: 'server', name: 'App-01', model: 'Dell R650', u: 1, ports: 4 },
+      { type: 'server', name: 'App-02', model: 'Dell R650', u: 1, ports: 4 },
+      { type: 'server', name: 'App-03', model: 'Dell R650', u: 1, ports: 4 },
+      { type: 'server', name: 'App-04', model: 'Dell R650', u: 1, ports: 4 },
+      null, null,
+      { type: 'firewall', name: 'FW-01', model: 'FG-100F', u: 1, ports: 16 },
+      { type: 'firewall', name: 'FW-02', model: 'FG-100F', u: 1, ports: 16 },
+      null,
+      { type: 'router', name: 'Router-01', model: 'NE8000', u: 2, ports: 8 },
+      null, null, null, null, null, null, null,
+      { type: 'ups', name: 'UPS-A', model: 'SANTAK 20KVA', u: 3, ports: 0 },
+    ]
+  },
+  b: {
+    totalU: 42,
+    devices: [
+      { type: 'pdu', name: 'PDU-B1', model: 'APC 5kW', u: 1, ports: 0 },
+      { type: 'pdu', name: 'PDU-B2', model: 'APC 5kW', u: 1, ports: 0 },
+      null, null,
+      { type: 'router', name: 'Core-Router', model: 'NE40E', u: 2, ports: 16 },
+      null,
+      { type: 'switch', name: 'Agg-SW-01', model: 'S5735-L48P4X', u: 1, ports: 48 },
+      { type: 'switch', name: 'Agg-SW-02', model: 'S5735-L48P4X', u: 1, ports: 48 },
+      { type: 'switch', name: 'Agg-SW-03', model: 'S5735-L48P4X', u: 1, ports: 48 },
+      null, null,
+      { type: 'firewall', name: 'FW-DMZ', model: 'FG-200F', u: 1, ports: 16 },
+      { type: 'firewall', name: 'FW-INT', model: 'FG-200F', u: 1, ports: 16 },
+      null,
+      { type: 'switch', name: 'TOR-SW-01', model: 'S5735-L24P4X', u: 1, ports: 24 },
+      { type: 'switch', name: 'TOR-SW-02', model: 'S5735-L24P4X', u: 1, ports: 24 },
+      { type: 'switch', name: 'TOR-SW-03', model: 'S5735-L24P4X', u: 1, ports: 24 },
+      { type: 'switch', name: 'TOR-SW-04', model: 'S5735-L24P4X', u: 1, ports: 24 },
+      null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+      { type: 'ups', name: 'UPS-B', model: 'SANTAK 30KVA', u: 3, ports: 0 },
+    ]
+  }
+};
+
+const ledColors = { server: '#4af0c0', switch: '#4af0c0', storage: '#a070ff', router: '#ffb04a', firewall: '#ff4a4a', ups: '#e0d04a', pdu: '#7090ff' };
+
+function renderRack(id) {
+  const rack = racks[id];
+  const totalU = rack.totalU;
+  const labelsEl = document.getElementById('labels-' + id);
+  const slotsEl = document.getElementById('slots-' + id);
+  for (let i = totalU; i >= 1; i--) {
+    const label = document.createElement('div');
+    label.className = 'u-label';
+    label.textContent = i;
+    labelsEl.appendChild(label);
+  }
+  const slots = new Array(totalU).fill(null);
+  let idx = 0;
+  for (const dev of rack.devices) {
+    if (dev === null) { slots[idx] = 'empty'; idx++; }
+    else {
+      slots[idx] = dev;
+      for (let k = 1; k < dev.u; k++) { if (idx + k < totalU) slots[idx + k] = 'occupied'; }
+      idx += dev.u;
+    }
+  }
+  while (idx < totalU) { slots[idx] = 'empty'; idx++; }
+  let usedU = 0;
+  for (let i = 0; i < totalU; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'u-slot';
+    if (slots[i] === 'empty') {
+      slot.classList.add('empty');
+    } else if (slots[i] === 'occupied') {
+      slot.style.height = '0px'; slot.style.minHeight = '0px'; slot.style.border = 'none'; slot.style.background = 'transparent';
+    } else {
+      const dev = slots[i];
+      usedU += dev.u;
+      slot.classList.add('device', 'device-' + dev.type);
+      slot.style.flex = dev.u;
+      slot.style.minHeight = (dev.u * 28) + 'px';
+      const inner = document.createElement('div');
+      inner.className = 'device-inner';
+      const leds = document.createElement('div');
+      leds.className = 'device-leds';
+      leds.style.setProperty('--led-color', ledColors[dev.type] || '#4af0c0');
+      for (let l = 0; l < Math.min(dev.u * 2, 4); l++) {
+        const led = document.createElement('div');
+        led.className = 'led';
+        leds.appendChild(led);
+      }
+      inner.appendChild(leds);
+      const name = document.createElement('span');
+      name.className = 'device-name';
+      name.textContent = dev.name;
+      inner.appendChild(name);
+      const model = document.createElement('span');
+      model.className = 'device-model';
+      model.textContent = dev.model;
+      inner.appendChild(model);
+      if (dev.ports > 0) {
+        const portsEl = document.createElement('div');
+        portsEl.className = 'device-ports';
+        const portCount = Math.min(Math.floor(dev.ports / 8), 6);
+        for (let p = 0; p < portCount; p++) {
+          const port = document.createElement('div');
+          port.className = 'port' + (p < portCount * 0.6 ? ' active' : '');
+          portsEl.appendChild(port);
+        }
+        inner.appendChild(portsEl);
+      }
+      if (dev.u > 1) {
+        const badge = document.createElement('span');
+        badge.className = 'device-badge';
+        badge.textContent = dev.u + 'U';
+        slot.appendChild(badge);
+      }
+      slot.appendChild(inner);
+    }
+    slotsEl.appendChild(slot);
+  }
+  document.getElementById('used-' + id).textContent = usedU;
+  document.getElementById('free-' + id).textContent = totalU - usedU;
+}
+
+renderRack('a');
+renderRack('b');
+</script>
+</body>
+</html>

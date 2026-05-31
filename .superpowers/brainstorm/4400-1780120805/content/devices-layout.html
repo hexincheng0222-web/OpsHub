@@ -1,0 +1,123 @@
+<h2>设备信息页面布局方案</h2>
+<p class="subtitle">以下是 3 种不同的机柜管理布局方案</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #0a0e14;">
+      <div style="color: #e6edf3; font-weight: 700; font-size: 14px; margin-bottom: 12px;">设备信息</div>
+      <div style="display: flex; gap: 12px;">
+        <!-- 机柜 -->
+        <div style="flex: 1; background: rgba(13,17,23,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="color: #e6edf3; font-weight: 600; font-size: 12px;">机柜 A-01</span>
+            <span style="color: #6e7681; font-size: 10px;">1F</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: rgba(63,185,80,0.15); border: 1px solid rgba(63,185,80,0.3); border-radius: 4px; padding: 4px 8px; color: #7ee787; font-size: 10px; text-align: center;">U1-U2 Dell R740</div>
+            <div style="background: rgba(63,185,80,0.15); border: 1px solid rgba(63,185,80,0.3); border-radius: 4px; padding: 4px 8px; color: #7ee787; font-size: 10px; text-align: center;">U3-U4 HP DL380</div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #6e7681; font-size: 10px; text-align: center;">U5-U6 空闲</div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #6e7681; font-size: 10px; text-align: center;">U7-U8 空闲</div>
+          </div>
+        </div>
+        <!-- 机柜2 -->
+        <div style="flex: 1; background: rgba(13,17,23,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="color: #e6edf3; font-weight: 600; font-size: 12px;">机柜 A-02</span>
+            <span style="color: #6e7681; font-size: 10px;">1F</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: rgba(210,153,34,0.15); border: 1px solid rgba(210,153,34,0.3); border-radius: 4px; padding: 4px 8px; color: #e3b341; font-size: 10px; text-align: center;">U1-U2 Dell R640</div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #6e7681; font-size: 10px; text-align: center;">U3 空闲</div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #6e7681; font-size: 10px; text-align: center;">U4 空闲</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 并排机柜视图</h3>
+      <p>多个机柜并排显示，每个机柜内显示U位占用情况</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #0a0e14;">
+      <div style="color: #e6edf3; font-weight: 700; font-size: 14px; margin-bottom: 12px;">设备信息</div>
+      <!-- 楼层选择 -->
+      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+        <span style="background: rgba(88,166,255,0.2); color: #79c0ff; font-size: 10px; padding: 4px 10px; border-radius: 6px;">1F</span>
+        <span style="background: rgba(255,255,255,0.05); color: #8b949e; font-size: 10px; padding: 4px 10px; border-radius: 6px;">2F</span>
+        <span style="background: rgba(255,255,255,0.05); color: #8b949e; font-size: 10px; padding: 4px 10px; border-radius: 6px;">3F</span>
+      </div>
+      <!-- 机柜列表 -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="background: rgba(13,17,23,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(88,166,255,0.15); display: flex; align-items: center; justify-content: center; color: #79c0ff; font-size: 16px;">🗄️</div>
+          <div style="flex: 1;">
+            <div style="color: #e6edf3; font-weight: 600; font-size: 12px;">机柜 A-01</div>
+            <div style="color: #8b949e; font-size: 10px;">已用 4U / 8U</div>
+          </div>
+          <div style="width: 60px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+            <div style="width: 50%; height: 100%; background: #3fb950; border-radius: 3px;"></div>
+          </div>
+        </div>
+        <div style="background: rgba(13,17,23,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(88,166,255,0.15); display: flex; align-items: center; justify-content: center; color: #79c0ff; font-size: 16px;">🗄️</div>
+          <div style="flex: 1;">
+            <div style="color: #e6edf3; font-weight: 600; font-size: 12px;">机柜 A-02</div>
+            <div style="color: #8b949e; font-size: 10px;">已用 2U / 8U</div>
+          </div>
+          <div style="width: 60px; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+            <div style="width: 25%; height: 100%; background: #d29922; border-radius: 3px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 楼层分类 + 机柜列表</h3>
+      <p>按楼层筛选，机柜显示使用率进度条</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #0a0e14;">
+      <div style="color: #e6edf3; font-weight: 700; font-size: 14px; margin-bottom: 12px;">设备信息</div>
+      <!-- 机柜详情视图 -->
+      <div style="background: rgba(13,17,23,0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: #e6edf3; font-weight: 700; font-size: 14px;">机柜 A-01</span>
+            <span style="color: #6e7681; font-size: 10px;">1F</span>
+          </div>
+          <span style="background: rgba(63,185,80,0.2); color: #7ee787; font-size: 9px; padding: 3px 8px; border-radius: 4px;">4/8U 已用</span>
+        </div>
+        <!-- U位列表 -->
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(63,185,80,0.1); border-radius: 4px; padding: 6px 8px;">
+            <span style="color: #6e7681; font-size: 9px; font-family: monospace; width: 24px;">U1</span>
+            <span style="color: #7ee787; font-size: 10px; flex: 1;">Dell R740 线上服务器</span>
+            <span style="color: #6e7681; font-size: 9px;">2U</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(63,185,80,0.1); border-radius: 4px; padding: 6px 8px;">
+            <span style="color: #6e7681; font-size: 9px; font-family: monospace; width: 24px;">U3</span>
+            <span style="color: #7ee787; font-size: 10px; flex: 1;">HP DL380 数据库</span>
+            <span style="color: #6e7681; font-size: 9px;">2U</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 8px;">
+            <span style="color: #6e7681; font-size: 9px; font-family: monospace; width: 24px;">U5</span>
+            <span style="color: #6e7681; font-size: 10px; flex: 1;">空闲</span>
+            <span style="color: #8b949e; font-size: 9px; cursor: pointer;">+ 添加</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 8px;">
+            <span style="color: #6e7681; font-size: 9px; font-family: monospace; width: 24px;">U7</span>
+            <span style="color: #6e7681; font-size: 10px; flex: 1;">空闲</span>
+            <span style="color: #8b949e; font-size: 9px; cursor: pointer;">+ 添加</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 机柜详情视图</h3>
+      <p>点击机柜展开显示每个U位的详细信息</p>
+    </div>
+  </div>
+</div>

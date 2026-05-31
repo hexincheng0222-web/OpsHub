@@ -25,7 +25,7 @@ export const useServicesStore = defineStore('services', () => {
     // 先全部标为 checking
     services.value.forEach(s => { s.status = 'checking' })
 
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       services.value.map(async (svc) => {
         const result = await pingService(svc)
         svc.status = result

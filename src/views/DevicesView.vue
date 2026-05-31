@@ -399,16 +399,16 @@ const needsIp = computed(() => {
 })
 
 interface SlotInfo {
-  type: 'device' | 'empty'
+  type: 'device' | 'empty' | 'occupied'
   device?: Device
   hidden?: boolean
-  uSize?: number  // 设备占用的U数，仅首U位有值
+  uSize?: number  // 设备占用的U数
 }
 
 function getSlotData(rack: Rack): SlotInfo[] {
   const totalU = rack.totalU
 
-  // 构建 occupied 映射
+  // 构建 occupied 映射：每个 U 位对应哪个设备
   const occupied: (Device | null)[] = new Array(totalU).fill(null)
   let pos = 0
   for (const dev of rack.devices) {
@@ -423,7 +423,7 @@ function getSlotData(rack: Rack): SlotInfo[] {
     if (pos >= totalU) break
   }
 
-  // 每个 U 位一个 slot，多 U 设备只在首 U 位渲染（flex 跨越）
+  // 每个 U 位生成一个 slot，多 U 设备只在首 U 位渲染内容
   const slots: SlotInfo[] = []
   const renderedDevs = new Set<number>()
   for (let i = 0; i < totalU; i++) {
@@ -431,11 +431,14 @@ function getSlotData(rack: Rack): SlotInfo[] {
     if (dev === null) {
       slots.push({ type: 'empty' })
     } else if (!renderedDevs.has(dev.id)) {
+      // 首 U 位：渲染设备内容，grid-row 跨越
       renderedDevs.add(dev.id)
       const matches = matchesFilter(dev)
       slots.push({ type: 'device', device: dev, hidden: !matches, uSize: dev.u })
+    } else {
+      // 后续 U 位：占位 slot（不渲染内容，但占据 grid 行）
+      slots.push({ type: 'occupied' })
     }
-    // 多 U 设备的后续位：不推入任何 slot，flex 自动跨越
   }
 
   return slots
@@ -454,15 +457,14 @@ function matchesFilter(dev: Device): boolean {
 
 function getSlotClass(slot: SlotInfo): string {
   if (!slot || slot.type === 'empty') return 'empty'
+  if (slot.type === 'occupied') return 'occupied'
   if (slot.type === 'device' && slot.device) return `device device-${slot.device.type}`
   return ''
 }
 
 function getSlotStyle(slot: SlotInfo): Record<string, string> {
   if (slot.type === 'device' && slot.device && slot.uSize) {
-    return {
-      gridRow: 'span ' + slot.uSize
-    }
+    return { gridRow: 'span ' + slot.uSize }
   }
   return {}
 }
@@ -478,9 +480,7 @@ function getUsedU(rack: Rack): number {
 function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
   if (slot.type === 'empty') {
     pendingRackId.value = rack.id
-    // 使用 U 位 offset 而非 slot 数组索引
     pendingSlotIndex.value = index
-    // 重置表单
     deviceForm.name = ''
     deviceForm.type = 'server'
     deviceForm.model = ''
@@ -492,6 +492,7 @@ function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
   } else if (slot.type === 'device' && slot.device) {
     openDeviceDrawer(rack.id, slot.device)
   }
+  // occupied 类型：不处理点击
 }
 
 function confirmAddDevice() {
@@ -657,21 +658,19 @@ function onMouseDown(e: MouseEvent) {
 
   dragState.active = true
   dragState.rackId = rack.id
-  dragState.startOffset = index        // 从顶部起的偏移量
+  dragState.startOffset = index
   dragState.devId = slotData.device.id
   dragState.sourceEl = slotEl
 
   // 给源设备 slot 添加 drag-source 类
   slotEl.classList.add('drag-source')
-  dragState.startOffset = index
 
   // 注册拖拽时阻止文本选择
   document.addEventListener('selectstart', preventDragSelect)
 
-  // 创建 ghost：克隆当前 slot（已包含完整设备高度）
+  // 创建 ghost：克隆当前 slot（已通过 grid-row: span N 跨越）
   const ghost = slotEl.cloneNode(true) as HTMLElement
   ghost.classList.add('ghost')
-  // ghost 尺寸跟随原 slot（已通过 flex: uSize 设置高度）
   ghost.style.width = slotEl.offsetWidth + 'px'
   ghost.style.height = slotEl.offsetHeight + 'px'
   ghost.style.left = (e.clientX - slotEl.offsetWidth / 2) + 'px'
@@ -707,10 +706,8 @@ function onMouseMove(e: MouseEvent) {
 
   const targetUOffset = parseInt(targetSlot.dataset.uOffset || '-1')
   if (targetUOffset < 0) return
-
   const device = findDevice(dragState.devId)
   if (!device) return
-
   if (canPlaceAtOffset(targetRack, targetUOffset, device.u, dragState.devId)) {
     highlightDropZone(targetRack, targetUOffset, device.u, true)
   } else {
@@ -812,12 +809,9 @@ function highlightDropZone(rack: Rack, offset: number, uSize: number, ok: boolea
       const slotsEl = rackEl.querySelector('.u-slots')
       if (!slotsEl) return
       const slotEls = Array.from(slotsEl.children).filter(el => el.classList.contains('u-slot'))
-      // 根据 U 位 offset 查找对应的 slot 元素
-      for (let u = offset; u < offset + uSize; u++) {
-        const slotEl = slotEls.find(el => parseInt((el as HTMLElement).dataset.uOffset || '-1') === u)
-        if (slotEl) {
-          slotEl.classList.add(ok ? 'drop-ok' : 'drop-no')
-        }
+      // 现在 slots 数组长度 = totalU，直接用 U 位 offset 作为索引
+      for (let u = offset; u < offset + uSize && u < slotEls.length; u++) {
+        slotEls[u].classList.add(ok ? 'drop-ok' : 'drop-no')
       }
       return
     }
@@ -1377,6 +1371,15 @@ function getUBadge(slot: SlotInfo, index: number): string {
   transition: all 0.3s ease;
   cursor: pointer;
   box-sizing: border-box;
+}
+
+/* 多U设备的后续U位占位：完全透明，不显示任何内容 */
+.u-slot.occupied {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  pointer-events: none;
+  cursor: default;
 }
 
 .u-slot.empty {

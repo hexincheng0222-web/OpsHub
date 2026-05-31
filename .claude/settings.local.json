@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://api.github.com/search/repositories?q=RTK+claude+skills\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f\\\\\"{r['full_name']} - {r['description']}\\\\\"\\) for r in data.get\\('items',[]\\)[:5]]\")",
+      "Bash(npm run *)",
+      "Bash(bash .claude/skills/brainstorming/scripts/start-server.sh --project-dir \"C:/Users/何鑫城/Desktop/opsHub\")",
+      "Bash(xargs cat)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npx playwright *)",
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:5175/devices)",
+      "Bash(curl *、)"
+    ]
+  }
+}

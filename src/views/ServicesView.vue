@@ -397,11 +397,6 @@ function openEditDialog(row: Service) {
   }, 200)
 }
 
-function openDetailDialog(svc: Service) {
-  selectedService.value = svc
-  detailVisible.value = true
-}
-
 function openDrawer(svc: Service) {
   selectedService.value = svc
   drawerVisible.value = true
