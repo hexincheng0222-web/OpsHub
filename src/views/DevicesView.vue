@@ -1342,7 +1342,10 @@ function getUBadge(slot: SlotInfo, index: number): string {
 }
 
 /* U位列 */
-.rack-units { display: flex; }
+.rack-units {
+  display: flex;
+  /* 高度由 totalU * 18px 固定决定 */
+}
 
 .u-labels {
   width: 32px;
@@ -1350,10 +1353,13 @@ function getUBadge(slot: SlotInfo, index: number): string {
   flex-direction: column;
   background: #0d1017;
   border-right: 1px solid #1e2433;
+  flex-shrink: 0;
 }
 
 .u-label {
-  flex: 1;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1361,7 +1367,7 @@ function getUBadge(slot: SlotInfo, index: number): string {
   color: #3a4458;
   font-weight: 600;
   border-bottom: 1px solid #141924;
-  min-height: 18px;
+  box-sizing: border-box;
 }
 .u-label:last-child { border-bottom: none; }
 
