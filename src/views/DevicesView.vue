@@ -423,9 +423,7 @@ function getSlotData(rack: Rack): SlotInfo[] {
     if (pos >= totalU) break
   }
 
-  // 每个 U 位生成一个 slot
-  // 多 U 设备只在首 U 位生成 device slot（flex: uSize 自动跨越）
-  // 后续 U 位生成空 slot，但通过 CSS 让它们高度为 0
+  // 每个 U 位一个 slot，多 U 设备只在首 U 位渲染（flex 跨越）
   const slots: SlotInfo[] = []
   const renderedDevs = new Set<number>()
   for (let i = 0; i < totalU; i++) {
@@ -436,10 +434,8 @@ function getSlotData(rack: Rack): SlotInfo[] {
       renderedDevs.add(dev.id)
       const matches = matchesFilter(dev)
       slots.push({ type: 'device', device: dev, hidden: !matches, uSize: dev.u })
-    } else {
-      // 多 U 设备的后续 U 位：高度为 0，由 flex 设备跨越
-      slots.push({ type: 'empty', _collapsed: true } as any)
     }
+    // 多 U 设备的后续位：不推入任何 slot，flex 自动跨越
   }
 
   return slots
@@ -465,12 +461,9 @@ function getSlotClass(slot: SlotInfo): string {
 function getSlotStyle(slot: SlotInfo): Record<string, string> {
   if (slot.type === 'device' && slot.device && slot.uSize) {
     return {
-      minHeight: (slot.uSize * 18) + 'px',
-      maxHeight: (slot.uSize * 18) + 'px'
+      flex: String(slot.uSize),
+      minHeight: (slot.uSize * 18) + 'px'
     }
-  }
-  if ((slot as any)._collapsed) {
-    return { minHeight: '0', maxHeight: '0', overflow: 'hidden', border: 'none', padding: '0', margin: '0' }
   }
   return {}
 }
@@ -1357,9 +1350,7 @@ function getUBadge(slot: SlotInfo, index: number): string {
 }
 
 .u-label {
-  height: 18px;
-  min-height: 18px;
-  max-height: 18px;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1378,10 +1369,10 @@ function getUBadge(slot: SlotInfo, index: number): string {
   padding: 3px;
 }
 
-/* U位 - 固定每U 18px */
+/* U位 */
 .u-slot {
+  flex: 1;
   min-height: 18px;
-  max-height: 18px;
   background: #0c0f16;
   border: 1px solid #181d28;
   border-radius: 2px;
