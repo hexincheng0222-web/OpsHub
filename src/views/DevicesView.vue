@@ -465,13 +465,12 @@ function getSlotClass(slot: SlotInfo): string {
 function getSlotStyle(slot: SlotInfo): Record<string, string> {
   if (slot.type === 'device' && slot.device && slot.uSize) {
     return {
-      flex: String(slot.uSize),
-      minHeight: (slot.uSize * 18) + 'px'
+      minHeight: (slot.uSize * 18) + 'px',
+      maxHeight: (slot.uSize * 18) + 'px'
     }
   }
-  // 多 U 设备的后续 U 位：高度为 0
   if ((slot as any)._collapsed) {
-    return { flex: '0', height: '0', minHeight: '0', overflow: 'hidden', border: 'none', padding: '0', margin: '0' }
+    return { minHeight: '0', maxHeight: '0', overflow: 'hidden', border: 'none', padding: '0', margin: '0' }
   }
   return {}
 }
@@ -1371,19 +1370,19 @@ function getUBadge(slot: SlotInfo, index: number): string {
   display: flex;
   flex-direction: column;
   padding: 3px;
-  gap: 1px;
 }
 
-/* U位 */
+/* U位 - 固定每U 18px */
 .u-slot {
-  flex: 1;
   min-height: 18px;
+  max-height: 18px;
   background: #0c0f16;
   border: 1px solid #181d28;
   border-radius: 2px;
   position: relative;
   transition: all 0.3s ease;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .u-slot.empty {
