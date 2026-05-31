@@ -408,7 +408,7 @@ interface SlotInfo {
 function getSlotData(rack: Rack): SlotInfo[] {
   const totalU = rack.totalU
 
-  // 先构建 occupied 映射，精确追踪每个 U 位的状态
+  // 构建 occupied 映射
   const occupied: (Device | null)[] = new Array(totalU).fill(null)
   let pos = 0
   for (const dev of rack.devices) {
@@ -423,20 +423,22 @@ function getSlotData(rack: Rack): SlotInfo[] {
     if (pos >= totalU) break
   }
 
-  // 根据 occupied 生成固定 42 个 slot
+  // 每个 U 位生成一个 slot
+  // 多 U 设备只在首 U 位生成 device slot（flex: uSize 自动跨越）
+  // 后续 U 位生成空 slot，但通过 CSS 让它们高度为 0
   const slots: SlotInfo[] = []
-  let i = 0
-  while (i < totalU) {
+  const renderedDevs = new Set<number>()
+  for (let i = 0; i < totalU; i++) {
     const dev = occupied[i]
     if (dev === null) {
       slots.push({ type: 'empty' })
-      i++
-    } else {
-      // 跳过多U设备的后续位置
-      const uSize = dev.u
+    } else if (!renderedDevs.has(dev.id)) {
+      renderedDevs.add(dev.id)
       const matches = matchesFilter(dev)
-      slots.push({ type: 'device', device: dev, hidden: !matches, uSize })
-      i += uSize
+      slots.push({ type: 'device', device: dev, hidden: !matches, uSize: dev.u })
+    } else {
+      // 多 U 设备的后续 U 位：高度为 0，由 flex 设备跨越
+      slots.push({ type: 'empty', _collapsed: true } as any)
     }
   }
 
@@ -466,6 +468,10 @@ function getSlotStyle(slot: SlotInfo): Record<string, string> {
       flex: String(slot.uSize),
       minHeight: (slot.uSize * 18) + 'px'
     }
+  }
+  // 多 U 设备的后续 U 位：高度为 0
+  if ((slot as any)._collapsed) {
+    return { flex: '0', height: '0', minHeight: '0', overflow: 'hidden', border: 'none', padding: '0', margin: '0' }
   }
   return {}
 }
