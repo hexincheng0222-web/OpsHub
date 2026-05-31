@@ -82,7 +82,7 @@
                 class="u-slot"
                 :class="getSlotClass(slot)"
                 :style="getSlotStyle(slot)"
-                :data-u-offset="slot._uOffset"
+                :data-u-offset="index"
                 @click="onSlotClick(rack, index, slot)"
               >
                 <span v-if="slot.type === 'empty'" class="empty-slot-icon">+</span>
@@ -482,7 +482,7 @@ function onSlotClick(rack: Rack, index: number, slot: SlotInfo) {
   if (slot.type === 'empty') {
     pendingRackId.value = rack.id
     // 使用 U 位 offset 而非 slot 数组索引
-    pendingSlotIndex.value = (slot as any)._uOffset
+    pendingSlotIndex.value = index
     // 重置表单
     deviceForm.name = ''
     deviceForm.type = 'server'
