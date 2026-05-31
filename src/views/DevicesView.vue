@@ -1336,15 +1336,15 @@ function getUBadge(slot: SlotInfo, index: number): string {
 /* U位列 */
 .rack-units {
   display: grid;
+  grid-template-columns: 32px 1fr;
   grid-template-rows: repeat(42, 18px);
 }
 
 .u-labels {
   grid-column: 1;
-  display: flex;
-  flex-direction: column;
-  background: #0d1017;
-  border-right: 1px solid #1e2433;
+  grid-row: 1 / -1;
+  display: grid;
+  grid-template-rows: subgrid;
 }
 
 .u-label {
@@ -1361,14 +1361,15 @@ function getUBadge(slot: SlotInfo, index: number): string {
 
 .u-slots {
   grid-column: 2;
-  display: flex;
-  flex-direction: column;
+  grid-row: 1 / -1;
+  display: grid;
+  grid-template-rows: subgrid;
   padding: 3px;
 }
 
 /* U位 */
 .u-slot {
-  min-height: 18px;
+  min-height: 0;
   background: #0c0f16;
   border: 1px solid #181d28;
   border-radius: 2px;
