@@ -33,7 +33,7 @@ const gridStyle = computed(() => ({
         :rack-id="rack.id"
         :style="slot.type === 'device' && slot.uSize ? { gridRow: 'span ' + slot.uSize } : {}"
         @click="(s) => emit('slotClick', rack, index, s)"
-        @drag-start="(e, dev) => emit('dragStart', e, dev)"
+        @drag-start="(e, dev) => emit('dragStart', e, dev, rack.id)"
       />
     </div>
   </div>
