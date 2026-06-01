@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { mockRacks, FLOORS, type Rack, type Device } from '../mock/devices'
+import { mockRacks, FLOORS } from '../mock/devices'
+import type { Device, Rack } from '../mock/devices'
+import { buildOccupied, buildCompactDevices, canPlaceAt } from '../utils/rack-utils'
 
 export const useDevicesStore = defineStore('devices', () => {
   const racks = ref<Rack[]>([...mockRacks])
@@ -11,7 +13,9 @@ export const useDevicesStore = defineStore('devices', () => {
     racks.value.filter(r => r.floor === selectedFloor.value)
   )
 
-  function addRack(rack: Rack) { racks.value.push(rack) }
+  function addRack(rack: Rack) {
+    racks.value.push(rack)
+  }
 
   function deleteRack(rackId: string) {
     racks.value = racks.value.filter(r => r.id !== rackId)
@@ -25,83 +29,55 @@ export const useDevicesStore = defineStore('devices', () => {
   function addDeviceToRack(rackId: string, uPosition: number, device: Device) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
-    const totalU = rack.totalU
-
-    // 构建 occupied 映射
-    const occupied: (Device | null)[] = new Array(totalU).fill(null)
-    let pos = 0
-    for (const dev of rack.devices) {
-      if (dev === null) { pos++ }
-      else {
-        for (let k = 0; k < dev.u && pos + k < totalU; k++) occupied[pos + k] = dev
-        pos += dev.u
-      }
-      if (pos >= totalU) break
+    const occupied = buildOccupied(rack)
+    for (let i = uPosition; i < uPosition + device.u && i < rack.totalU; i++) {
+      if (occupied[i]) return
     }
-
-    // 检查目标区域
-    for (let k = 0; k < device.u; k++) {
-      if (uPosition + k >= totalU || occupied[uPosition + k] !== null) return
+    for (let i = uPosition; i < uPosition + device.u && i < rack.totalU; i++) {
+      occupied[i] = device
     }
-
-    // 放置
-    for (let k = 0; k < device.u; k++) occupied[uPosition + k] = device
-
-    // 重建：只存设备，跳过多U设备的后续位置
-    rack.devices = buildCompactDevices(occupied, totalU)
-  }
-
-  function buildCompactDevices(occupied: (Device | null)[], totalU: number): (Device | null)[] {
-    const result: (Device | null)[] = []
-    const seen = new Set<number>()
-    for (let i = 0; i < totalU; i++) {
-      const dev = occupied[i]
-      if (dev === null) {
-        result.push(null)
-      } else if (!seen.has(dev.id)) {
-        seen.add(dev.id)
-        result.push(dev)
-      }
-      // 多U设备的后续位置不加入数组
-    }
-    return result
+    rack.devices = buildCompactDevices(occupied, rack.totalU)
   }
 
   function removeDeviceFromRack(rackId: string, deviceId: number) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
-    const totalU = rack.totalU
-    const occupied: (Device | null)[] = new Array(totalU).fill(null)
-    let pos = 0
-    for (const dev of rack.devices) {
-      if (dev === null) { pos++ }
-      else {
-        for (let k = 0; k < dev.u && pos + k < totalU; k++) occupied[pos + k] = dev
-        pos += dev.u
-      }
-      if (pos >= totalU) break
-    }
-
-    // 清除目标设备
-    for (let i = 0; i < totalU; i++) {
-      if (occupied[i] && occupied[i]!.id === deviceId) {
-        const uSize = occupied[i]!.u
-        for (let k = 0; k < uSize; k++) {
-          if (i + k < totalU) occupied[i + k] = null
-        }
-        break
+    const occupied = buildOccupied(rack)
+    for (let i = 0; i < rack.totalU; i++) {
+      if (occupied[i]?.id === deviceId) {
+        occupied[i] = null
       }
     }
+    rack.devices = buildCompactDevices(occupied, rack.totalU)
+  }
 
-    rack.devices = buildCompactDevices(occupied, totalU)
+  function moveDevice(sourceRackId: string, targetRackId: string, targetOffset: number, deviceId: number) {
+    const sourceRack = racks.value.find(r => r.id === sourceRackId)
+    const targetRack = racks.value.find(r => r.id === targetRackId)
+    if (!sourceRack || !targetRack) return
+    const sourceOccupied = buildOccupied(sourceRack)
+    const device = sourceOccupied.find(d => d?.id === deviceId)
+    if (!device) return
+    if (!canPlaceAt(targetRack, targetOffset, device.u, deviceId)) return
+    removeDeviceFromRack(sourceRackId, deviceId)
+    if (sourceRackId === targetRackId) {
+      const newOccupied = buildOccupied(sourceRack)
+      for (let i = targetOffset; i < targetOffset + device.u; i++) {
+        newOccupied[i] = device
+      }
+      targetRack.devices = buildCompactDevices(newOccupied, targetRack.totalU)
+    } else {
+      addDeviceToRack(targetRackId, targetOffset, device)
+    }
   }
 
   function updateDevice(deviceId: number, data: Partial<Device>) {
     for (const rack of racks.value) {
-      const idx = rack.devices.findIndex(d => d !== null && d!.id === deviceId)
-      if (idx !== -1) {
-        rack.devices[idx] = { ...rack.devices[idx]!, ...data }
-        break
+      for (const dev of rack.devices) {
+        if (dev?.id === deviceId) {
+          Object.assign(dev, data)
+          return
+        }
       }
     }
   }
@@ -112,12 +88,11 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  // 统计
   const total = computed(() => {
     let count = 0
     for (const rack of racks.value) {
       for (const dev of rack.devices) {
-        if (dev !== null) count++
+        if (dev) count++
       }
     }
     return count
@@ -127,11 +102,16 @@ export const useDevicesStore = defineStore('devices', () => {
     let count = 0
     for (const rack of racks.value) {
       for (const dev of rack.devices) {
-        if (dev !== null && dev.status === '正常') count++
+        if (dev?.status === '正常') count++
       }
     }
     return count
   })
 
-  return { racks, floors, selectedFloor, floorRacks, addRack, deleteRack, updateRackName, addDeviceToRack, removeDeviceFromRack, updateDevice, deleteDevice, total, normalCount }
+  return {
+    racks, floors, selectedFloor, floorRacks,
+    addRack, deleteRack, updateRackName,
+    addDeviceToRack, removeDeviceFromRack, moveDevice,
+    updateDevice, deleteDevice, total, normalCount,
+  }
 })
