@@ -26,15 +26,16 @@ const gridStyle = computed(() => ({
       <div v-for="i in rack.totalU" :key="i" class="u-label">{{ rack.totalU - i + 1 }}</div>
     </div>
     <div class="ugrid-slots">
-      <USlot
-        v-for="(slot, index) in slots"
-        :key="rack.id + '-' + index"
-        :slot="slot"
-        :rack-id="rack.id"
-        :style="slot.type === 'device' && slot.uSize ? { gridRow: 'span ' + slot.uSize } : {}"
-        @click="(s) => emit('slotClick', rack, index, s)"
-        @drag-start="(e, dev) => emit('dragStart', e, dev, rack.id)"
-      />
+      <template v-for="(slot, index) in slots" :key="rack.id + '-' + index">
+        <USlot
+          v-if="!slot.hidden"
+          :slot="slot"
+          :rack-id="rack.id"
+          :style="slot.type === 'device' && slot.uSize ? { gridRow: 'span ' + slot.uSize } : {}"
+          @click="(s) => emit('slotClick', rack, index, s)"
+          @drag-start="(e, dev) => emit('dragStart', e, dev, rack.id)"
+        />
+      </template>
     </div>
   </div>
 </template>

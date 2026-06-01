@@ -54,7 +54,8 @@ export function buildSlotData(rack: Rack): SlotInfo[] {
       slots.push({ type: 'device', device: dev, uSize: dev.u, uOffset: i })
       seen.add(dev.id)
     } else {
-      slots.push({ type: 'occupied', uOffset: i })
+      // 多U设备的后续位：生成带 hidden 标记的 slot，不渲染 DOM
+      slots.push({ type: 'occupied', uOffset: i, hidden: true })
     }
   }
   return slots
