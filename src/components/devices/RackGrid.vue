@@ -40,8 +40,17 @@ const gridStyle = computed(() => ({
 </template>
 
 <style scoped>
-.rack-grid { display: grid; grid-template-columns: 32px 1fr; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+.rack-grid { display: grid; grid-template-columns: 32px 1fr; }
 .ugrid-labels { grid-column: 1; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; }
-.u-label { display: flex; align-items: center; justify-content: center; font-size: 9px; color: #555; border-right: 1px solid rgba(255,255,255,0.06); border-bottom: 1px dashed rgba(255,255,255,0.06); }
-.ugrid-slots { grid-column: 2; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; }
+.u-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #3a4458;
+  font-weight: 600;
+  border-bottom: 1px solid #141924;
+  box-sizing: border-box;
+}
+.ugrid-slots { grid-column: 2; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; padding: 3px; }
 </style>
