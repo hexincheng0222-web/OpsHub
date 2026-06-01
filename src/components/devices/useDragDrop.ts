@@ -85,9 +85,12 @@ export function useDragDrop(
 
   function highlightDropZone(rackId: string, offset: number, uSize: number, ok: boolean) {
     const slots = document.querySelectorAll('.u-slot[data-rack-id="' + rackId + '"]')
-    for (let i = offset; i < offset + uSize; i++) {
-      const slot = slots[i] as HTMLElement | undefined
-      if (slot) slot.classList.add(ok ? 'drop-ok' : 'drop-no')
+    const cls = ok ? 'drop-ok' : 'drop-no'
+    for (const slot of slots) {
+      const so = parseInt((slot as HTMLElement).dataset.uOffset || '-1', 10)
+      if (so >= offset && so < offset + uSize) {
+        slot.classList.add(cls)
+      }
     }
   }
 

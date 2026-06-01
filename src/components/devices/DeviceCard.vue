@@ -1,5 +1,6 @@
 <!-- src/components/devices/DeviceCard.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Device } from '../../mock/devices'
 
 const props = defineProps<{
@@ -12,112 +13,224 @@ defineEmits<{
   dragStart: [e: MouseEvent]
 }>()
 
-const isActive = props.device.status === '正常'
+const isActive = computed(() => props.device.status === '正常')
+
+const typeColor = computed(() => {
+  const map: Record<string, string> = {
+    server: '#2a6aaa', switch: '#2a7e5e', storage: '#5a42a2',
+    router: '#8a623c', firewall: '#9a3a3a', ups: '#6a6a2e', pdu: '#3a3a60',
+  }
+  return map[props.device.type] || '#2a6aaa'
+})
+
+const typeAbbr = computed(() => {
+  const map: Record<string, string> = {
+    server: 'SV', switch: 'SW', storage: 'ST',
+    router: 'RT', firewall: 'FW', ups: 'UP', pdu: 'PD',
+  }
+  return map[props.device.type] || '??'
+})
 </script>
 
 <template>
   <div
-    class="device-card"
-    :class="['device-' + device.type, { 'is-offline': !isActive }]"
+    class="dev-card"
+    :class="{ offline: !isActive }"
+    :style="{ '--tc': typeColor }"
     @click="$emit('click')"
     @mousedown.stop="$emit('dragStart', $event)"
   >
-    <div class="dc-inner">
-      <span class="dc-led" :class="{ active: isActive }" />
-      <span class="dc-name">{{ device.name }}</span>
-      <span v-if="!isActive" class="dc-offline-tag">停用</span>
-      <span class="dc-u-badge">{{ uLabel }}</span>
+    <!-- 左侧：类型标签 + 双LED -->
+    <div class="dev-left">
+      <span class="dev-type">{{ typeAbbr }}</span>
+      <div class="dev-leds">
+        <span class="dev-led dev-led-power" :class="{ on: isActive }" title="电源" />
+        <span class="dev-led dev-led-link" :class="{ on: isActive }" title="链路" />
+      </div>
     </div>
+
+    <!-- 中间：设备名 + 型号 + IP -->
+    <div class="dev-mid">
+      <span class="dev-name" :title="device.name">{{ device.name }}</span>
+      <span class="dev-sub">
+        <span class="dev-model">{{ device.model }}</span>
+        <span v-if="device.ip" class="dev-ip">{{ device.ip }}</span>
+      </span>
+    </div>
+
+    <!-- 右侧：U 位 -->
+    <span class="dev-u">{{ uLabel }}</span>
   </div>
 </template>
 
 <style scoped>
-.device-card {
+.dev-card {
   width: 100%;
-  padding: 4px 8px;
-  border-radius: 3px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px 1px 5px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 2px solid var(--tc);
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 30%, transparent 100%);
   cursor: grab;
   user-select: none;
   position: relative;
+  overflow: hidden;
+  transition: background 0.15s, box-shadow 0.15s;
 }
-.device-card.is-offline { opacity: 0.5; filter: grayscale(0.5); }
-.device-card:hover { filter: brightness(1.2); z-index: 1; box-shadow: 0 0 12px rgba(74,240,192,0.3); }
+.dev-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent 60%);
+  pointer-events: none;
+}
+.dev-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.3), transparent 60%);
+  pointer-events: none;
+}
+.dev-card:hover {
+  background: linear-gradient(90deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 30%, transparent 100%);
+  box-shadow: inset 0 0 12px rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.12);
+  border-left-color: var(--tc);
+}
+.dev-card.offline {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+.dev-card.offline:hover {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+}
 
-.dc-inner {
+/* 左侧区域 */
+.dev-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 类型缩写 */
+.dev-type {
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--tc);
+  background: rgba(0,0,0,0.35);
+  padding: 1px 3px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* LED 灯组 */
+.dev-leds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.dev-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #2a2a2a;
+  box-shadow: inset 0 0 2px rgba(0,0,0,0.6);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+/* 电源灯：常亮呼吸 */
+.dev-led-power.on {
+  background: #4af0c0;
+  box-shadow: 0 0 4px #4af0c0, 0 0 8px rgba(74,240,192,0.4);
+  animation: led-breathe 2.5s ease-in-out infinite;
+}
+/* 链路灯：快速闪烁 */
+.dev-led-link.on {
+  background: #ffaa00;
+  box-shadow: 0 0 4px #ffaa00, 0 0 8px rgba(255,170,0,0.4);
+  animation: led-blink 0.6s ease-in-out infinite;
+}
+
+/* 中间区域 */
+.dev-mid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* 设备名 */
+.dev-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: #edf2f8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+}
+
+/* 副行：型号 + IP */
+.dev-sub {
   display: flex;
   align-items: center;
   gap: 6px;
-  position: relative;
-  z-index: 1;
+  overflow: hidden;
 }
-.dc-led {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+.dev-model {
+  font-size: 8px;
+  color: rgba(255,255,255,0.45);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+.dev-ip {
+  font-size: 8px;
+  color: rgba(74,240,192,0.7);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  white-space: nowrap;
   flex-shrink: 0;
-  background: #2a3040;
-}
-.dc-led.active {
-  background: #4af0c0;
-  box-shadow: 0 0 6px rgba(74,240,192,0.6);
-  animation: led-pulse 2s infinite;
-}
-.dc-name {
-  color: #e6edf3;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-.dc-offline-tag {
-  color: #ff6b6b;
-  font-size: 8px;
-  margin-left: 2px;
-}
-.dc-u-badge {
-  color: #4a5568;
-  font-size: 8px;
-  margin-left: auto;
+  background: rgba(0,0,0,0.25);
+  padding: 0 3px;
+  border-radius: 2px;
 }
 
-/* 设备类型样式 - 恢复旧版渐变 */
-.device-server {
-  background: linear-gradient(90deg, #1a3a5c 0%, #1e4470 50%, #1a3a5c 100%);
-  border: 1px solid #2a5a8a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(42,90,138,0.2);
-}
-.device-switch {
-  background: linear-gradient(90deg, #1a4a3a 0%, #1e5a44 50%, #1a4a3a 100%);
-  border: 1px solid #2a7a5a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(42,122,90,0.2);
-}
-.device-storage {
-  background: linear-gradient(90deg, #3a2a5c 0%, #443070 50%, #3a2a5c 100%);
-  border: 1px solid #5a3a8a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(90,58,138,0.2);
-}
-.device-router {
-  background: linear-gradient(90deg, #5c3a1a 0%, #70441e 50%, #5c3a1a 100%);
-  border: 1px solid #8a5a2a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(138,90,42,0.2);
-}
-.device-firewall {
-  background: linear-gradient(90deg, #5c1a1a 0%, #701e1e 50%, #5c1a1a 100%);
-  border: 1px solid #8a2a2a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(138,42,42,0.2);
-}
-.device-ups {
-  background: linear-gradient(90deg, #3a3a1a 0%, #4a441e 50%, #3a3a1a 100%);
-  border: 1px solid #6a6a2a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(106,106,42,0.2);
-}
-.device-pdu {
-  background: linear-gradient(90deg, #1a2a2a 0%, #1e3a3a 50%, #1a2a2a 100%);
-  border: 1px solid #2a4a4a;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 8px rgba(42,74,74,0.2);
+/* 右侧 U 位 */
+.dev-u {
+  font-size: 8px;
+  color: rgba(255,255,255,0.5);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(0,0,0,0.35);
+  padding: 1px 5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1.2;
+  border: 1px solid rgba(255,255,255,0.04);
 }
 
-@keyframes led-pulse {
+@keyframes led-breathe {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  50% { opacity: 0.5; }
+}
+@keyframes led-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 </style>

@@ -1,0 +1,106 @@
+<h2>设计方案：机柜显示优化</h2>
+<p class="subtitle">基于方案 B（组件拆分），以下是具体设计</p>
+
+<div class="section">
+  <h3>一、组件拆分</h3>
+  <div class="mockup">
+    <div class="mockup-header">组件架构</div>
+    <div class="mockup-body" style="padding: 20px; background: #1a1a2e;">
+      <pre style="color: #e0e0e0; font-size: 13px; line-height: 1.8; font-family: 'Cascadia Code', monospace;">
+<span style="color: #60a5fa;">src/components/devices/</span>
+├── <span style="color: #4ade80;">RackCard.vue</span>        ← 机柜容器（头部 + U位网格 + 底座）
+├── <span style="color: #4ade80;">RackHeader.vue</span>      ← 机柜名称 + 楼层标签 + 统计信息
+├── <span style="color: #4ade80;">RackStats.vue</span>       ← 总U / 已用U / 设备数 / 利用率进度条
+├── <span style="color: #4ade80;">RackGrid.vue</span>        ← U位网格（动态行数 grid-template-rows）
+├── <span style="color: #4ade80;">USlot.vue</span>           ← 单个U位（空位 / 设备占位）
+├── <span style="color: #4ade80;">DeviceCard.vue</span>      ← 设备卡片（名称、IP、型号、状态LED、U标签）
+├── <span style="color: #4ade80;">DeviceForm.vue</span>      ← 新增/编辑设备表单
+└── <span style="color: #4ade80;">useDragDrop.ts</span>      ← 拖拽 composable（鼠标事件 + 放置逻辑）
+
+<span style="color: #888;">DevicesView.vue 只保留：楼层筛选 + 机柜列表渲染 + 统计面板</span>
+      </pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>二、机柜动态高度</h3>
+  <div class="mockup">
+    <div class="mockup-header">高度计算逻辑</div>
+    <div class="mockup-body" style="padding: 20px; background: #1a1a2e;">
+      <pre style="color: #e0e0e0; font-size: 13px; line-height: 1.8; font-family: 'Cascadia Code', monospace;">
+<span style="color: #fbbf24;">每个 U 位高度 = 20px（固定）</span>
+
+42U 机柜 → grid-template-rows: repeat(42, 20px) → 高度 840px
+24U 机柜 → grid-template-rows: repeat(24, 20px) → 高度 480px
+12U 机柜 → grid-template-rows: repeat(12, 20px) → 高度 240px
+
+<span style="color: #888;">U 编号：顶部 = 最大U值，底部 = U1（倒序排列）</span>
+      </pre>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>三、设备卡片</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">正常状态</div>
+      <div class="mockup-body" style="padding: 20px; background: #1a1a2e;">
+        <div style="background: linear-gradient(135deg, #1a3a5c, #1a2a4c); border-left: 3px solid #60a5fa; border-radius: 4px; padding: 6px 8px; max-width: 240px; cursor: grab;">
+          <div style="display: flex; align-items: center; margin-bottom: 3px;">
+            <span style="color: #4ade80; font-size: 6px; margin-right: 4px;">●</span>
+            <span style="color: #fff; font-weight: 600; font-size: 12px;">Web-01</span>
+            <span style="color: #666; font-size: 10px; margin-left: auto;">U42</span>
+          </div>
+          <div style="color: #888; font-size: 10px;">Dell R740 · 192.168.1.10</div>
+        </div>
+        <p style="color: #888; font-size: 11px; margin-top: 8px;">LED 绿色 = 正常，设备类型决定左边框颜色</p>
+      </div>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">停用状态</div>
+      <div class="mockup-body" style="padding: 20px; background: #1a1a2e;">
+        <div style="background: linear-gradient(135deg, #3a2a2e, #2a1a1e); border-left: 3px solid #ef4444; border-radius: 4px; padding: 6px 8px; max-width: 240px; opacity: 0.7;">
+          <div style="display: flex; align-items: center; margin-bottom: 3px;">
+            <span style="color: #ef4444; font-size: 6px; margin-right: 4px;">●</span>
+            <span style="color: #ccc; font-weight: 600; font-size: 12px; text-decoration: line-through;">UPS-01</span>
+            <span style="color: #ef4444; font-size: 9px; margin-left: 4px;">停用</span>
+            <span style="color: #666; font-size: 10px; margin-left: auto;">U34-36</span>
+          </div>
+          <div style="color: #888; font-size: 10px;">APC SRT3000 · 10.0.0.254</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>四、拖拽系统重写</h3>
+  <div class="mockup">
+    <div class="mockup-header">useDragDrop.ts 核心逻辑</div>
+    <div class="mockup-body" style="padding: 20px; background: #1a1a2e;">
+      <pre style="color: #e0e0e0; font-size: 13px; line-height: 1.8; font-family: 'Cascadia Code', monospace;">
+<span style="color: #f87171;">修复要点：</span>
+
+<span style="color: #fbbf24;">1. 选择器修复</span>
+   .rack-container → .rack-card
+   .rack-title → .rack-name
+
+<span style="color: #fbbf24;">2. data 属性</span>
+   每个 .u-slot 添加 data-rack-id 和 data-u-offset
+   通过 <span style="color: #4ade80;">el.dataset</span> 读取，不用 textContent
+
+<span style="color: #fbbf24;">3. 拖拽流程</span>
+   mousedown → 记录源设备 + 源机柜
+   mousemove → 计算目标U位，高亮放置区
+   mouseup   → 验证合法性 → 调用 store.moveDevice()
+
+<span style="color: #fbbf24;">4. 合法性检查</span>
+   目标 U 位必须空闲（无设备占用）
+   多U设备的起始位置 + U跨度不能越界
+   跨机柜移动时自动重建 compact 数组
+      </pre>
+    </div>
+  </div>
+</div>

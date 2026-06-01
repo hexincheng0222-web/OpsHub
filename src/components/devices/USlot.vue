@@ -14,18 +14,17 @@ const emit = defineEmits<{
   click: [slot: SlotInfo]
   dragStart: [e: MouseEvent, device: Device]
 }>()
-
-const uNumber = props.slot.uOffset + 1
 </script>
 
 <template>
   <div
     class="u-slot"
-    :class="[slot.type, slot.device ? 'device-' + slot.device.type : '']"
+    :class="[slot.type, slot.device ? 'dtype-' + slot.device.type : '']"
     :data-rack-id="rackId"
     :data-u-offset="slot.uOffset"
     @click="emit('click', slot)"
   >
+    <!-- 设备卡 -->
     <template v-if="slot.type === 'device' && slot.device">
       <DeviceCard
         :device="slot.device"
@@ -34,8 +33,8 @@ const uNumber = props.slot.uOffset + 1
         @drag-start="(e) => emit('dragStart', e, slot.device!)"
       />
     </template>
+    <!-- 空位 -->
     <template v-else-if="slot.type === 'empty'">
-      <span class="u-number">{{ uNumber }}</span>
       <span class="empty-plus">+</span>
     </template>
   </div>
@@ -44,31 +43,50 @@ const uNumber = props.slot.uOffset + 1
 <style scoped>
 .u-slot {
   min-height: 0;
-  background: #0c0f16;
-  border: 1px solid #181d28;
+  background: #0d1118;
+  border: 1px solid #1a1f2a;
   border-radius: 2px;
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   cursor: pointer;
   box-sizing: border-box;
   display: flex;
-  align-items: center;
-  padding: 0 4px;
+  align-items: stretch;
+  padding: 0;
 }
+/* 空位 - 细腻圆点纹理 */
 .u-slot.empty {
-  background: repeating-linear-gradient(90deg, #0c0f16 0px, #0c0f16 8px, #0a0d12 8px, #0a0d12 9px);
+  background-color: #0d1118;
+  background-image: radial-gradient(circle, #1e2533 0.6px, transparent 0.6px);
+  background-size: 4px 4px;
+  background-position: 2px 2px;
 }
 .u-slot.empty:hover {
-  background: repeating-linear-gradient(90deg, #10141c 0px, #10141c 8px, #0e1218 8px, #0e1218 9px);
-  border-color: #3a4458;
+  background-color: #141c28;
+  background-image: radial-gradient(circle, #2a3a50 0.6px, transparent 0.6px);
+  border-color: #3a4a60;
+  box-shadow: inset 0 0 12px rgba(88,166,255,0.08);
 }
 .u-slot.empty:hover .empty-plus { opacity: 1; }
-.u-number { color: #3a4458; font-size: 9px; width: 20px; text-align: center; font-weight: 600; }
-.empty-plus { color: #4a5568; font-size: 12px; opacity: 0; transition: opacity 0.2s; }
+
+.empty-plus {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a5a6a;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+/* 设备槽 */
 .u-slot.device {
   border: none;
   border-radius: 3px;
-  overflow: hidden;
+  overflow: visible;
 }
-.u-slot.device:hover { filter: brightness(1.2); z-index: 1; box-shadow: 0 0 12px rgba(74,240,192,0.3); }
 </style>

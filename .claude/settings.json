@@ -1,0 +1,6 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash C:/Users/何鑫城/Desktop/OpsHub/.claude/statusline-command.sh"
+  }
+}

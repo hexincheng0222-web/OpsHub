@@ -289,7 +289,26 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
           <div class="df-body">
             <label class="df-field"><span class="df-label">机柜名称</span><input v-model="newRackForm.name" class="df-input" placeholder="如 A区-01号"></label>
             <div class="df-row">
-              <label class="df-field" style="flex:1"><span class="df-label">U 位数</span><input v-model.number="newRackForm.totalU" type="number" min="1" max="48" class="df-input"></label>
+              <label class="df-field" style="flex:1">
+                <span class="df-label">U 位数</span>
+                <div class="df-radio-group">
+                  <label class="df-radio-card" :class="{ active: newRackForm.totalU === 42 }">
+                    <input type="radio" v-model.number="newRackForm.totalU" :value="42" />
+                    <span class="df-radio-num">42U</span>
+                    <span class="df-radio-tag">标准</span>
+                  </label>
+                  <label class="df-radio-card" :class="{ active: newRackForm.totalU === 24 }">
+                    <input type="radio" v-model.number="newRackForm.totalU" :value="24" />
+                    <span class="df-radio-num">24U</span>
+                    <span class="df-radio-tag">中型</span>
+                  </label>
+                  <label class="df-radio-card" :class="{ active: newRackForm.totalU === 12 }">
+                    <input type="radio" v-model.number="newRackForm.totalU" :value="12" />
+                    <span class="df-radio-num">12U</span>
+                    <span class="df-radio-tag">小型</span>
+                  </label>
+                </div>
+              </label>
               <label class="df-field" style="flex:1"><span class="df-label">楼层</span><select v-model="newRackForm.floor" class="df-input"><option v-for="f in store.floors" :key="f" :value="f">{{ f }}</option></select></label>
             </div>
           </div>
@@ -359,14 +378,14 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 
 <style scoped>
 /* --- Page Layout --- */
-.devices-page { max-width: 1400px; margin: 0 auto; padding: 20px; min-height: 100vh; background: #0a0e17; }
-.page-header { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; padding: 16px 0; border-bottom: 1px solid #1e2433; }
-.back-btn { background: none; border: none; color: #8b9bb4; cursor: pointer; font-size: 13px; transition: color 0.2s; }
-.back-btn:hover { color: #79c0ff; }
-.header-divider { width: 1px; height: 20px; background: #2a3040; }
-.page-title { font-size: 18px; color: #e6edf3; margin: 0; font-weight: 600; }
-.add-rack-btn { background: rgba(88,166,255,0.15); color: #79c0ff; border: 1px solid rgba(88,166,255,0.3); padding: 6px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-.add-rack-btn:hover { background: rgba(88,166,255,0.25); }
+.devices-page { max-width: 1500px; margin: 0 auto; padding: 24px; min-height: 100vh; background: #080b11; }
+.page-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding: 14px 0; border-bottom: 1px solid #1a2230; }
+.back-btn { background: none; border: 1px solid transparent; color: #6a7888; cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 6px; transition: all 0.15s; font-family: inherit; }
+.back-btn:hover { color: #79c0ff; background: rgba(88,166,255,0.06); border-color: rgba(88,166,255,0.15); }
+.header-divider { width: 1px; height: 18px; background: #222a38; }
+.page-title { font-size: 18px; color: #d8dfe8; margin: 0; font-weight: 700; letter-spacing: -0.3px; }
+.add-rack-btn { background: rgba(88,166,255,0.08); color: #79c0ff; border: 1px solid rgba(88,166,255,0.2); padding: 7px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.15s; font-family: inherit; }
+.add-rack-btn:hover { background: rgba(88,166,255,0.15); border-color: rgba(88,166,255,0.35); }
 
 /* --- KPI --- */
 .kpi-bar { display: flex; gap: 12px; margin-bottom: 16px; }
@@ -390,7 +409,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .filter-count { font-size: 11px; color: #606878; white-space: nowrap; }
 
 /* --- Rack Area --- */
-.rack-area { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; margin-bottom: 24px; }
+.rack-area { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; align-items: flex-start; margin-bottom: 24px; }
 
 /* --- Stats --- */
 .stats-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid #1e2433; }
@@ -430,6 +449,32 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .df-btn-danger { background: rgba(220,50,50,0.15); color: #ff6b6b; border: 1px solid rgba(220,50,50,0.3); }
 .df-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #1e2433; color: #606878; }
 .df-radio { font-size: 12px; color: #8b9bb4; display: flex; align-items: center; gap: 4px; }
+
+/* U 位数单选框组 */
+.df-radio-group { display: flex; gap: 6px; }
+.df-radio-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  border: 1px solid #2a3040;
+  background: #0d1117;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.df-radio-card input { display: none; }
+.df-radio-card:hover { border-color: #3a4a60; background: #141c28; }
+.df-radio-card.active {
+  border-color: rgba(88,166,255,0.4);
+  background: rgba(88,166,255,0.08);
+  box-shadow: 0 0 8px rgba(88,166,255,0.1);
+}
+.df-radio-num { font-size: 14px; font-weight: 700; color: #e6edf3; }
+.df-radio-tag { font-size: 9px; color: #606878; }
 
 /* --- Drawer --- */
 .drawer-overlay { position: fixed; inset: 0; z-index: 999; background: rgba(0,0,0,0.4); }

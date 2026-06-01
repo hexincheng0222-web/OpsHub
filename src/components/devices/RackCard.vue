@@ -1,12 +1,13 @@
 <!-- src/components/devices/RackCard.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Rack, Device } from '../../mock/devices'
 import type { SlotInfo } from '../../utils/rack-utils'
 import RackHeader from './RackHeader.vue'
 import RackStats from './RackStats.vue'
 import RackGrid from './RackGrid.vue'
 
-defineProps<{ rack: Rack }>()
+const props = defineProps<{ rack: Rack }>()
 
 defineEmits<{
   editRack: [rack: Rack]
@@ -14,6 +15,8 @@ defineEmits<{
   slotClick: [rack: Rack, index: number, slot: SlotInfo]
   dragStart: [e: MouseEvent, device: Device, rackId: string]
 }>()
+
+const ventCount = computed(() => Math.max(4, Math.floor(props.rack.totalU / 4)))
 </script>
 
 <template>
@@ -21,49 +24,38 @@ defineEmits<{
     <RackHeader :name="rack.name" :floor="rack.floor" @edit="$emit('editRack', rack)" @delete="$emit('deleteRack', rack.id)" />
     <RackStats :rack="rack" />
     <div class="rack-body">
+      <div class="rack-top-panel">
+        <div class="rtp-vent" v-for="i in ventCount" :key="i" />
+      </div>
       <RackGrid :rack="rack" @slot-click="(r, i, s) => $emit('slotClick', r, i, s)" @drag-start="(e, dev) => $emit('dragStart', e, dev, rack.id)" />
     </div>
-    <div class="rack-base"><div class="rack-foot" /><div class="rack-foot" /></div>
+    <div class="rack-bottom">
+      <div class="rack-foot" />
+      <div class="rack-foot" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .rack-card {
-  width: 340px;
-  background: linear-gradient(180deg, #141924 0%, #0f131a 100%);
-  border: 1px solid #2a3040;
-  border-radius: 8px;
+  width: 360px;
+  background: #0e131c;
+  border: 2px solid #1e2736;
+  border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
-  position: relative;
-  padding: 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
-.rack-card::before, .rack-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, #2a3040 0%, #1a1f2e 50%, #2a3040 100%);
-  z-index: 1;
-}
-.rack-card::before { left: -1px; border-radius: 8px 0 0 8px; }
-.rack-card::after { right: -1px; border-radius: 0 8px 8px 0; }
 .rack-body { padding: 0; }
-.rack-base {
-  height: 24px;
-  background: linear-gradient(0deg, #0d1017 0%, #141924 100%);
-  border-top: 1px solid #2a3040;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 120px;
+.rack-top-panel {
+  height: 14px; background: #151d2a;
+  border-bottom: 1px solid #1e2736;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.rack-foot {
-  width: 36px;
-  height: 4px;
-  background: #0a0d12;
-  border-radius: 2px;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+.rtp-vent { width: 30px; height: 2px; background: #0a0e14; border-radius: 1px; }
+.rack-bottom {
+  height: 14px; background: #0c1016;
+  border-top: 1px solid #1e2736;
+  display: flex; align-items: center; justify-content: center; gap: 140px;
 }
+.rack-foot { width: 36px; height: 3px; background: #080a0f; border-radius: 2px; }
 </style>

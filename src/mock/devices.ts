@@ -84,15 +84,11 @@ export const mockRacks: Rack[] = [
     id: 'rack-a2',
     name: '机柜 A',
     floor: '1F',
-    totalU: 42,
+    totalU: 12,
     devices: [
       { id: 31, name: 'Web-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, dept: '技术部', status: '正常' },
+      null,
       { id: 32, name: 'Web-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, dept: '技术部', status: '正常' },
-      { id: 33, name: 'Web-03', type: 'server', model: 'Dell R650', u: 1, ports: 4, dept: '技术部', status: '正常' },
-      null, null,
-      { id: 34, name: 'API-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, dept: '技术部', status: '正常' },
-      { id: 35, name: 'API-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, dept: '技术部', status: '正常' },
-      null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
     ]
   },
   {

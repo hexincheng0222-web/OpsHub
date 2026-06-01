@@ -28,6 +28,54 @@
   --el-border-color-light: #2d333b;
   --el-fill-color-blank: #12161e;
   --el-fill-color-light: #161b24;
+
+  /* DevicesView 深色变量 */
+  --dv-page-bg: #0a0e17;
+  --dv-kpi-bg: #0f131a;
+  --dv-kpi-border: #1e2433;
+  --dv-kpi-hover-border: #2a3a50;
+  --dv-header-border: #1e2433;
+  --dv-header-divider: #2a3040;
+  --dv-rack-bg: #0f131a;
+  --dv-rack-border: #1e2433;
+  --dv-rack-header-bg: #161c28;
+  --dv-rack-frame: #1a1f2a;
+  --dv-rack-inner-bg: #0a0d12;
+  --dv-rack-slot-bg: #0c0f16;
+  --dv-rack-slot-border: #181d28;
+  --dv-u-label: #3a4458;
+  --dv-u-label-line: #141924;
+  --dv-empty-dot: #2a3040;
+  --dv-vent-bg: #0a0d12;
+  --dv-foot-bg: #0a0d12;
+  /* 文字 - 浅色背景上使用 */
+  --dv-light-text: #e6edf3;
+  --dv-light-sub: #c8d0e0;
+  --dv-light-muted: #8b9bb4;
+  --dv-light-dim: #6e7a8a;
+  --dv-light-faint: #5a6578;
+  /* 文字 - 深色背景（机柜）上使用 */
+  --dv-dark-text: #e6edf3;
+  --dv-dark-sub: #d0d8e8;
+  --dv-dark-muted: #8b9bb4;
+  --dv-dark-dim: #6e7a8a;
+  --dv-dark-faint: #5a6578;
+  --dv-accent-green: #4af0c0;
+  --dv-accent-green-dim: #2a7a5a;
+  --dv-accent-blue: #58a6ff;
+  --dv-accent-blue-glow: #79c0ff;
+  --dv-accent-red: #f85149;
+  --dv-accent-red-dim: #ff6b6b;
+  --dv-accent-purple: #a371f7;
+  --dv-accent-orange: #d29922;
+  --dv-stat-card-bg: #0f131a;
+  --dv-stat-card-border: #1e2433;
+  --dv-bar-track: #0c0f16;
+  --dv-device-glow: rgba(74,240,192,0.3);
+  --dv-device-glow-ok: rgba(74,240,192,0.2);
+  --dv-device-glow-no: rgba(255,80,80,0.15);
+  --dv-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --dv-shadow-hover: 0 8px 40px rgba(0,0,0,0.45);
 }
 
 /* 浅色主题 */
@@ -60,4 +108,52 @@
   --el-border-color-light: #e0e4e8;
   --el-fill-color-blank: #ffffff;
   --el-fill-color-light: #f0f2f5;
+
+  /* DevicesView 浅色变量 */
+  --dv-page-bg: #f2f3f5;
+  --dv-kpi-bg: #ffffff;
+  --dv-kpi-border: #e0e3e8;
+  --dv-kpi-hover-border: #0969da;
+  --dv-header-border: #d0d4db;
+  --dv-header-divider: #d0d4db;
+  --dv-rack-bg: #454b52;
+  --dv-rack-border: #353a40;
+  --dv-rack-header-bg: #3d434a;
+  --dv-rack-frame: #353a40;
+  --dv-rack-inner-bg: #2a2e33;
+  --dv-rack-slot-bg: #32373d;
+  --dv-rack-slot-border: #40464d;
+  --dv-u-label: #6a7078;
+  --dv-u-label-line: #3d434a;
+  --dv-empty-dot: #4a5058;
+  --dv-vent-bg: #2a2e33;
+  --dv-foot-bg: #25282d;
+  /* 文字 - 浅色背景（KPI/统计卡片）上使用 */
+  --dv-light-text: #1a1d22;
+  --dv-light-sub: #3d4450;
+  --dv-light-muted: #656d76;
+  --dv-light-dim: #8b949e;
+  --dv-light-faint: #9ea6b0;
+  /* 文字 - 深色背景（机柜）上使用 */
+  --dv-dark-text: #ffffff;
+  --dv-dark-sub: #d4d7dc;
+  --dv-dark-muted: #b0b5bd;
+  --dv-dark-dim: #9298a0;
+  --dv-dark-faint: #7a8088;
+  --dv-accent-green: #26c96b;
+  --dv-accent-green-dim: #1a8a4a;
+  --dv-accent-blue: #4da6ff;
+  --dv-accent-blue-glow: #6db8ff;
+  --dv-accent-red: #ff6b6b;
+  --dv-accent-red-dim: #cc4444;
+  --dv-accent-purple: #b38af7;
+  --dv-accent-orange: #e0a830;
+  --dv-stat-card-bg: #ffffff;
+  --dv-stat-card-border: #e0e3e8;
+  --dv-bar-track: #e8ebef;
+  --dv-device-glow: rgba(38,201,107,0.25);
+  --dv-device-glow-ok: rgba(38,201,107,0.18);
+  --dv-device-glow-no: rgba(255,80,80,0.15);
+  --dv-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --dv-shadow-hover: 0 4px 24px rgba(0,0,0,0.14);
 }

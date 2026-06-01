@@ -11,7 +11,13 @@
       "Bash(npx playwright *)",
       "Bash(node *)",
       "Bash(curl -s http://localhost:5175/devices)",
-      "Bash(curl *、)"
+      "Bash(curl *、)",
+      "Bash(claude config *)",
+      "Bash(claude --version)",
+      "Bash(claude help *)",
+      "Bash(tasklist)",
+      "Bash(where cc-switch *)",
+      "Bash(powershell *)"
     ]
   }
 }

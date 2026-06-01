@@ -53,10 +53,8 @@ export function buildSlotData(rack: Rack): SlotInfo[] {
     } else if (!seen.has(dev.id)) {
       slots.push({ type: 'device', device: dev, uSize: dev.u, uOffset: i })
       seen.add(dev.id)
-    } else {
-      // 多U设备的后续位：生成带 hidden 标记的 slot，不渲染 DOM
-      slots.push({ type: 'occupied', uOffset: i, hidden: true })
     }
+    // 多 U 设备的后续 U 位跳过，由 grid-row: span 自动占据
   }
   return slots
 }
