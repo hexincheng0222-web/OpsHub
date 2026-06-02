@@ -35,15 +35,12 @@ export function parsePrintersCSV(text: string): Partial<Printer>[] {
     if (cols.length === 0 || cols.every(c => !c)) continue
     const [floor, location, manufacturer, model, tonerModel, notes] = cols
     result.push({
-      name: `${location || ''}-${manufacturer || ''}`.trim() || '新打印机',
       floor: floor?.trim() || '',
       location: location?.trim() || '',
       manufacturer: manufacturer?.trim() || '',
       model: model?.trim() || '',
       tonerModel: tonerModel?.trim() || '',
       notes: notes?.trim() || '',
-      ip: '',
-      inkLevel: 100,
       status: '正常',
     })
   }

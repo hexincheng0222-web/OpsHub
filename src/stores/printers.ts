@@ -7,7 +7,7 @@ export const usePrintersStore = defineStore('printers', () => {
 
   const total = computed(() => printers.value.length)
   const normalCount = computed(() => printers.value.filter(p => p.status === '正常').length)
-  const lowInkCount = computed(() => printers.value.filter(p => p.status === '缺墨' || p.inkLevel < 20).length)
+  const lowInkCount = computed(() => printers.value.filter(p => p.status === '缺墨').length)
 
   function addPrinter(printer: Printer) { printers.value.push(printer) }
   function updatePrinter(id: number, data: Partial<Printer>) {

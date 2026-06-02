@@ -56,4 +56,14 @@ function handleSubmit() {
 .df-btn { padding: 6px 16px; border-radius: 4px; border: none; font-size: 13px; cursor: pointer; }
 .df-btn-cancel { background: rgba(255,255,255,0.06); color: #888; }
 .df-btn-confirm { background: #4ade80; color: #000; font-weight: 600; }
+
+/* Light theme */
+:global(.light-theme) .df-overlay { background: rgba(0,0,0,0.3); }
+:global(.light-theme) .df-dialog { background: #fff; border-color: rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+:global(.light-theme) .df-header { color: #1a1a2e; }
+:global(.light-theme) .df-label { color: #666; }
+:global(.light-theme) .df-input { background: #f5f5f5; border-color: #ddd; color: #333; }
+:global(.light-theme) .df-input:focus { border-color: #0d6efd; }
+:global(.light-theme) .df-btn-cancel { background: #eee; color: #666; }
+:global(.light-theme) .df-btn-confirm { background: #0d6efd; color: #fff; }
 </style>
