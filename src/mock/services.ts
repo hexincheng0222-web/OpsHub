@@ -7,6 +7,7 @@ export interface Service {
   icon: string
   category: string
   status: 'online' | 'offline' | 'maintenance' | 'checking'
+  hostId?: number | null
 }
 
 export const SERVICE_CATEGORIES = ['DevOps', '监控', '基础设施', '协作'] as const

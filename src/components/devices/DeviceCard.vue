@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Device } from '../../mock/devices'
+import { useDevicesStore } from '../../stores/devices'
 
 const props = defineProps<{
   device: Device
@@ -13,22 +14,24 @@ defineEmits<{
   dragStart: [e: MouseEvent]
 }>()
 
+const store = useDevicesStore()
 const isActive = computed(() => props.device.status === '正常')
 
+// 从后端字典读取类型信息，无匹配时用默认值
+const typeInfo = computed(() => store.getTypeInfo(props.device.type))
+
 const typeColor = computed(() => {
-  const map: Record<string, string> = {
+  if (typeInfo.value?.color) return typeInfo.value.color
+  const fallback: Record<string, string> = {
     server: '#2a6aaa', switch: '#2a7e5e', storage: '#5a42a2',
     router: '#8a623c', firewall: '#9a3a3a', ups: '#6a6a2e', pdu: '#3a3a60',
   }
-  return map[props.device.type] || '#2a6aaa'
+  return fallback[props.device.type] || '#4a6a8a'
 })
 
 const typeAbbr = computed(() => {
-  const map: Record<string, string> = {
-    server: 'SV', switch: 'SW', storage: 'ST',
-    router: 'RT', firewall: 'FW', ups: 'UP', pdu: 'PD',
-  }
-  return map[props.device.type] || '??'
+  if (typeInfo.value?.abbr) return typeInfo.value.abbr
+  return props.device.type.slice(0, 2).toUpperCase()
 })
 </script>
 

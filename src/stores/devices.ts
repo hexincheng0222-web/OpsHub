@@ -1,15 +1,47 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { mockRacks, FLOORS } from '../mock/devices'
+import { FLOORS } from '../mock/devices'
 import type { Device, Rack } from '../mock/devices'
 import { buildOccupied, buildCompactDevices } from '../utils/rack-utils'
 import * as api from '../api/devices'
+import { fetchDict } from '../api/admin'
 
 export const useDevicesStore = defineStore('devices', () => {
-  const racks = ref<Rack[]>([...mockRacks])
-  const floors = FLOORS
+  const racks = ref<Rack[]>([])
+  const floors = ref<string[]>([...FLOORS])
   const selectedFloor = ref(FLOORS[0])
   const loading = ref(false)
+
+  // 设备类型字典（从后端加载，供卡片等组件使用）
+  const deviceTypes = ref<{ key: string; name: string; abbr: string; icon: string; color: string }[]>([])
+
+  async function loadDeviceTypes() {
+    try {
+      const data = await fetchDict('device-types')
+      if (data.length > 0) deviceTypes.value = data
+    } catch (e) {
+      console.error('加载设备类型失败:', e)
+    }
+  }
+
+  function getTypeInfo(typeKey: string) {
+    return deviceTypes.value.find(t => t.key === typeKey) || null
+  }
+
+  // 从 API 加载楼层列表
+  async function loadFloors() {
+    try {
+      const data = await fetchDict('device-floors')
+      if (data.length > 0) {
+        floors.value = data.map((f: any) => f.name)
+        if (!floors.value.includes(selectedFloor.value)) {
+          selectedFloor.value = floors.value[0]
+        }
+      }
+    } catch (e) {
+      console.error('加载楼层列表失败:', e)
+    }
+  }
 
   const floorRacks = computed(() =>
     racks.value.filter(r => r.floor === selectedFloor.value)
@@ -202,7 +234,8 @@ export const useDevicesStore = defineStore('devices', () => {
 
   return {
     racks, floors, selectedFloor, floorRacks, loading,
-    loadRacks,
+    deviceTypes, loadDeviceTypes, getTypeInfo,
+    loadRacks, loadFloors,
     addRack, addRackToServer,
     deleteRack, deleteRackFromServer,
     updateRackName, updateRackOnServer,

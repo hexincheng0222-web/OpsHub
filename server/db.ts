@@ -25,6 +25,7 @@ db.exec(`
     icon        TEXT    NOT NULL DEFAULT 'Setting',
     category    TEXT    NOT NULL,
     status      TEXT    NOT NULL DEFAULT 'online',
+    host_id     INTEGER REFERENCES service_hosts(id) ON DELETE SET NULL,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
 
@@ -69,6 +70,102 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_rack_slots_rack   ON rack_slots (rack_id);
   CREATE INDEX IF NOT EXISTS idx_rack_slots_device ON rack_slots (device_id);
+
+  /* ========== 字典表 ========== */
+
+  CREATE TABLE IF NOT EXISTS device_floors (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS device_types (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    key        TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    abbr       TEXT NOT NULL DEFAULT '',
+    icon       TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS device_models (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL UNIQUE,
+    type_key     TEXT NOT NULL DEFAULT '',
+    manufacturer TEXT NOT NULL DEFAULT '',
+    u_size       INTEGER NOT NULL DEFAULT 1,
+    ports        INTEGER NOT NULL DEFAULT 0,
+    power_watts  INTEGER NOT NULL DEFAULT 0,
+    description  TEXT NOT NULL DEFAULT '',
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS printer_brands (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS printer_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id   INTEGER NOT NULL REFERENCES printer_brands(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_printer_models UNIQUE (brand_id, name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_printer_models_brand ON printer_models (brand_id);
+
+  CREATE TABLE IF NOT EXISTS toner_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    compatible TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS service_categories (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    icon       TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS service_hosts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    ip         TEXT NOT NULL DEFAULT '',
+    os         TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS operation_logs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    module     TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    target     TEXT NOT NULL DEFAULT '',
+    detail     TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_operation_logs_module ON operation_logs (module);
+  CREATE INDEX IF NOT EXISTS idx_operation_logs_created ON operation_logs (created_at);
 `)
 
 // 如果表为空，插入 mock 数据
@@ -209,6 +306,190 @@ if (rackCount.cnt === 0) {
   })
 
   seedDevices()
+}
+
+// 迁移：device_types 表添加 key 列
+const dtColumns = db.prepare("PRAGMA table_info(device_types)").all() as { name: string }[]
+if (dtColumns.length > 0 && !dtColumns.some(c => c.name === 'key')) {
+  db.exec('DROP TABLE IF EXISTS device_types')
+  db.exec(`
+    CREATE TABLE device_types (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      key        TEXT NOT NULL UNIQUE,
+      name       TEXT NOT NULL,
+      abbr       TEXT NOT NULL DEFAULT '',
+      icon       TEXT NOT NULL DEFAULT '',
+      color      TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  console.log('[db] 已重建 device_types 表（添加 key 列）')
+}
+
+// 迁移：device_types 表添加 abbr 列
+const dtCols2 = db.prepare("PRAGMA table_info(device_types)").all() as { name: string }[]
+if (dtCols2.length > 0 && !dtCols2.some(c => c.name === 'abbr')) {
+  db.exec("ALTER TABLE device_types ADD COLUMN abbr TEXT NOT NULL DEFAULT ''")
+  console.log('[db] 已添加 device_types.abbr 列')
+}
+// 回填 abbr（幂等）
+const abbrMap: [string, string][] = [
+  ['server', 'SV'], ['switch', 'SW'], ['storage', 'ST'],
+  ['router', 'RT'], ['firewall', 'FW'], ['ups', 'UP'], ['pdu', 'PD'],
+]
+const updateAbbr = db.prepare("UPDATE device_types SET abbr = ? WHERE key = ? AND (abbr IS NULL OR abbr = '')")
+const batchUpdateAbbr = db.transaction(() => {
+  for (const [key, abbr] of abbrMap) updateAbbr.run(abbr, key)
+})
+batchUpdateAbbr()
+
+// 迁移：services 表添加 host_id 列
+const svcColumns = db.prepare("PRAGMA table_info(services)").all() as { name: string }[]
+if (svcColumns.length > 0 && !svcColumns.some(c => c.name === 'host_id')) {
+  db.exec("ALTER TABLE services ADD COLUMN host_id INTEGER REFERENCES service_hosts(id) ON DELETE SET NULL")
+  console.log('[db] 已添加 services.host_id 列')
+}
+// 回填 services 的 host_id（将服务分配到主机）
+const hostAssignMap: [string, string][] = [
+  ['Zabbix 监控', 'ESXi-01'],
+  ['Grafana 监控 (142)', 'ESXi-01'],
+  ['Grafana 监控 (143)', 'ESXi-02'],
+  ['网络运维工具箱', 'App-02'],
+  ['OpenClaw WEB UI', 'App-01'],
+  ['Gitea 代码仓库', 'App-01'],
+]
+const updateHostId = db.prepare("UPDATE services SET host_id = (SELECT id FROM service_hosts WHERE name = ?) WHERE name = ? AND (host_id IS NULL)")
+const batchUpdateHost = db.transaction(() => {
+  for (const [svcName, hostName] of hostAssignMap) updateHostId.run(hostName, svcName)
+})
+batchUpdateHost()
+
+// 迁移：device_models 表添加 type_key 列
+const dmColumns = db.prepare("PRAGMA table_info(device_models)").all() as { name: string }[]
+if (dmColumns.length > 0 && !dmColumns.some(c => c.name === 'type_key')) {
+  db.exec("ALTER TABLE device_models ADD COLUMN type_key TEXT NOT NULL DEFAULT ''")
+  console.log('[db] 已添加 device_models.type_key 列')
+}
+// 回填 type_key（幂等，已填充的行不受影响）
+const typeKeyMap: [string, string][] = [
+  ['Dell R750', 'server'], ['Dell R750xa', 'server'], ['Dell R650', 'server'],
+  ['S6730-H48X6C', 'switch'], ['S5735-L48P4X', 'switch'], ['S5735-L24P4X', 'switch'],
+  ['NE8000', 'router'], ['NE40E', 'router'],
+  ['FG-100F', 'firewall'], ['FG-200F', 'firewall'],
+  ['OceanStor 5310', 'storage'],
+  ['SANTAK 20KVA', 'ups'], ['SANTAK 30KVA', 'ups'],
+  ['APC 3kW', 'pdu'], ['APC 5kW', 'pdu'],
+]
+const updateTypeKey = db.prepare("UPDATE device_models SET type_key = ? WHERE name = ? AND (type_key IS NULL OR type_key = '')")
+const batchUpdateTK = db.transaction(() => {
+  for (const [name, key] of typeKeyMap) updateTypeKey.run(key, name)
+})
+batchUpdateTK()
+
+// 字典数据初始化
+const floorCount = db.prepare('SELECT COUNT(*) as cnt FROM device_floors').get() as { cnt: number }
+if (floorCount.cnt === 0) {
+  const seedDicts = db.transaction(() => {
+    // 楼层
+    const insertFloor = db.prepare('INSERT INTO device_floors (name, sort_order) VALUES (?, ?)')
+    const floors = ['-1F', '1F', '2F', '3F', '4F']
+    floors.forEach((f, i) => insertFloor.run(f, i))
+
+    // 设备类型
+    const insertType = db.prepare('INSERT INTO device_types (key, name, abbr, icon, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
+    const types: [string, string, string, string, string, number][] = [
+      ['server', '服务器', 'SV', 'Monitor', '#3fb950', 0],
+      ['switch', '交换机', 'SW', 'Connection', '#58a6ff', 1],
+      ['storage', '存储', 'ST', 'Coin', '#a371f7', 2],
+      ['router', '路由器', 'RT', 'Share', '#d29922', 3],
+      ['firewall', '防火墙', 'FW', 'Shield', '#f85149', 4],
+      ['ups', 'UPS', 'UP', 'Lightning', '#e06c75', 5],
+      ['pdu', 'PDU', 'PD', 'Plug', '#6e7681', 6],
+    ]
+    types.forEach(t => insertType.run(...t))
+
+    // 设备型号
+    const insertModel = db.prepare('INSERT INTO device_models (name, type_key, manufacturer, u_size, ports, power_watts, description, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    const models: [string, string, string, number, number, number, string, number][] = [
+      ['Dell R750', 'server', 'Dell', 2, 4, 750, '2U 双路机架服务器', 0],
+      ['Dell R750xa', 'server', 'Dell', 2, 4, 900, '2U 四路机架服务器', 1],
+      ['Dell R650', 'server', 'Dell', 1, 4, 600, '1U 双路机架服务器', 2],
+      ['S6730-H48X6C', 'switch', '华为', 1, 48, 150, '万兆核心交换机', 3],
+      ['S5735-L48P4X', 'switch', '华为', 1, 48, 100, '千兆汇聚交换机', 4],
+      ['S5735-L24P4X', 'switch', '华为', 1, 24, 80, '千兆接入交换机', 5],
+      ['NE8000', 'router', '华为', 2, 8, 200, '核心路由器', 6],
+      ['NE40E', 'router', '华为', 2, 16, 300, '汇聚路由器', 7],
+      ['FG-100F', 'firewall', 'Fortinet', 1, 16, 100, '下一代防火墙', 8],
+      ['FG-200F', 'firewall', 'Fortinet', 1, 16, 150, '下一代防火墙（高性能）', 9],
+      ['OceanStor 5310', 'storage', '华为', 3, 8, 500, '统一存储系统', 10],
+      ['SANTAK 20KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 20KVA', 11],
+      ['SANTAK 30KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 30KVA', 12],
+      ['APC 3kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 3kW', 13],
+      ['APC 5kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 5kW', 14],
+    ]
+    models.forEach(m => insertModel.run(...m))
+
+    // 打印机品牌
+    const insertBrand = db.prepare('INSERT INTO printer_brands (name, sort_order) VALUES (?, ?)')
+    const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Xerox']
+    brands.forEach((b, i) => insertBrand.run(b, i))
+
+    // 打印机型号（获取品牌 ID）
+    const insertPModel = db.prepare('INSERT INTO printer_models (brand_id, name, sort_order) VALUES (?, ?, ?)')
+    const hpId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('HP') as { id: number }).id
+    const canonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Canon') as { id: number }).id
+    const epsonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Epson') as { id: number }).id
+    const pm: [number, string, number][] = [
+      [hpId, 'LaserJet Pro M404dn', 0],
+      [hpId, 'LaserJet MFP M430f', 1],
+      [hpId, 'Color LaserJet Pro M454dw', 2],
+      [canonId, 'imageRUNNER C3326i', 0],
+      [canonId, 'imageCLASS MF746Cx', 1],
+      [epsonId, 'WorkForce Pro WF-C5790', 0],
+    ]
+    pm.forEach(m => insertPModel.run(...m))
+
+    // 墨粉型号
+    const insertToner = db.prepare('INSERT INTO toner_models (name, compatible, sort_order) VALUES (?, ?, ?)')
+    const toners: [string, string, number][] = [
+      ['HP 59A', 'HP LaserJet Pro M404dn', 0],
+      ['HP 59X', 'HP LaserJet Pro M404dn, HP LaserJet MFP M430f', 1],
+      ['HP 207A', 'HP Color LaserJet Pro M454dw', 2],
+      ['Canon C-EXV 55', 'Canon imageRUNNER C3326i', 3],
+      ['Canon 055', 'Canon imageCLASS MF746Cx', 4],
+    ]
+    toners.forEach(t => insertToner.run(...t))
+
+    // 服务分类
+    const insertCat = db.prepare('INSERT INTO service_categories (name, icon, color, sort_order) VALUES (?, ?, ?, ?)')
+    const cats: [string, string, string, number][] = [
+      ['DevOps', 'SetUp', '#58a6ff', 0],
+      ['监控', 'DataAnalysis', '#3fb950', 1],
+      ['基础设施', 'Server', '#a371f7', 2],
+      ['协作', 'ChatDotRound', '#d29922', 3],
+    ]
+    cats.forEach(c => insertCat.run(...c))
+
+    console.log('[db] 已初始化字典数据')
+  })
+  seedDicts()
+}
+
+// 服务主机数据初始化（独立于主字典种子）
+const hostCount = db.prepare('SELECT COUNT(*) as cnt FROM service_hosts').get() as { cnt: number }
+if (hostCount.cnt === 0) {
+  const insertHost = db.prepare('INSERT INTO service_hosts (name, ip, os, description, sort_order) VALUES (?, ?, ?, ?, ?)')
+  const hosts: [string, string, string, string, number][] = [
+    ['ESXi-01', '10.0.1.10', 'VMware ESXi 7.0', '主虚拟化宿主机，运行 Zabbix、Grafana 等监控服务', 0],
+    ['ESXi-02', '10.0.1.11', 'VMware ESXi 7.0', '备用虚拟化宿主机，运行开发测试环境', 1],
+    ['App-01', '10.0.1.30', 'CentOS 7.9', '应用服务器，部署 Gitea、OpenClaw 等 DevOps 工具', 2],
+    ['App-02', '10.0.1.31', 'CentOS 7.9', '应用服务器，部署运维工具箱和内部 Web 服务', 3],
+  ]
+  const seedHosts = db.transaction(() => { hosts.forEach(h => insertHost.run(...h)) })
+  seedHosts()
+  console.log(`[db] 已初始化 ${hosts.length} 条服务主机数据`)
 }
 
 export default db

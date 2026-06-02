@@ -11,9 +11,9 @@
     </div>
     <div class="hero">
       <div class="title-glow" />
-      <div class="title-icon">
+      <router-link to="/admin" class="title-icon" title="系统管理后台">
         <el-icon :size="48"><Monitor /></el-icon>
-      </div>
+      </router-link>
       <h1 class="main-title">
         <span class="title-text">运维中心</span>
       </h1>
@@ -108,7 +108,8 @@ function particleStyle(i: number) {
 .title-glow{position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:500px;height:500px;background:radial-gradient(ellipse,rgba(88,166,255,.10) 0%,transparent 65%);pointer-events:none;animation:titleGlowPulse 4s ease-in-out infinite}
 .light-theme .title-glow{opacity:0;animation:none}
 @keyframes titleGlowPulse{0%,100%{opacity:.7;transform:translateX(-50%) scale(1)}50%{opacity:1;transform:translateX(-50%) scale(1.1)}}
-.title-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(88,166,255,.20),rgba(88,166,255,.05));border:1px solid rgba(88,166,255,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:#58a6ff;animation:float 4s ease-in-out infinite;backdrop-filter:blur(10px)}
+.title-icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,rgba(88,166,255,.20),rgba(88,166,255,.05));border:1px solid rgba(88,166,255,.15);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:#58a6ff;animation:float 4s ease-in-out infinite;backdrop-filter:blur(10px);cursor:pointer;text-decoration:none;transition:border-color .3s ease}
+.title-icon:hover{border-color:rgba(88,166,255,.50);box-shadow:0 0 30px rgba(88,166,255,.20)}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .main-title{margin:0 0 14px 0}
 .title-text{font-size:40px;font-weight:800;letter-spacing:10px;color:#e6edf3;background:linear-gradient(180deg,#fff 0%,#e6edf3 40%,#8b949e 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}

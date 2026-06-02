@@ -3,6 +3,7 @@ import cors from 'cors'
 import servicesRouter from './routes/services'
 import racksRouter from './routes/racks'
 import devicesRouter from './routes/devices'
+import adminRouter from './routes/admin'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3001')
@@ -15,6 +16,7 @@ app.use(express.json())
 app.use('/api/v1/services', servicesRouter)
 app.use('/api/v1/racks', racksRouter)
 app.use('/api/v1/devices', devicesRouter)
+app.use('/api/v1/admin', adminRouter)
 
 // 全局错误处理
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

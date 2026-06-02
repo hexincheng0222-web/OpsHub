@@ -9,11 +9,25 @@ import { DEVICE_TYPE_LABELS } from '../utils/rack-utils'
 import RackCard from '../components/devices/RackCard.vue'
 import DeviceForm from '../components/devices/DeviceForm.vue'
 import { useDragDrop } from '../components/devices/useDragDrop'
+import { fetchDict } from '../api/admin'
 
 const router = useRouter()
 const store = useDevicesStore()
 
-onMounted(() => { store.loadRacks() })
+// 设备型号详情（从后端字典加载）
+const deviceModels = ref<any[]>([])
+
+onMounted(() => {
+  store.loadRacks()
+  store.loadFloors()
+  store.loadDeviceTypes()
+  fetchDict('device-models').then(data => { deviceModels.value = data }).catch(() => {})
+})
+
+// 根据型号名查找详细信息
+function getModelDetail(modelName: string) {
+  return deviceModels.value.find(m => m.name === modelName) || null
+}
 
 // --- Floor filter ---
 const activeFloor = computed({
@@ -38,7 +52,7 @@ const filteredDeviceCount = computed(() => {
 })
 
 // --- KPI stats ---
-const offlineCount = computed(() => store.total - store.normalCount)
+const stoppedCount = computed(() => store.total - store.normalCount)
 const overallUsagePercent = computed(() => {
   let totalU = 0, usedU = 0
   for (const rack of store.racks) {
@@ -122,10 +136,12 @@ function saveRackName() {
 // --- Add device dialog ---
 const showAddDeviceDialog = ref(false)
 const addDeviceRackId = ref('')
+const addDeviceUOffset = ref(0)
 
 function onSlotClick(rack: Rack, _index: number, slot: SlotInfo) {
   if (slot.type === 'empty') {
     addDeviceRackId.value = rack.id
+    addDeviceUOffset.value = slot.uOffset
     showAddDeviceDialog.value = true
   } else if (slot.type === 'device' && slot.device) {
     openDeviceDrawer(slot.device, rack.id)
@@ -135,6 +151,9 @@ function onSlotClick(rack: Rack, _index: number, slot: SlotInfo) {
 function onDeviceSubmit(data: Omit<Device, 'id'>) {
   const rack = store.racks.find(r => r.id === addDeviceRackId.value)
   if (!rack) return
+
+  // 从点击的 U 位置开始检查是否可放下
+  const offset = addDeviceUOffset.value
   const occupied: (Device | null)[] = new Array(rack.totalU).fill(null)
   let pos = 0
   for (const dev of rack.devices) {
@@ -142,16 +161,31 @@ function onDeviceSubmit(data: Omit<Device, 'id'>) {
     if (dev) { for (let i = 0; i < dev.u; i++) occupied[pos + i] = dev; pos += dev.u }
     else pos++
   }
-  let targetOffset = -1
-  for (let i = 0; i <= rack.totalU - data.u; i++) {
-    let free = true
-    for (let j = i; j < i + data.u; j++) { if (occupied[j]) { free = false; break } }
-    if (free) { targetOffset = i; break }
+
+  // 检查点击位置是否能放下
+  let canPlace = true
+  if (offset + data.u > rack.totalU) {
+    canPlace = false
+  } else {
+    for (let j = offset; j < offset + data.u; j++) {
+      if (occupied[j]) { canPlace = false; break }
+    }
   }
+
+  // 如果点击位置放不下，找第一个可用位置
+  let targetOffset = -1
+  if (canPlace) {
+    targetOffset = offset
+  } else {
+    for (let i = 0; i <= rack.totalU - data.u; i++) {
+      let free = true
+      for (let j = i; j < i + data.u; j++) { if (occupied[j]) { free = false; break } }
+      if (free) { targetOffset = i; break }
+    }
+  }
+
   if (targetOffset < 0) return
-  store.addDeviceToRack(addDeviceRackId.value, targetOffset, {
-    id: Date.now(), ...data,
-  } as Device)
+  store.addDeviceToRackOnServer(addDeviceRackId.value, targetOffset, data)
   showAddDeviceDialog.value = false
 }
 
@@ -221,7 +255,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
         <div class="kpi-label">在线</div>
       </div>
       <div class="kpi-card kpi-offline">
-        <div class="kpi-data"><span class="kpi-number">{{ offlineCount }}</span><span class="kpi-unit">台</span></div>
+        <div class="kpi-data"><span class="kpi-number">{{ stoppedCount }}</span><span class="kpi-unit">台</span></div>
         <div class="kpi-label">停用</div>
       </div>
       <div class="kpi-card kpi-rack">
@@ -353,11 +387,16 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
         <div class="drawer-panel">
           <div class="drawer-header">
             <span class="drawer-title">{{ drawerDevice?.name }}</span>
-            <span class="df-tag">{{ DEVICE_TYPE_LABELS[drawerDevice?.type || ''] }}</span>
+            <span class="df-tag">{{ store.getTypeInfo(drawerDevice?.type || '')?.name || DEVICE_TYPE_LABELS[drawerDevice?.type || ''] }}</span>
             <button class="drawer-close" @click="closeDrawer">✕</button>
           </div>
           <div class="drawer-body">
             <div class="drawer-field"><span class="field-label">型号</span><span class="field-value">{{ drawerDevice?.model }}</span></div>
+            <template v-if="getModelDetail(drawerDevice?.model || '')">
+              <div class="drawer-field"><span class="field-label">厂商</span><span class="field-value">{{ getModelDetail(drawerDevice?.model || '')?.manufacturer || '—' }}</span></div>
+              <div class="drawer-field" v-if="getModelDetail(drawerDevice?.model || '')?.description"><span class="field-label">描述</span><span class="field-value">{{ getModelDetail(drawerDevice?.model || '')?.description }}</span></div>
+              <div class="drawer-field" v-if="getModelDetail(drawerDevice?.model || '')?.power_watts"><span class="field-label">功耗</span><span class="field-value">{{ getModelDetail(drawerDevice?.model || '')?.power_watts }}W</span></div>
+            </template>
             <div class="drawer-field"><span class="field-label">IP 地址</span><span class="field-value ip-value">{{ drawerDevice?.ip || '—' }}</span></div>
             <div class="drawer-field"><span class="field-label">U 高度</span><span class="field-value">{{ drawerDevice?.u }}U</span></div>
             <div class="drawer-field"><span class="field-label">端口数</span><span class="field-value">{{ drawerDevice?.ports }}</span></div>

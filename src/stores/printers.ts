@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { mockPrinters, type Printer } from '../mock/printers'
+import { type Printer } from '../mock/printers'
 
 export const usePrintersStore = defineStore('printers', () => {
-  const printers = ref<Printer[]>([...mockPrinters])
+  const printers = ref<Printer[]>([])
 
   const total = computed(() => printers.value.length)
   const normalCount = computed(() => printers.value.filter(p => p.status === '正常').length)
-  const lowInkCount = computed(() => printers.value.filter(p => p.status === '缺墨').length)
+  const lowInkCount = computed(() => printers.value.filter(p => p.status === '缺墨' || p.status === '故障').length)
 
   function addPrinter(printer: Printer) { printers.value.push(printer) }
   function updatePrinter(id: number, data: Partial<Printer>) {

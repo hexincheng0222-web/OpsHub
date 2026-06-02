@@ -41,7 +41,7 @@ export function parsePrintersCSV(text: string): Partial<Printer>[] {
       model: model?.trim() || '',
       tonerModel: tonerModel?.trim() || '',
       notes: notes?.trim() || '',
-      status: '正常',
+      status: '正常' as const,
     })
   }
   return result

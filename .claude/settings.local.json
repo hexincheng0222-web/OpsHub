@@ -39,7 +39,12 @@
       "Bash(curl -s http://localhost:3001/api/v1/racks/stats)",
       "Bash(python -c \"import sys,json;d=json.load\\(sys.stdin\\)['data'];print\\(f'  设备:{d[\\\\\"totalDevices\\\\\"]} 在线:{d[\\\\\"normalDevices\\\\\"]} 停用:{d[\\\\\"offlineDevices\\\\\"]} 机柜:{d[\\\\\"totalRacks\\\\\"]} 使用率:{d[\\\\\"overallUsagePercent\\\\\"]}%'\\)\")",
       "Bash(curl -s http://localhost:5174/api/v1/racks)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\('OK'\\)\")",
+      "Bash(curl -s http://localhost:3001/api/v1/admin/device-types)",
+      "Bash(curl -s http://localhost:3001/api/v1/admin/device-models)",
+      "Bash(curl -s http://localhost:3001/api/v1/admin/logs/list)",
+      "Bash(curl -s http://localhost:3001/api/v1/admin/printer-models)"
     ]
   }
 }

@@ -161,6 +161,7 @@ function statusTagType(status: string) {
 .operations-page {
   max-width: 1000px;
   margin: 0 auto;
+  padding: 0 16px;
 }
 
 .top-bar {
@@ -169,7 +170,7 @@ function statusTagType(status: string) {
   gap: 24px;
   margin-bottom: 20px;
   padding: 16px 0;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--ops-border-card);
 }
 
 .back-btn {
@@ -177,20 +178,20 @@ function statusTagType(status: string) {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #666;
+  color: var(--ops-text-secondary);
   cursor: pointer;
   white-space: nowrap;
   transition: color 0.2s;
 }
 .back-btn:hover {
-  color: #1890ff;
+  color: var(--ops-accent-blue);
 }
 
 .top-bar h3 {
   flex: 1;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--ops-text-primary);
   margin: 0;
 }
 
@@ -218,7 +219,7 @@ function statusTagType(status: string) {
 .ticket-title {
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--ops-text-primary);
 }
 
 /* 步骤条 */
@@ -249,21 +250,21 @@ function statusTagType(status: string) {
 }
 
 .step-item.done .step-dot {
-  background: #52c41a;
+  background: var(--ops-accent-green);
   color: #fff;
 }
 .step-item.active .step-dot {
-  background: #1890ff;
+  background: var(--ops-accent-blue);
   color: #fff;
 }
 .step-item.pending .step-dot {
-  background: #f0f0f0;
-  color: #999;
+  background: var(--ops-bg-card-hover);
+  color: var(--ops-text-tertiary);
 }
 
 .step-label {
   font-size: 12px;
-  color: #666;
+  color: var(--ops-text-secondary);
   margin-left: 6px;
   white-space: nowrap;
 }
@@ -271,11 +272,11 @@ function statusTagType(status: string) {
 .step-line {
   flex: 1;
   height: 2px;
-  background: #f0f0f0;
+  background: var(--ops-border-card);
   margin: 0 4px;
 }
 .step-line.done {
-  background: #52c41a;
+  background: var(--ops-accent-green);
 }
 
 .ticket-footer {
@@ -283,7 +284,7 @@ function statusTagType(status: string) {
   align-items: center;
   gap: 24px;
   font-size: 12px;
-  color: #999;
+  color: var(--ops-text-tertiary);
 }
 
 .ticket-footer .el-icon {
@@ -293,6 +294,6 @@ function statusTagType(status: string) {
 .detail-title {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--ops-text-primary);
 }
 </style>

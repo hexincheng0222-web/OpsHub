@@ -16,6 +16,7 @@ function toApi(row: any) {
     icon: row.icon,
     category: row.category,
     status: row.status,
+    hostId: row.host_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -44,6 +45,10 @@ router.get('/', (req: Request, res: Response) => {
   if (status) {
     where += ' AND status = ?'
     params.push(status)
+  }
+  if (req.query.hostId) {
+    where += ' AND host_id = ?'
+    params.push(parseInt(req.query.hostId as string))
   }
 
   const total = (db.prepare('SELECT COUNT(*) as cnt FROM services ' + where).get(...params) as any).cnt
@@ -95,8 +100,8 @@ router.post('/', (req: Request, res: Response) => {
 
   try {
     const result = db.prepare(
-      'INSERT INTO services (name, url, description, notes, icon, category, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(name, url, description, notes, icon, category, status)
+      'INSERT INTO services (name, url, description, notes, icon, category, status, host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(name, url, description, notes, icon, category, status, req.body.hostId || null)
 
     const created = db.prepare('SELECT * FROM services WHERE id = ?').get(result.lastInsertRowid)
     res.status(201).json({ code: 201, data: toApi(created) })
@@ -123,8 +128,8 @@ router.put('/:id', (req: Request, res: Response) => {
 
   try {
     db.prepare(
-      "UPDATE services SET name=?, url=?, description=?, notes=?, icon=?, category=?, status=?, updated_at=datetime('now') WHERE id=?"
-    ).run(name, url, description, notes, icon, category, status || 'online', id)
+      "UPDATE services SET name=?, url=?, description=?, notes=?, icon=?, category=?, status=?, host_id=?, updated_at=datetime('now') WHERE id=?"
+    ).run(name, url, description, notes, icon, category, status || 'online', req.body.hostId || null, id)
 
     const updated = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
     res.json({ code: 200, data: toApi(updated) })
@@ -153,6 +158,11 @@ router.patch('/:id', (req: Request, res: Response) => {
       updates.push(field + ' = ?')
       values.push(req.body[field])
     }
+  }
+  // host_id 映射
+  if (req.body.hostId !== undefined) {
+    updates.push('host_id = ?')
+    values.push(req.body.hostId || null)
   }
 
   if (updates.length === 0) {

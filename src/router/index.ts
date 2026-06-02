@@ -28,6 +28,23 @@ const router = createRouter({
       path: '/printers',
       name: 'Printers',
       component: () => import('../views/PrintersView.vue')
+    },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: () => import('../views/admin/AdminView.vue'),
+      children: [
+        { path: '', name: 'AdminOverview', component: () => import('../views/admin/AdminOverview.vue') },
+        { path: 'logs', name: 'AdminLogs', component: () => import('../views/admin/AdminLogs.vue') },
+        { path: 'devices/floors', name: 'AdminDeviceFloors', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-floors', title: '楼层管理' } },
+        { path: 'devices/types', name: 'AdminDeviceTypes', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-types', title: '设备类型' } },
+        { path: 'devices/models', name: 'AdminDeviceModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-models', title: '设备型号库' } },
+        { path: 'printers/brands', name: 'AdminPrinterBrands', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'printer-brands', title: '品牌管理' } },
+        { path: 'printers/models', name: 'AdminPrinterModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'printer-models', title: '型号管理' } },
+        { path: 'printers/toners', name: 'AdminPrinterToners', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'toner-models', title: '墨粉型号' } },
+        { path: 'services/categories', name: 'AdminServiceCategories', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'service-categories', title: '分类管理' } },
+        { path: 'services/hosts', name: 'AdminServiceHosts', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'service-hosts', title: '主机管理' } },
+      ]
     }
   ]
 })

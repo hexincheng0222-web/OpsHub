@@ -44,6 +44,29 @@
       <span v-if="filteredCount" class="result-count">共 {{ filteredCount }} 个</span>
     </div>
 
+    <!-- 主机卡片栏 -->
+    <div class="host-bar">
+      <div
+        class="host-card"
+        :class="{ active: selectedHostId === null }"
+        @click="selectedHostId = null"
+      >
+        <span class="host-name">全部主机</span>
+        <span class="host-count">{{ servicesStore.services.length }}</span>
+      </div>
+      <div
+        v-for="host in hosts"
+        :key="host.id"
+        class="host-card"
+        :class="{ active: selectedHostId === host.id }"
+        @click="selectedHostId = selectedHostId === host.id ? null : host.id"
+      >
+        <span class="host-name">{{ host.name }}</span>
+        <span class="host-ip">{{ host.ip }}</span>
+        <span class="host-count">{{ getHostServiceCount(host.id) }}</span>
+      </div>
+    </div>
+
     <!-- 骨架屏：首次加载且无数据时显示 -->
     <div v-if="loading && servicesStore.services.length === 0" class="service-grid">
       <el-skeleton v-for="i in 6" :key="i" animated class="svc-card">
@@ -150,6 +173,11 @@
             <el-radio-button value="offline">离线</el-radio-button>
             <el-radio-button value="maintenance">维护中</el-radio-button>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="部署主机">
+          <el-select v-model="form.hostId" placeholder="选择部署主机" clearable style="width: 100%">
+            <el-option v-for="h in hosts" :key="h.id" :label="h.name + ' (' + h.ip + ')'" :value="h.id" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -297,14 +325,26 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useServicesStore } from '../stores/services'
 import type { Service } from '../mock/services'
 import { SERVICE_CATEGORIES } from '../mock/services'
+import { fetchDict } from '../api/admin'
 
 const servicesStore = useServicesStore()
+
+// 主机数据
+const hosts = ref<any[]>([])
+const selectedHostId = ref<number | null>(null)
 
 onMounted(async () => {
   await servicesStore.loadServices()
   servicesStore.checkAllServices()
   loading.value = false
+  // 加载主机列表
+  fetchDict('service-hosts').then(data => { hosts.value = data }).catch(() => {})
 })
+
+// 统计每个主机的服务数
+function getHostServiceCount(hostId: number) {
+  return servicesStore.services.filter(s => s.hostId === hostId).length
+}
 
 const loading = ref(true)
 const saving = ref(false)
@@ -317,6 +357,7 @@ const iconOptions = ['Setting', 'FolderOpened', 'Box', 'Odometer', 'DataAnalysis
 
 const filteredServices = computed(() => {
   return servicesStore.services.filter(s => {
+    if (selectedHostId.value !== null && s.hostId !== selectedHostId.value) return false
     if (search.value) {
       const q = search.value.toLowerCase()
       if (!s.name.toLowerCase().includes(q) &&
@@ -367,7 +408,8 @@ const form = reactive({
   notes: '',
   icon: 'Setting',
   category: '',
-  status: 'online' as Service['status']
+  status: 'online' as Service['status'],
+  hostId: null as number | null
 })
 
 function openAddDialog() {
@@ -379,6 +421,7 @@ function openAddDialog() {
   form.icon = 'Setting'
   form.category = ''
   form.status = 'online'
+  form.hostId = selectedHostId.value
   dialogVisible.value = true
 }
 
@@ -393,6 +436,7 @@ function openEditDialog(row: Service) {
   form.icon = row.icon
   form.category = row.category
   form.status = row.status
+  form.hostId = row.hostId || null
   setTimeout(() => {
     dialogVisible.value = true
   }, 200)
@@ -524,6 +568,58 @@ function statusLabel(status: string) {
 
 .filter-select {
   width: 140px;
+}
+
+.host-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.host-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--ops-bg-card);
+  border: 1px solid var(--ops-border-card);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.host-card:hover {
+  border-color: var(--ops-accent-blue);
+}
+
+.host-card.active {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: var(--ops-accent-blue);
+}
+
+.host-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ops-text-primary);
+}
+
+.host-ip {
+  font-size: 11px;
+  color: var(--ops-text-tertiary);
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+.host-count {
+  font-size: 11px;
+  color: var(--ops-accent-blue);
+  background: rgba(88, 166, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .result-count {

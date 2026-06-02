@@ -257,8 +257,8 @@ router.post('/:rackId/devices', (req: Request, res: Response) => {
   // 创建设备
   const devResult = db.prepare(`
     INSERT INTO devices (name, type, model, u, ports, status, ip)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, type, model, u, ports, status, ip || null || null)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(name, type, model, u, ports, status, ip || null)
 
   const deviceId = devResult.lastInsertRowid
 
