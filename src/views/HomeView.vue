@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useServicesStore } from '../stores/services'
 import { useOperationsStore } from '../stores/operations'
 import { useDevicesStore } from '../stores/devices'
@@ -80,6 +81,7 @@ const opsStore = useOperationsStore()
 const devicesStore = useDevicesStore()
 const printersStore = usePrintersStore()
 const themeStore = useThemeStore()
+onMounted(() => { servicesStore.loadServices() })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
 function particleStyle(i: number) {
   const color = COLORS[i % COLORS.length]; const size = 3 + Math.random() * 6

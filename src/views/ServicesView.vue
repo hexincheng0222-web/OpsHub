@@ -300,7 +300,8 @@ import { SERVICE_CATEGORIES } from '../mock/services'
 
 const servicesStore = useServicesStore()
 
-onMounted(() => {
+onMounted(async () => {
+  await servicesStore.loadServices()
   servicesStore.checkAllServices()
   loading.value = false
 })

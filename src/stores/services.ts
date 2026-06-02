@@ -1,55 +1,88 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { mockServices, type Service } from '../mock/services'
+import type { Service } from '../mock/services'
+import * as api from '../api/services'
 
 export const useServicesStore = defineStore('services', () => {
-  const services = ref<Service[]>([...mockServices])
+  const services = ref<Service[]>([])
   const checking = ref(false)
+  const loading = ref(false)
 
-  async function pingService(svc: Service): Promise<'online' | 'offline'> {
+  // 启动时从后端加载数据
+  async function loadServices() {
+    loading.value = true
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
-      await fetch(svc.url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal })
-      clearTimeout(timeout)
-      // no-cors 返回 opaque response 代表服务器可达
-      return 'online'
-    } catch {
-      // 网络错误 / 超时 → 不可达
-      return 'offline'
+      const data = await api.fetchServices({ pageSize: 100 })
+      services.value = data.list
+    } catch (err) {
+      console.error('[services] 加载失败:', err)
+    } finally {
+      loading.value = false
     }
   }
 
+  // 批量检测连通性
   async function checkAllServices() {
     checking.value = true
-    // 先全部标为 checking
     services.value.forEach(s => { s.status = 'checking' })
 
-    await Promise.allSettled(
-      services.value.map(async (svc) => {
-        const result = await pingService(svc)
-        svc.status = result
-      })
-    )
-
-    checking.value = false
-  }
-
-  function addService(service: Omit<Service, 'id'>) {
-    const maxId = services.value.reduce((max, s) => Math.max(max, s.id), 0)
-    services.value.push({ ...service, id: maxId + 1 })
-  }
-
-  function updateService(id: number, data: Partial<Service>) {
-    const idx = services.value.findIndex(s => s.id === id)
-    if (idx !== -1) {
-      services.value[idx] = { ...services.value[idx], ...data }
+    try {
+      const result = await api.checkAllServices()
+      // 根据后端返回更新状态
+      for (const r of result.results) {
+        const svc = services.value.find(s => s.id === r.id)
+        if (svc) {
+          svc.status = r.status as Service['status']
+        }
+      }
+    } catch (err) {
+      console.error('[services] 检测失败:', err)
+    } finally {
+      checking.value = false
     }
   }
 
-  function deleteService(id: number) {
-    services.value = services.value.filter(s => s.id !== id)
+  // 新增服务
+  async function addService(service: Omit<Service, 'id'>) {
+    try {
+      const created = await api.createService(service)
+      services.value.push(created)
+    } catch (err) {
+      console.error('[services] 创建失败:', err)
+      throw err
+    }
   }
 
-  return { services, checking, checkAllServices, addService, updateService, deleteService }
+  // 更新服务
+  async function updateService(id: number, data: Partial<Service>) {
+    try {
+      if (Object.keys(data).length <= 3 && (data.status || data.notes || data.description)) {
+        // 部分更新
+        const updated = await api.patchService(id, data)
+        const idx = services.value.findIndex(s => s.id === id)
+        if (idx !== -1) services.value[idx] = updated
+      } else {
+        // 全量更新
+        const updated = await api.updateService(id, data as any)
+        const idx = services.value.findIndex(s => s.id === id)
+        if (idx !== -1) services.value[idx] = updated
+      }
+    } catch (err) {
+      console.error('[services] 更新失败:', err)
+      throw err
+    }
+  }
+
+  // 删除服务
+  async function deleteService(id: number) {
+    try {
+      await api.deleteService(id)
+      services.value = services.value.filter(s => s.id !== id)
+    } catch (err) {
+      console.error('[services] 删除失败:', err)
+      throw err
+    }
+  }
+
+  return { services, checking, loading, loadServices, checkAllServices, addService, updateService, deleteService }
 })
