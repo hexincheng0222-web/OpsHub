@@ -121,7 +121,7 @@ const store = usePrintersStore()
 const selectedIds = ref(new Set<number>())
 const allSelected = computed(() => groupedPrinters.value.length > 0 && selectedIds.value.size === groupedPrinters.value.length)
 
-function toggleAll() {
+const toggleAll = () => {
   if (allSelected.value) { selectedIds.value = new Set() }
   else { selectedIds.value = new Set(groupedPrinters.value.map(p => p.id)) }
 }
