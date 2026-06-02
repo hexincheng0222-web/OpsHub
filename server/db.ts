@@ -45,14 +45,12 @@ if (count.cnt === 0) {
   `)
 
   const seeds = [
-    { name: 'Jenkins CI/CD', url: 'http://192.168.1.100:8080', description: '持续集成与持续部署平台', notes: '', icon: 'Setting', category: 'DevOps', status: 'online' },
-    { name: 'GitLab 代码仓库', url: 'http://192.168.1.100:8888', description: '内部代码托管与版本管理', notes: '', icon: 'FolderOpened', category: 'DevOps', status: 'online' },
-    { name: 'Nexus 制品库', url: 'http://192.168.1.101:8081', description: 'Maven/NPM/Docker 制品仓库', notes: '', icon: 'Box', category: 'DevOps', status: 'online' },
-    { name: 'K8s Dashboard', url: 'http://192.168.1.102:30000', description: 'Kubernetes 集群管理面板', notes: '', icon: 'Odometer', category: '基础设施', status: 'online' },
-    { name: 'Grafana 监控', url: 'http://192.168.1.103:3000', description: '系统与服务监控可视化', notes: '', icon: 'DataAnalysis', category: '监控', status: 'online' },
-    { name: 'ELK 日志平台', url: 'http://192.168.1.104:5601', description: 'Elasticsearch + Logstash + Kibana', notes: '', icon: 'Document', category: '监控', status: 'offline' },
-    { name: 'Confluence 知识库', url: 'http://192.168.1.105:8090', description: '团队文档与知识管理', notes: '', icon: 'Reading', category: '协作', status: 'online' },
-    { name: 'YApi 接口管理', url: 'http://192.168.1.106:3000', description: 'API 文档与 Mock 平台', notes: '', icon: 'Connection', category: 'DevOps', status: 'maintenance' },
+    { name: 'Zabbix 监控', url: 'http://10.3.0.142/zabbix', description: '企业级 IT 监控平台', notes: '用户名: Admin\n密码: zabbix', icon: 'Monitor', category: '监控', status: 'online' },
+    { name: 'Grafana 监控 (142)', url: 'http://10.3.0.142:3000', description: '系统与服务监控可视化', notes: '用户名: admin\n密码: admin123', icon: 'DataAnalysis', category: '监控', status: 'online' },
+    { name: 'Grafana 监控 (143)', url: 'http://10.3.0.143:3001', description: '系统与服务监控可视化（备用）', notes: '用户名: admin\n密码: admin123', icon: 'DataAnalysis', category: '监控', status: 'online' },
+    { name: '网络运维工具箱', url: 'http://10.3.0.143:5000', description: '网络运维常用工具集合', notes: '用户名: admin\n密码: admin123', icon: 'SetUp', category: '基础设施', status: 'online' },
+    { name: 'OpenClaw WEB UI', url: 'http://10.3.0.144:3001', description: 'OpenClaw 管理界面', notes: '用户名: admin\n密码: admin123', icon: 'Connection', category: 'DevOps', status: 'online' },
+    { name: 'Gitea 代码仓库', url: 'http://10.3.0.145:3000', description: 'Git 代码托管（Docker 容器）', notes: '用户名: admin\n密码: Bravou#*604896', icon: 'FolderOpened', category: 'DevOps', status: 'online' },
   ]
 
   const insertMany = db.transaction((rows: typeof seeds) => {
