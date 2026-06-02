@@ -133,7 +133,7 @@ router.get('/:rackId/slots', (req: Request, res: Response) => {
   // 获取所有 slot，带设备信息
   const slots = db.prepare(`
     SELECT rs.u_offset, rs.u_size, rs.device_id,
-           d.name, d.type, d.model, d.u, d.ports, d.status, d.ip, d.dept
+           d.name, d.type, d.model, d.u, d.ports, d.status, d.ip
     FROM rack_slots rs
     LEFT JOIN devices d ON d.id = rs.device_id
     WHERE rs.rack_id = ?
@@ -161,7 +161,6 @@ router.get('/:rackId/slots', (req: Request, res: Response) => {
           ports: s.ports,
           status: s.status,
           ip: s.ip,
-          dept: s.dept,
         },
       })
     } else {
@@ -238,7 +237,7 @@ router.post('/:rackId/devices', (req: Request, res: Response) => {
   const rack = db.prepare('SELECT * FROM racks WHERE id = ?').get(rackId) as any
   if (!rack) return res.status(404).json({ code: 404, message: '机柜不存在' })
 
-  const { name, type, model, u = 1, uOffset, ports = 0, status = '正常', ip, dept } = req.body
+  const { name, type, model, u = 1, uOffset, ports = 0, status = '正常', ip} = req.body
 
   if (!name || !type || !model || uOffset === undefined) {
     return res.status(400).json({ code: 400, message: 'name、type、model、uOffset 为必填项' })
@@ -257,9 +256,9 @@ router.post('/:rackId/devices', (req: Request, res: Response) => {
 
   // 创建设备
   const devResult = db.prepare(`
-    INSERT INTO devices (name, type, model, u, ports, status, ip, dept)
+    INSERT INTO devices (name, type, model, u, ports, status, ip)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, type, model, u, ports, status, ip || null, dept || null)
+  `).run(name, type, model, u, ports, status, ip || null || null)
 
   const deviceId = devResult.lastInsertRowid
 

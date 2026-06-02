@@ -9,10 +9,10 @@ router.put('/:id', (req: Request, res: Response) => {
   const existing = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
   if (!existing) return res.status(404).json({ code: 404, message: '设备不存在' })
 
-  const { name, type, model, ports, status, ip, dept } = req.body
+  const { name, type, model, ports, status, ip } = req.body
 
   db.prepare(`
-    UPDATE devices SET name = ?, type = ?, model = ?, ports = ?, status = ?, ip = ?, dept = ?, updated_at = datetime('now')
+    UPDATE devices SET name = ?, type = ?, model = ?, ports = ?, status = ?, ip = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(
     name || (existing as any).name,
@@ -21,7 +21,8 @@ router.put('/:id', (req: Request, res: Response) => {
     ports !== undefined ? ports : (existing as any).ports,
     status || (existing as any).status,
     ip !== undefined ? ip : (existing as any).ip,
-    dept !== undefined ? dept : (existing as any).dept,
+    id
+  )
     id
   )
 
@@ -97,13 +98,13 @@ router.post('/:id/move', (req: Request, res: Response) => {
 
   // 返回更新后的两个 rack 的 slots
   const sourceSlots = db.prepare(`
-    SELECT rs.u_offset, rs.u_size, rs.device_id, d.name, d.type, d.model, d.u, d.ports, d.status, d.ip, d.dept
+    SELECT rs.u_offset, rs.u_size, rs.device_id, d.name, d.type, d.model, d.u, d.ports, d.status, d.ip
     FROM rack_slots rs LEFT JOIN devices d ON d.id = rs.device_id
     WHERE rs.rack_id = ? ORDER BY rs.u_offset
   `).all(sourceRackId)
 
   const targetSlots = db.prepare(`
-    SELECT rs.u_offset, rs.u_size, rs.device_id, d.name, d.type, d.model, d.u, d.ports, d.status, d.ip, d.dept
+    SELECT rs.u_offset, rs.u_size, rs.device_id, d.name, d.type, d.model, d.u, d.ports, d.status, d.ip
     FROM rack_slots rs LEFT JOIN devices d ON d.id = rs.device_id
     WHERE rs.rack_id = ? ORDER BY rs.u_offset
   `).all(targetRackId)

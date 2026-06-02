@@ -76,6 +76,27 @@
   --dv-device-glow-no: rgba(255,80,80,0.15);
   --dv-shadow: 0 4px 24px rgba(0,0,0,0.3);
   --dv-shadow-hover: 0 8px 40px rgba(0,0,0,0.45);
+  /* 组件级 */
+  --dv-comp-card-bg: #0e131c;
+  --dv-comp-card-border: #1e2736;
+  --dv-comp-header-bg: #151d2a;
+  --dv-comp-base-bg: #0c1016;
+  --dv-comp-foot-bg: #080a0f;
+  --dv-comp-label-bg: #0d1118;
+  --dv-comp-label-text: #3a4a5a;
+  --dv-comp-label-line: #141c28;
+  --dv-comp-grid-bg: #0a0e14;
+  --dv-comp-grid-border: #1a2230;
+  --dv-comp-stats-bg: #0e131c;
+  --dv-comp-stats-num: #4ade80;
+  --dv-comp-stats-pct: #6a7888;
+  --dv-comp-stats-tag: #4a5a6a;
+  --dv-comp-stats-bar-bg: #141c28;
+  --dv-comp-btn-color: #4a5a6a;
+  --dv-comp-btn-hover-bg: rgba(255,255,255,0.06);
+  --dv-comp-btn-hover-color: #bcc8d8;
+  --dv-comp-danger-hover-bg: rgba(220,50,50,0.15);
+  --dv-comp-danger-hover-color: #f87171;
 }
 
 /* 浅色主题 */
@@ -156,4 +177,25 @@
   --dv-device-glow-no: rgba(255,80,80,0.15);
   --dv-shadow: 0 2px 12px rgba(0,0,0,0.08);
   --dv-shadow-hover: 0 4px 24px rgba(0,0,0,0.14);
+  /* 组件级 - 暖灰金属色 */
+  --dv-comp-card-bg: #3e434a;
+  --dv-comp-card-border: #4a5058;
+  --dv-comp-header-bg: #464c54;
+  --dv-comp-base-bg: #363b42;
+  --dv-comp-foot-bg: #2f343a;
+  --dv-comp-label-bg: #3a3f47;
+  --dv-comp-label-text: #7a8088;
+  --dv-comp-label-line: #434950;
+  --dv-comp-grid-bg: #2f343a;
+  --dv-comp-grid-border: #434950;
+  --dv-comp-stats-bg: #383d45;
+  --dv-comp-stats-num: #26c96b;
+  --dv-comp-stats-pct: #9ea6b0;
+  --dv-comp-stats-tag: #7a8088;
+  --dv-comp-stats-bar-bg: #434950;
+  --dv-comp-btn-color: #7a8088;
+  --dv-comp-btn-hover-bg: rgba(255,255,255,0.08);
+  --dv-comp-btn-hover-color: #d4d7dc;
+  --dv-comp-danger-hover-bg: rgba(220,50,50,0.2);
+  --dv-comp-danger-hover-color: #ff6b6b;
 }

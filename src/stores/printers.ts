@@ -15,6 +15,15 @@ export const usePrintersStore = defineStore('printers', () => {
     if (idx !== -1) printers.value[idx] = { ...printers.value[idx], ...data }
   }
   function deletePrinter(id: number) { printers.value = printers.value.filter(p => p.id !== id) }
+  function deletePrinters(ids: number[]) {
+    printers.value = printers.value.filter(p => !ids.includes(p.id))
+  }
+  function batchImport(imported: Printer[]) {
+    const maxId = printers.value.reduce((max, p) => Math.max(max, p.id), 0)
+    imported.forEach((p, i) => {
+      printers.value.push({ ...p, id: maxId + i + 1 })
+    })
+  }
 
-  return { printers, total, normalCount, lowInkCount, addPrinter, updatePrinter, deletePrinter }
+  return { printers, total, normalCount, lowInkCount, addPrinter, updatePrinter, deletePrinter, deletePrinters, batchImport }
 })

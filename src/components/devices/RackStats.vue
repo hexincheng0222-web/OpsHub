@@ -28,7 +28,7 @@ const usagePct = computed(() => {
 const usageColor = computed(() => {
   if (usagePct.value >= 80) return '#f87171'
   if (usagePct.value >= 50) return '#fbbf24'
-  return '#4ade80'
+  return 'var(--dv-comp-stats-num)'
 })
 </script>
 
@@ -57,69 +57,19 @@ const usageColor = computed(() => {
 
 <style scoped>
 .rack-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: flex; align-items: center; gap: 10px;
   padding: 8px 14px;
-  border-bottom: 1px solid #1a2230;
-  background: #0e131c;
+  border-bottom: 1px solid var(--dv-comp-grid-border);
+  background: var(--dv-comp-stats-bg);
 }
-
-.rs-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-width: 36px;
-}
-
-.rs-num {
-  font-size: 14px;
-  font-weight: 700;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  line-height: 1;
-}
-.rs-total { color: #6a7888; }
-.rs-used { color: #4ade80; }
-.rs-devices { color: #60a5fa; }
-
-.rs-tag {
-  font-size: 8px;
-  color: #4a5a6a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.rs-bar-wrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.rs-bar {
-  flex: 1;
-  height: 4px;
-  background: #141c28;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.rs-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.4s ease, background 0.3s;
-  box-shadow: 0 0 6px rgba(74,222,128,0.3);
-}
-
-.rs-pct {
-  font-size: 10px;
-  font-weight: 600;
-  color: #6a7888;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  width: 30px;
-  text-align: right;
-  flex-shrink: 0;
-}
+.rs-item { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 36px; }
+.rs-num { font-size: 14px; font-weight: 700; font-family: 'SF Mono', 'Consolas', monospace; line-height: 1; }
+.rs-total { color: var(--dv-comp-stats-pct); }
+.rs-used { color: var(--dv-comp-stats-num); }
+.rs-devices { color: var(--dv-accent-blue); }
+.rs-tag { font-size: 8px; color: var(--dv-comp-stats-tag); text-transform: uppercase; letter-spacing: 0.5px; }
+.rs-bar-wrap { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rs-bar { flex: 1; height: 4px; background: var(--dv-comp-stats-bar-bg); border-radius: 2px; overflow: hidden; }
+.rs-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease, background 0.3s; box-shadow: 0 0 6px rgba(74,222,128,0.3); }
+.rs-pct { font-size: 10px; font-weight: 600; color: var(--dv-comp-stats-pct); font-family: 'SF Mono', 'Consolas', monospace; width: 30px; text-align: right; flex-shrink: 0; }
 </style>

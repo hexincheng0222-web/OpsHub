@@ -54,7 +54,6 @@ db.exec(`
     ports      INT          NOT NULL DEFAULT 0,
     status     VARCHAR(10)  NOT NULL DEFAULT '正常',
     ip         VARCHAR(45),
-    dept       VARCHAR(50),
     created_at TEXT         NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT         NOT NULL DEFAULT (datetime('now'))
   );
@@ -103,8 +102,8 @@ if (rackCount.cnt === 0) {
   const insertRack = db.prepare('INSERT INTO racks (id, name, floor, total_u) VALUES (?, ?, ?, ?)')
   // 设备
   const insertDevice = db.prepare(`
-    INSERT INTO devices (id, name, type, model, u, ports, status, ip, dept)
-    VALUES (@id, @name, @type, @model, @u, @ports, @status, @ip, @dept)
+    INSERT INTO devices (id, name, type, model, u, ports, status, ip)
+    VALUES (@id, @name, @type, @model, @u, @ports, @status, @ip)
   `)
   // U位
   const insertSlot = db.prepare('INSERT INTO rack_slots (rack_id, device_id, u_offset, u_size) VALUES (?, ?, ?, ?)')
@@ -121,40 +120,40 @@ if (rackCount.cnt === 0) {
 
     // 设备数据
     const devices = [
-      { id: 1, name: 'PDU-A1', type: 'pdu', model: 'APC 3kW', u: 1, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 2, name: 'PDU-A2', type: 'pdu', model: 'APC 3kW', u: 1, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 3, name: 'Core-SW-01', type: 'switch', model: 'S6730-H48X6C', u: 1, ports: 48, status: '正常', ip: '10.0.0.1', dept: '运维部' },
-      { id: 4, name: 'Core-SW-02', type: 'switch', model: 'S6730-H48X6C', u: 1, ports: 48, status: '正常', ip: '10.0.0.2', dept: '运维部' },
-      { id: 5, name: 'ESXi-01', type: 'server', model: 'Dell R750', u: 2, ports: 4, status: '正常', ip: '10.0.1.10', dept: '技术部' },
-      { id: 6, name: 'ESXi-02', type: 'server', model: 'Dell R750', u: 2, ports: 4, status: '正常', ip: '10.0.1.11', dept: '技术部' },
-      { id: 7, name: 'DB-Master', type: 'server', model: 'Dell R750xa', u: 2, ports: 4, status: '正常', ip: '10.0.1.20', dept: '技术部' },
-      { id: 8, name: 'DB-Slave', type: 'server', model: 'Dell R750xa', u: 2, ports: 4, status: '正常', ip: '10.0.1.21', dept: '技术部' },
-      { id: 9, name: 'SAN-01', type: 'storage', model: 'OceanStor 5310', u: 3, ports: 8, status: '正常', ip: '10.0.2.10', dept: '运维部' },
-      { id: 10, name: 'App-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.30', dept: '技术部' },
-      { id: 11, name: 'App-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.31', dept: '技术部' },
-      { id: 12, name: 'App-03', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.32', dept: '技术部' },
-      { id: 13, name: 'App-04', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.33', dept: '技术部' },
-      { id: 14, name: 'FW-01', type: 'firewall', model: 'FG-100F', u: 1, ports: 16, status: '正常', ip: '10.0.0.10', dept: '运维部' },
-      { id: 15, name: 'FW-02', type: 'firewall', model: 'FG-100F', u: 1, ports: 16, status: '正常', ip: '10.0.0.11', dept: '运维部' },
-      { id: 16, name: 'Router-01', type: 'router', model: 'NE8000', u: 2, ports: 8, status: '正常', ip: '10.0.0.100', dept: '运维部' },
-      { id: 17, name: 'UPS-A', type: 'ups', model: 'SANTAK 20KVA', u: 3, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 18, name: 'PDU-B1', type: 'pdu', model: 'APC 5kW', u: 1, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 19, name: 'PDU-B2', type: 'pdu', model: 'APC 5kW', u: 1, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 20, name: 'Core-Router', type: 'router', model: 'NE40E', u: 2, ports: 16, status: '正常', ip: '10.0.0.254', dept: '运维部' },
-      { id: 21, name: 'Agg-SW-01', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.11', dept: '运维部' },
-      { id: 22, name: 'Agg-SW-02', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.12', dept: '运维部' },
-      { id: 23, name: 'Agg-SW-03', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.13', dept: '运维部' },
-      { id: 24, name: 'FW-DMZ', type: 'firewall', model: 'FG-200F', u: 1, ports: 16, status: '正常', ip: '10.0.0.20', dept: '运维部' },
-      { id: 25, name: 'FW-INT', type: 'firewall', model: 'FG-200F', u: 1, ports: 16, status: '正常', ip: '10.0.0.21', dept: '运维部' },
-      { id: 26, name: 'TOR-SW-01', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.31', dept: '运维部' },
-      { id: 27, name: 'TOR-SW-02', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.32', dept: '运维部' },
-      { id: 28, name: 'TOR-SW-03', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.33', dept: '运维部' },
-      { id: 29, name: 'TOR-SW-04', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.34', dept: '运维部' },
-      { id: 30, name: 'UPS-B', type: 'ups', model: 'SANTAK 30KVA', u: 3, ports: 0, status: '正常', ip: null, dept: '运维部' },
-      { id: 31, name: 'Web-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null, dept: '技术部' },
-      { id: 32, name: 'Web-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null, dept: '技术部' },
-      { id: 33, name: 'Dev-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null, dept: '技术部' },
-      { id: 34, name: 'Dev-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null, dept: '技术部' },
+      { id: 1, name: 'PDU-A1', type: 'pdu', model: 'APC 3kW', u: 1, ports: 0, status: '正常', ip: null },
+      { id: 2, name: 'PDU-A2', type: 'pdu', model: 'APC 3kW', u: 1, ports: 0, status: '正常', ip: null },
+      { id: 3, name: 'Core-SW-01', type: 'switch', model: 'S6730-H48X6C', u: 1, ports: 48, status: '正常', ip: '10.0.0.1' },
+      { id: 4, name: 'Core-SW-02', type: 'switch', model: 'S6730-H48X6C', u: 1, ports: 48, status: '正常', ip: '10.0.0.2' },
+      { id: 5, name: 'ESXi-01', type: 'server', model: 'Dell R750', u: 2, ports: 4, status: '正常', ip: '10.0.1.10' },
+      { id: 6, name: 'ESXi-02', type: 'server', model: 'Dell R750', u: 2, ports: 4, status: '正常', ip: '10.0.1.11' },
+      { id: 7, name: 'DB-Master', type: 'server', model: 'Dell R750xa', u: 2, ports: 4, status: '正常', ip: '10.0.1.20' },
+      { id: 8, name: 'DB-Slave', type: 'server', model: 'Dell R750xa', u: 2, ports: 4, status: '正常', ip: '10.0.1.21' },
+      { id: 9, name: 'SAN-01', type: 'storage', model: 'OceanStor 5310', u: 3, ports: 8, status: '正常', ip: '10.0.2.10' },
+      { id: 10, name: 'App-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.30' },
+      { id: 11, name: 'App-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.31' },
+      { id: 12, name: 'App-03', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.32' },
+      { id: 13, name: 'App-04', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: '10.0.1.33' },
+      { id: 14, name: 'FW-01', type: 'firewall', model: 'FG-100F', u: 1, ports: 16, status: '正常', ip: '10.0.0.10' },
+      { id: 15, name: 'FW-02', type: 'firewall', model: 'FG-100F', u: 1, ports: 16, status: '正常', ip: '10.0.0.11' },
+      { id: 16, name: 'Router-01', type: 'router', model: 'NE8000', u: 2, ports: 8, status: '正常', ip: '10.0.0.100' },
+      { id: 17, name: 'UPS-A', type: 'ups', model: 'SANTAK 20KVA', u: 3, ports: 0, status: '正常', ip: null },
+      { id: 18, name: 'PDU-B1', type: 'pdu', model: 'APC 5kW', u: 1, ports: 0, status: '正常', ip: null },
+      { id: 19, name: 'PDU-B2', type: 'pdu', model: 'APC 5kW', u: 1, ports: 0, status: '正常', ip: null },
+      { id: 20, name: 'Core-Router', type: 'router', model: 'NE40E', u: 2, ports: 16, status: '正常', ip: '10.0.0.254' },
+      { id: 21, name: 'Agg-SW-01', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.11' },
+      { id: 22, name: 'Agg-SW-02', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.12' },
+      { id: 23, name: 'Agg-SW-03', type: 'switch', model: 'S5735-L48P4X', u: 1, ports: 48, status: '正常', ip: '10.0.0.13' },
+      { id: 24, name: 'FW-DMZ', type: 'firewall', model: 'FG-200F', u: 1, ports: 16, status: '正常', ip: '10.0.0.20' },
+      { id: 25, name: 'FW-INT', type: 'firewall', model: 'FG-200F', u: 1, ports: 16, status: '正常', ip: '10.0.0.21' },
+      { id: 26, name: 'TOR-SW-01', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.31' },
+      { id: 27, name: 'TOR-SW-02', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.32' },
+      { id: 28, name: 'TOR-SW-03', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.33' },
+      { id: 29, name: 'TOR-SW-04', type: 'switch', model: 'S5735-L24P4X', u: 1, ports: 24, status: '正常', ip: '10.0.0.34' },
+      { id: 30, name: 'UPS-B', type: 'ups', model: 'SANTAK 30KVA', u: 3, ports: 0, status: '正常', ip: null },
+      { id: 31, name: 'Web-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null },
+      { id: 32, name: 'Web-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null },
+      { id: 33, name: 'Dev-01', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null },
+      { id: 34, name: 'Dev-02', type: 'server', model: 'Dell R650', u: 1, ports: 4, status: '正常', ip: null },
     ]
     for (const d of devices) insertDevice.run(d)
 

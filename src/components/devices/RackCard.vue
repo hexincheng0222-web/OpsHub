@@ -39,23 +39,23 @@ const ventCount = computed(() => Math.max(4, Math.floor(props.rack.totalU / 4)))
 <style scoped>
 .rack-card {
   width: 360px;
-  background: #0e131c;
-  border: 2px solid #1e2736;
+  background: var(--dv-comp-card-bg);
+  border: 2px solid var(--dv-comp-card-border);
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
 }
 .rack-body { padding: 0; }
 .rack-top-panel {
-  height: 14px; background: #151d2a;
-  border-bottom: 1px solid #1e2736;
+  height: 14px; background: var(--dv-comp-header-bg);
+  border-bottom: 1px solid var(--dv-comp-card-border);
   display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.rtp-vent { width: 30px; height: 2px; background: #0a0e14; border-radius: 1px; }
+.rtp-vent { width: 30px; height: 2px; background: var(--dv-comp-foot-bg); border-radius: 1px; }
 .rack-bottom {
-  height: 14px; background: #0c1016;
-  border-top: 1px solid #1e2736;
+  height: 14px; background: var(--dv-comp-base-bg);
+  border-top: 1px solid var(--dv-comp-card-border);
   display: flex; align-items: center; justify-content: center; gap: 140px;
 }
-.rack-foot { width: 36px; height: 3px; background: #080a0f; border-radius: 2px; }
+.rack-foot { width: 36px; height: 3px; background: var(--dv-comp-foot-bg); border-radius: 2px; }
 </style>

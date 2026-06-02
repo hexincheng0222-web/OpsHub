@@ -40,14 +40,14 @@ const gridStyle = computed(() => ({
 </template>
 
 <style scoped>
-.rack-grid { display: grid; grid-template-columns: 28px 1fr; background: #0a0e14; }
-.ugrid-labels { grid-column: 1; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; border-right: 1px solid #1a2230; }
+.rack-grid { display: grid; grid-template-columns: 28px 1fr; background: var(--dv-comp-grid-bg); }
+.ugrid-labels { grid-column: 1; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; border-right: 1px solid var(--dv-comp-grid-border); }
 .u-label {
   display: flex; align-items: center; justify-content: center;
-  font-size: 8px; color: #3a4a5a; font-weight: 700;
+  font-size: 8px; color: var(--dv-comp-label-text); font-weight: 700;
   font-family: 'SF Mono', 'Consolas', monospace;
-  background: #0d1118; border-bottom: 1px solid #141c28;
+  background: var(--dv-comp-label-bg); border-bottom: 1px solid var(--dv-comp-label-line);
   box-sizing: border-box;
 }
-.ugrid-slots { grid-column: 2; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; padding: 2px 4px; background: #0a0e14; }
+.ugrid-slots { grid-column: 2; grid-row: 1 / -1; display: grid; grid-template-rows: subgrid; padding: 2px 4px; background: var(--dv-comp-grid-bg); }
 </style>

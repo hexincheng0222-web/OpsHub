@@ -27,58 +27,32 @@ defineEmits<{ edit: []; delete: [] }>()
   grid-template-columns: 60px 1fr 60px;
   align-items: center;
   padding: 10px 14px;
-  background: linear-gradient(180deg, #1c2332 0%, #161d2a 100%);
-  border-bottom: 1px solid #222a38;
+  background: linear-gradient(180deg, var(--dv-comp-header-bg), var(--dv-comp-card-bg));
+  border-bottom: 1px solid var(--dv-comp-card-border);
 }
-.rh-left {
-  display: flex;
-  align-items: center;
-}
+.rh-left { display: flex; align-items: center; }
 .rh-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #d8dfe8;
+  font-size: 13px; font-weight: 700;
+  color: var(--dv-dark-sub);
   letter-spacing: 0.5px;
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rh-floor {
-  font-size: 9px;
-  font-weight: 700;
-  color: #6a7888;
+  font-size: 9px; font-weight: 700;
+  color: var(--dv-dark-dim);
   background: rgba(255,255,255,0.04);
-  padding: 1px 7px;
-  border-radius: 4px;
+  padding: 1px 7px; border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.06);
   font-family: 'SF Mono', 'Consolas', monospace;
 }
-.rh-actions {
-  display: flex;
-  gap: 2px;
-  justify-content: flex-end;
-}
+.rh-actions { display: flex; gap: 2px; justify-content: flex-end; }
 .rh-btn {
-  background: none;
-  border: 1px solid transparent;
-  color: #4a5a6a;
-  cursor: pointer;
-  padding: 4px 5px;
-  border-radius: 4px;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: none; border: 1px solid transparent;
+  color: var(--dv-comp-btn-color); cursor: pointer;
+  padding: 4px 5px; border-radius: 4px; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
 }
-.rh-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: #bcc8d8;
-  border-color: rgba(255,255,255,0.08);
-}
-.rh-btn-danger:hover {
-  color: #f87171;
-  background: rgba(220,50,50,0.15);
-  border-color: rgba(220,50,50,0.2);
-}
+.rh-btn:hover { background: var(--dv-comp-btn-hover-bg); color: var(--dv-comp-btn-hover-color); border-color: rgba(255,255,255,0.08); }
+.rh-btn-danger:hover { color: var(--dv-comp-danger-hover-color); background: var(--dv-comp-danger-hover-bg); border-color: rgba(220,50,50,0.2); }
 </style>
