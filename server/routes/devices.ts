@@ -23,8 +23,6 @@ router.put('/:id', (req: Request, res: Response) => {
     ip !== undefined ? ip : (existing as any).ip,
     id
   )
-    id
-  )
 
   const updated = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
   res.json({ code: 200, data: updated })
