@@ -41,6 +41,7 @@ const menuItems: MenuItem[] = [
     label: '打印机管理',
     icon: Printer,
     children: [
+      { key: 'printers/floors', label: '楼层管理', route: '/admin/printers/floors' },
       { key: 'printers/brands', label: '品牌管理', route: '/admin/printers/brands' },
       { key: 'printers/models', label: '型号管理', route: '/admin/printers/models' },
       { key: 'printers/toners', label: '墨粉型号', route: '/admin/printers/toners' },

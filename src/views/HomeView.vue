@@ -32,11 +32,11 @@
       <div class="big-card card-green" @click="$router.push('/operations')">
         <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
         <div class="card-icon-wrap"><el-icon :size="32"><Operation /></el-icon></div>
-        <div class="card-body"><h3>系统运维操作</h3><p>运维工单流程管理，操作记录汇总查看</p></div>
+        <div class="card-body"><h3>运维操作手册</h3><p>系统运维操作手册，文档查阅与知识管理</p></div>
         <div class="card-stat">
           <span class="stat-num">{{ opsStore.total }}</span>
-          <span class="stat-label">个工单</span>
-          <span class="stat-sub">进行中 {{ opsStore.activeCount }}</span>
+          <span class="stat-label">篇手册</span>
+          <span class="stat-sub">{{ opsStore.activeCount }} 个分类</span>
         </div>
       </div>
       <div class="big-card card-purple" @click="$router.push('/devices')">
@@ -47,6 +47,24 @@
           <span class="stat-num">{{ devicesStore.total }}</span>
           <span class="stat-label">台设备</span>
           <span class="stat-sub">正常 {{ devicesStore.normalCount }}</span>
+        </div>
+      </div>
+      <div class="big-card card-pink" @click="$router.push('/computer-procurement')">
+        <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
+        <div class="card-icon-wrap"><el-icon :size="32"><Monitor /></el-icon></div>
+        <div class="card-body"><h3>电脑采购登记</h3><p>电脑设备采购登记与资产追踪</p></div>
+        <div class="card-stat">
+          <span class="stat-num">{{ computerStore.total }}</span>
+          <span class="stat-label">台电脑</span>
+        </div>
+      </div>
+      <div class="big-card card-cyan" @click="$router.push('/phone-procurement')">
+        <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
+        <div class="card-icon-wrap"><el-icon :size="32"><Cellphone /></el-icon></div>
+        <div class="card-body"><h3>手机采购登记</h3><p>手机设备采购登记与资产追踪</p></div>
+        <div class="card-stat">
+          <span class="stat-num">{{ phoneStore.total }}</span>
+          <span class="stat-label">部手机</span>
         </div>
       </div>
       <div class="big-card card-orange" @click="$router.push('/printers')">
@@ -75,13 +93,23 @@ import { useServicesStore } from '../stores/services'
 import { useOperationsStore } from '../stores/operations'
 import { useDevicesStore } from '../stores/devices'
 import { usePrintersStore } from '../stores/printers'
+import { useComputerProcurementStore, usePhoneProcurementStore } from '../stores/procurement'
+import { Monitor, Cellphone } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
 const servicesStore = useServicesStore()
 const opsStore = useOperationsStore()
 const devicesStore = useDevicesStore()
 const printersStore = usePrintersStore()
+const computerStore = useComputerProcurementStore()
+const phoneStore = usePhoneProcurementStore()
 const themeStore = useThemeStore()
-onMounted(() => { servicesStore.loadServices() })
+onMounted(() => {
+  servicesStore.loadServices()
+  opsStore.loadFolders()
+  opsStore.loadDocs()
+  devicesStore.loadRacks()
+  printersStore.loadPrinters()
+})
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
 function particleStyle(i: number) {
   const color = COLORS[i % COLORS.length]; const size = 3 + Math.random() * 6
@@ -163,6 +191,20 @@ function particleStyle(i: number) {
 .card-green .stat-num{color:#7ee787}
 .card-purple .stat-num{color:#bc8cff}
 .card-orange .stat-num{color:#e3b341}
+.card-pink .card-glow{background:linear-gradient(135deg,rgba(244,114,182,.30),transparent 45%,rgba(244,114,182,.06))}
+.card-pink:hover{border-color:rgba(244,114,182,.35);box-shadow:0 0 60px rgba(244,114,182,.08),0 0 120px rgba(244,114,182,.04),0 8px 32px rgba(0,0,0,.5)}
+.card-pink .card-icon-wrap{background:linear-gradient(135deg,rgba(244,114,182,.18),rgba(244,114,182,.06));color:#f472b6;box-shadow:0 0 20px rgba(244,114,182,.10)}
+.card-pink:hover .card-icon-wrap{box-shadow:0 0 30px rgba(244,114,182,.25)}
+.card-pink .stat-num{color:#f472b6}
+.card-cyan .card-glow{background:linear-gradient(135deg,rgba(34,211,238,.30),transparent 45%,rgba(34,211,238,.06))}
+.card-cyan:hover{border-color:rgba(34,211,238,.35);box-shadow:0 0 60px rgba(34,211,238,.08),0 0 120px rgba(34,211,238,.04),0 8px 32px rgba(0,0,0,.5)}
+.card-cyan .card-icon-wrap{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(34,211,238,.06));color:#22d3ee;box-shadow:0 0 20px rgba(34,211,238,.10)}
+.card-cyan:hover .card-icon-wrap{box-shadow:0 0 30px rgba(34,211,238,.25)}
+.card-cyan .stat-num{color:#22d3ee}
+.light-theme .card-pink .stat-num{color:#db2777}
+.light-theme .card-cyan .stat-num{color:#0891b2}
+.light-theme .card-pink .card-icon-wrap{background:linear-gradient(135deg,rgba(219,39,119,.12),rgba(219,39,119,.04));color:#db2777;box-shadow:0 0 20px rgba(219,39,119,.08)}
+.light-theme .card-cyan .card-icon-wrap{background:linear-gradient(135deg,rgba(8,145,178,.12),rgba(8,145,178,.04));color:#0891b2;box-shadow:0 0 20px rgba(8,145,178,.08)}
 .light-theme .card-blue .stat-num{color:#0969da}
 .light-theme .card-green .stat-num{color:#1a7f37}
 .light-theme .card-purple .stat-num{color:#8250df}

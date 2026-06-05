@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@rolldown/binding-win32-x64-msvc": "^1.1.0",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
     "element-plus": "^2.14.0",
     "esbuild": "^0.28.0",
     "express": "^5.2.1",
+    "marked": "^18.0.4",
     "pinia": "^3.0.4",
     "sql.js": "^1.14.1",
     "vue": "^3.5.34",
@@ -32,7 +34,7 @@
     "concurrently": "^10.0.1",
     "tsx": "^4.22.4",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12",
+    "vite": "^8.0.16",
     "vue-tsc": "^3.2.8"
   }
 }

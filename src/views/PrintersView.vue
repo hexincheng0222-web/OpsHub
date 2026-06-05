@@ -1,16 +1,34 @@
 <template>
   <div class="printers-page">
-    <!-- Header -->
-    <div class="page-header">
-      <button class="back-btn" @click="$router.push('/')">← 返回</button>
-      <span class="header-divider" />
-      <h1 class="page-title">打印机管理</h1>
-      <div style="flex:1" />
-      <div class="header-actions">
-        <button class="act-btn" @click="downloadTemplate">📋 下载模板</button>
-        <button class="act-btn" @click="triggerImport">📥 批量导入</button>
-        <button class="act-btn" @click="exportCSV">📤 导出 CSV</button>
-        <button class="act-btn act-btn-primary" @click="openAddDialog">＋ 添加打印机</button>
+    <!-- Header — same as PhoneProcurementView -->
+    <div class="top-bar">
+      <button class="back-btn" @click="$router.push('/')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>返回</span>
+      </button>
+      <h3>打印机管理 <span class="top-count">{{ store.total }} 台</span></h3>
+      <div class="top-actions">
+        <el-dropdown @command="handleTopAction" trigger="click">
+          <el-button size="small">
+            操作 <el-icon><arrow-down /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="template">
+                <el-icon><document /></el-icon> 下载模板
+              </el-dropdown-item>
+              <el-dropdown-item command="import">
+                <el-icon><upload /></el-icon> 批量导入
+              </el-dropdown-item>
+              <el-dropdown-item command="export" divided>
+                <el-icon><download /></el-icon> 导出 CSV
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button type="primary" size="small" @click="openAddDialog">
+          <el-icon><Plus /></el-icon> 添加打印机
+        </el-button>
       </div>
       <input ref="fileInput" type="file" accept=".csv" style="display:none" @change="handleImport" />
     </div>
@@ -117,8 +135,15 @@ import { ref, reactive, computed } from 'vue'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
+import { Plus, ArrowDown, Download, Upload, Document } from '@element-plus/icons-vue'
 
 const store = usePrintersStore()
+
+function handleTopAction(command: string) {
+  if (command === 'template') downloadTemplate()
+  else if (command === 'import') triggerImport()
+  else if (command === 'export') exportCSV()
+}
 
 interface FloorGroup { floor: string; printers: Printer[] }
 const floorGroups = computed(() => {
@@ -155,17 +180,15 @@ function savePrinter() {
 <style scoped>
 .printers-page { max-width: 1100px; margin: 0 auto; padding: 24px; min-height: 100vh; background: var(--dv-page-bg); }
 
-/* Header */
-.page-header { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--dv-header-border); }
-.back-btn { background: none; border: 1px solid transparent; color: var(--dv-light-muted); cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 6px; transition: all 0.15s; font-family: inherit; }
-.back-btn:hover { color: var(--dv-accent-blue-glow); background: rgba(88,166,255,0.06); border-color: rgba(88,166,255,0.15); }
-.header-divider { width: 1px; height: 18px; background: var(--dv-header-divider); }
-.page-title { font-size: 18px; color: var(--dv-light-text); margin: 0; font-weight: 700; }
-.header-actions { display: flex; gap: 8px; }
-.act-btn { background: var(--dv-kpi-bg); color: var(--dv-light-muted); border: 1px solid var(--dv-kpi-border); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
-.act-btn:hover { border-color: var(--dv-accent-blue); color: var(--dv-accent-blue-glow); }
-.act-btn-primary { background: rgba(88,166,255,0.08); color: var(--dv-accent-blue-glow); border-color: rgba(88,166,255,0.2); font-weight: 600; }
-.act-btn-primary:hover { background: rgba(88,166,255,0.15); }
+/* Header — same as PhoneProcurementView */
+.top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }
+.top-bar h3 { flex: 1; font-size: 16px; font-weight: 600; color: var(--ops-text-primary); margin: 0; }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.back-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px 6px 10px; background: var(--ops-bg-card-hover); border: 1px solid var(--ops-border-card); border-radius: 20px; color: var(--ops-text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.2s ease; }
+.back-btn svg { transition: transform 0.2s ease; }
+.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); }
+.back-btn:hover svg { transform: translateX(-2px); }
+.top-count { font-size: 12px; font-weight: 400; color: var(--ops-text-tertiary); margin-left: 6px; }
 
 /* Toolbar */
 .toolbar { display: flex; align-items: center; margin-bottom: 16px; padding: 4px 0; }

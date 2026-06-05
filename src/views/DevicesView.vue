@@ -103,15 +103,9 @@ function openAddRackDialog() {
   showAddRackDialog.value = true
 }
 
-function confirmAddRack() {
+async function confirmAddRack() {
   if (!newRackForm.value.name) return
-  store.addRack({
-    id: 'rack-' + Date.now(),
-    name: newRackForm.value.name,
-    totalU: newRackForm.value.totalU,
-    floor: newRackForm.value.floor,
-    devices: [],
-  })
+  await store.addRackToServer(newRackForm.value.name, newRackForm.value.floor, newRackForm.value.totalU)
   showAddRackDialog.value = false
 }
 
@@ -126,9 +120,9 @@ function openEditRackDialog(rack: Rack) {
   showEditRackDialog.value = true
 }
 
-function saveRackName() {
+async function saveRackName() {
   if (editingRack.value && editRackName.value) {
-    store.updateRackName(editingRack.value.id, editRackName.value)
+    await store.updateRackOnServer(editingRack.value.id, editRackName.value)
   }
   showEditRackDialog.value = false
 }
@@ -207,14 +201,14 @@ function closeDrawer() {
 
 function deleteSelectedDevice() {
   if (drawerDevice.value) {
-    store.deleteDevice(drawerDevice.value.id)
+    store.deleteDeviceFromServer(drawerDevice.value.id)
     closeDrawer()
   }
 }
 
 function updateDeviceStatus(status: Device['status']) {
   if (drawerDevice.value) {
-    store.updateDevice(drawerDevice.value.id, { status })
+    store.updateDeviceOnServer(drawerDevice.value.id, { status })
   }
 }
 
@@ -222,7 +216,7 @@ function updateDeviceStatus(status: Device['status']) {
 const { onMouseDown } = useDragDrop(
   () => store.racks,
   (sourceRackId, targetRackId, targetOffset, deviceId) => {
-    store.moveDevice(sourceRackId, targetRackId, targetOffset, deviceId)
+    store.moveDeviceOnServer(deviceId, targetRackId, targetOffset)
   }
 )
 
@@ -237,7 +231,10 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
   <div class="devices-page">
     <!-- Header -->
     <div class="page-header">
-      <button class="back-btn" @click="router.push('/')">← 返回</button>
+      <button class="back-btn" @click="router.push('/')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>返回</span>
+      </button>
       <span class="header-divider" />
       <h1 class="page-title">数据中心管理</h1>
       <div style="flex:1" />
@@ -288,7 +285,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
         :key="rack.id"
         :rack="rack"
         @edit-rack="openEditRackDialog"
-        @delete-rack="(id: string) => store.deleteRack(id)"
+        @delete-rack="(id: string) => store.deleteRackFromServer(id)"
         @slot-click="onSlotClick"
         @drag-start="handleDragStart"
       />
@@ -421,11 +418,22 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 /* --- Page Layout --- */
 .devices-page { max-width: 1500px; margin: 0 auto; padding: 24px; min-height: 100vh; background: var(--dv-page-bg); }
 .page-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding: 14px 0; border-bottom: 1px solid var(--dv-header-border); }
-.back-btn { background: none; border: 1px solid transparent; color: var(--dv-light-muted); cursor: pointer; font-size: 12px; padding: 4px 10px; border-radius: 6px; transition: all 0.15s; font-family: inherit; }
-.back-btn:hover { color: #79c0ff; background: rgba(88,166,255,0.06); border-color: rgba(88,166,255,0.15); }
+.back-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px 6px 10px;
+  background: var(--dv-kpi-bg);
+  border: 1px solid var(--dv-kpi-border);
+  border-radius: 20px;
+  color: var(--dv-light-muted);
+  cursor: pointer; font-size: 12px; font-family: inherit;
+  transition: all 0.2s ease;
+}
+.back-btn svg { transition: transform 0.2s ease; }
+.back-btn:hover { color: var(--dv-accent-blue-glow); border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.06); }
+.back-btn:hover svg { transform: translateX(-2px); }
 .header-divider { width: 1px; height: 18px; background: var(--dv-header-divider); }
 .page-title { font-size: 18px; color: var(--dv-light-text); margin: 0; font-weight: 700; letter-spacing: -0.3px; }
-.add-rack-btn { background: rgba(88,166,255,0.08); color: #79c0ff; border: 1px solid rgba(88,166,255,0.2); padding: 7px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.15s; font-family: inherit; }
+.add-rack-btn { background: rgba(88,166,255,0.08); color: var(--dv-accent-blue-glow); border: 1px solid rgba(88,166,255,0.2); padding: 7px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.15s; font-family: inherit; }
 .add-rack-btn:hover { background: rgba(88,166,255,0.15); border-color: rgba(88,166,255,0.35); }
 
 /* --- KPI --- */
@@ -435,15 +443,15 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .kpi-number { font-size: 24px; font-weight: 700; color: var(--dv-light-text); }
 .kpi-unit { font-size: 12px; color: var(--dv-light-dim); }
 .kpi-label { font-size: 11px; color: var(--dv-light-dim); margin-top: 4px; }
-.kpi-online .kpi-number { color: #4af0c0; }
-.kpi-offline .kpi-number { color: #ff6b6b; }
-.kpi-usage .kpi-number { color: #79c0ff; }
+.kpi-online .kpi-number { color: var(--dv-accent-green); }
+.kpi-offline .kpi-number { color: var(--dv-accent-red-dim); }
+.kpi-usage .kpi-number { color: var(--dv-accent-blue-glow); }
 
 /* --- Toolbar --- */
 .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 10px 12px; background: var(--dv-kpi-bg); border: 1px solid var(--dv-kpi-border); border-radius: 8px; flex-wrap: wrap; }
 .floor-tabs { display: flex; gap: 8px; }
 .floor-tab { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; background: var(--dv-kpi-bg); border: 1px solid var(--dv-kpi-border); color: var(--dv-light-muted); transition: all 0.2s; }
-.floor-tab.active { background: rgba(88,166,255,0.15); border-color: rgba(88,166,255,0.3); color: #79c0ff; }
+.floor-tab.active { background: rgba(88,166,255,0.15); border-color: rgba(88,166,255,0.3); color: var(--dv-accent-blue-glow); }
 .floor-tab:hover { border-color: var(--dv-header-border); }
 .search-input { background: var(--dv-bar-track); border: 1px solid var(--dv-kpi-border); color: var(--dv-light-muted); padding: 6px 10px; border-radius: 6px; font-size: 12px; flex: 1; min-width: 150px; }
 .filter-select { background: var(--dv-bar-track); border: 1px solid var(--dv-kpi-border); color: var(--dv-light-muted); padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100px; }
@@ -460,7 +468,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .fb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .fb-label { font-size: 11px; color: var(--dv-light-muted); width: 30px; flex-shrink: 0; }
 .fb-bar-track { flex: 1; height: 6px; background: var(--dv-bar-track); border-radius: 3px; overflow: hidden; }
-.fb-bar-fill { height: 100%; background: linear-gradient(90deg, #4af0c0, #79c0ff); border-radius: 3px; transition: width 0.3s; }
+.fb-bar-fill { height: 100%; background: linear-gradient(90deg, var(--dv-accent-green), var(--dv-accent-blue-glow)); border-radius: 3px; transition: width 0.3s; }
 .fb-pct { font-size: 11px; color: var(--dv-light-dim); width: 32px; text-align: right; }
 .tb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .tb-dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -486,10 +494,10 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .df-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .df-btn { padding: 6px 16px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; transition: all 0.2s; }
 .df-btn-cancel { background: var(--dv-bar-track); color: var(--dv-light-muted); }
-.df-btn-confirm { background: rgba(88,166,255,0.15); color: #79c0ff; border: 1px solid rgba(88,166,255,0.3); font-weight: 600; }
-.df-btn-danger { background: rgba(220,50,50,0.15); color: #ff6b6b; border: 1px solid rgba(220,50,50,0.3); }
+.df-btn-confirm { background: rgba(88,166,255,0.15); color: var(--dv-accent-blue-glow); border: 1px solid rgba(88,166,255,0.3); font-weight: 600; }
+.df-btn-danger { background: rgba(220,50,50,0.15); color: var(--dv-accent-red-dim); border: 1px solid rgba(220,50,50,0.3); }
 .df-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--dv-bar-track); color: var(--dv-light-dim); }
-.df-radio { font-size: 12px; color: #8b9bb4; display: flex; align-items: center; gap: 4px; }
+.df-radio { font-size: 12px; color: var(--dv-light-dim); display: flex; align-items: center; gap: 4px; }
 
 /* U 位数单选框组 */
 .df-radio-group { display: flex; gap: 6px; }
@@ -527,12 +535,12 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .drawer-field { display: flex; flex-direction: column; gap: 4px; }
 .field-label { font-size: 11px; color: var(--dv-light-dim); text-transform: uppercase; }
 .field-value { font-size: 13px; color: var(--dv-light-muted); }
-.ip-value { font-family: monospace; color: #79c0ff; }
+.ip-value { font-family: monospace; color: var(--dv-accent-blue-glow); }
 .drawer-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--dv-header-border); }
 
 /* --- Drag (global) --- */
 :global(.drag-source) { opacity: 0.35 !important; }
-:global(.u-slot.drop-ok) { background: rgba(74,240,192,0.2) !important; border: 2px dashed #4af0c0 !important; box-shadow: 0 0 16px rgba(74,240,192,0.4), inset 0 0 8px rgba(74,240,192,0.1); }
+:global(.u-slot.drop-ok) { background: rgba(74,240,192,0.2) !important; border: 2px dashed var(--dv-accent-green) !important; box-shadow: 0 0 16px rgba(74,240,192,0.4), inset 0 0 8px rgba(74,240,192,0.1); }
 :global(.u-slot.drop-no) { background: rgba(248, 113, 113, 0.1) !important; }
 
 /* --- Transitions --- */

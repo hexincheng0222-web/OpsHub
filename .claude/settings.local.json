@@ -44,7 +44,16 @@
       "Bash(curl -s http://localhost:3001/api/v1/admin/device-types)",
       "Bash(curl -s http://localhost:3001/api/v1/admin/device-models)",
       "Bash(curl -s http://localhost:3001/api/v1/admin/logs/list)",
-      "Bash(curl -s http://localhost:3001/api/v1/admin/printer-models)"
+      "Bash(curl -s http://localhost:3001/api/v1/admin/printer-models)",
+      "Bash(curl -s http://localhost:3001/api/v1/operations/folders、)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(curl -s http://localhost:3001/api/v1/operations/docs?pageSize=1)",
+      "Bash(curl -s \"http://localhost:5173/src/views/ComputerProcurementView.vue\")",
+      "Bash(curl -s http://localhost:3001/api/v1/printers/stats)",
+      "Bash(curl -s http://localhost:3001/api/v1/printers)",
+      "Bash(curl -s \"http://localhost:5173/src/stores/printers.ts\")",
+      "Bash(curl -s \"http://localhost:5173/src/views/PrintersView.vue\")"
     ]
   }
 }

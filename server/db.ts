@@ -129,6 +129,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS toner_models (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE,
+    brand_id   INTEGER REFERENCES printer_brands(id) ON DELETE SET NULL,
     compatible TEXT NOT NULL DEFAULT '',
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -155,6 +156,46 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS printer_floors (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS printers (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    floor         VARCHAR(16)  NOT NULL DEFAULT '',
+    location      VARCHAR(255) NOT NULL DEFAULT '',
+    manufacturer  VARCHAR(64)  NOT NULL DEFAULT '',
+    model         VARCHAR(128) NOT NULL DEFAULT '',
+    toner_model   VARCHAR(128) NOT NULL DEFAULT '',
+    notes         TEXT         NOT NULL DEFAULT '',
+    status        VARCHAR(16)  NOT NULL DEFAULT '正常',
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS manual_folders (
+    id         VARCHAR(64) PRIMARY KEY,
+    name       VARCHAR(128) NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS manual_docs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      VARCHAR(255) NOT NULL,
+    content    TEXT NOT NULL DEFAULT '',
+    folder_id  VARCHAR(64) NOT NULL REFERENCES manual_folders(id) ON DELETE CASCADE,
+    author     VARCHAR(64) NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_manual_docs_folder ON manual_docs (folder_id);
 
   CREATE TABLE IF NOT EXISTS operation_logs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,6 +386,23 @@ const batchUpdateAbbr = db.transaction(() => {
 })
 batchUpdateAbbr()
 
+// 迁移：toner_models 表添加 brand_id 列
+const tmColumns = db.prepare("PRAGMA table_info(toner_models)").all() as { name: string }[]
+if (tmColumns.length > 0 && !tmColumns.some(c => c.name === 'brand_id')) {
+  db.exec("ALTER TABLE toner_models ADD COLUMN brand_id INTEGER REFERENCES printer_brands(id) ON DELETE SET NULL")
+  console.log('[db] 已添加 toner_models.brand_id 列')
+}
+// 回填 toner_models 的 brand_id
+const tonerBrandMap: [string, string][] = [
+  ['HP 59A', 'HP'], ['HP 59X', 'HP'], ['HP 207A', 'HP'],
+  ['Canon C-EXV 55', 'Canon'], ['Canon 055', 'Canon'],
+]
+const updateTonerBrand = db.prepare("UPDATE toner_models SET brand_id = (SELECT id FROM printer_brands WHERE name = ?) WHERE name = ? AND (brand_id IS NULL)")
+const batchUpdateTonerBrand = db.transaction(() => {
+  for (const [toner, brand] of tonerBrandMap) updateTonerBrand.run(brand, toner)
+})
+batchUpdateTonerBrand()
+
 // 迁移：services 表添加 host_id 列
 const svcColumns = db.prepare("PRAGMA table_info(services)").all() as { name: string }[]
 if (svcColumns.length > 0 && !svcColumns.some(c => c.name === 'host_id')) {
@@ -452,13 +510,13 @@ if (floorCount.cnt === 0) {
     pm.forEach(m => insertPModel.run(...m))
 
     // 墨粉型号
-    const insertToner = db.prepare('INSERT INTO toner_models (name, compatible, sort_order) VALUES (?, ?, ?)')
-    const toners: [string, string, number][] = [
-      ['HP 59A', 'HP LaserJet Pro M404dn', 0],
-      ['HP 59X', 'HP LaserJet Pro M404dn, HP LaserJet MFP M430f', 1],
-      ['HP 207A', 'HP Color LaserJet Pro M454dw', 2],
-      ['Canon C-EXV 55', 'Canon imageRUNNER C3326i', 3],
-      ['Canon 055', 'Canon imageCLASS MF746Cx', 4],
+    const insertToner = db.prepare('INSERT INTO toner_models (name, brand_id, compatible, sort_order) VALUES (?, ?, ?, ?)')
+    const toners: [string, number, string, number][] = [
+      ['HP 59A', hpId, 'HP LaserJet Pro M404dn', 0],
+      ['HP 59X', hpId, 'HP LaserJet Pro M404dn, HP LaserJet MFP M430f', 1],
+      ['HP 207A', hpId, 'HP Color LaserJet Pro M454dw', 2],
+      ['Canon C-EXV 55', canonId, 'Canon imageRUNNER C3326i', 3],
+      ['Canon 055', canonId, 'Canon imageCLASS MF746Cx', 4],
     ]
     toners.forEach(t => insertToner.run(...t))
 
@@ -490,6 +548,374 @@ if (hostCount.cnt === 0) {
   const seedHosts = db.transaction(() => { hosts.forEach(h => insertHost.run(...h)) })
   seedHosts()
   console.log(`[db] 已初始化 ${hosts.length} 条服务主机数据`)
+}
+
+// 运维手册数据初始化
+const folderCount = db.prepare('SELECT COUNT(*) as cnt FROM manual_folders').get() as { cnt: number }
+if (folderCount.cnt === 0) {
+  const seedManuals = db.transaction(() => {
+    const insertFolder = db.prepare('INSERT INTO manual_folders (id, name, sort_order) VALUES (?, ?, ?)')
+    const insertDoc = db.prepare('INSERT INTO manual_docs (id, title, content, folder_id, author, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+
+    // 文件夹
+    const folders: [string, string, number][] = [
+      ['network', '网络运维', 0],
+      ['server', '服务器运维', 1],
+      ['database', '数据库运维', 2],
+      ['security', '安全运维', 3],
+      ['routine', '日常巡检', 4],
+    ]
+    folders.forEach(f => insertFolder.run(...f))
+
+    // 文档
+    const docs: [number, string, string, string, string, string, string][] = [
+      [1, 'Nginx 反向代理配置手册', `# Nginx 反向代理配置手册
+
+## 概述
+
+Nginx 作为反向代理服务器，将客户端请求转发到后端服务。本文档涵盖生产环境常用配置。
+
+## 基本配置
+
+\`\`\`nginx
+server {
+    listen 80;
+    server_name api.example.com;
+
+    location / {
+        proxy_pass http://backend:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+\`\`\`
+
+## 负载均衡
+
+\`\`\`nginx
+upstream backend {
+    server 10.0.1.10:3000 weight=3;
+    server 10.0.1.11:3000 weight=2;
+    server 10.0.1.12:3000 backup;
+}
+\`\`\`
+
+## 注意事项
+
+- **健康检查**：建议配合 upstream 模块的 \`health_check\` 使用
+- **超时设置**：长连接建议 \`proxy_read_timeout 300s\`
+- **日志**：生产环境请开启 \`access_log\` 便于排查问题
+
+> 生产环境修改后务必先 \`nginx -t\` 检查语法，再 \`nginx -s reload\` 平滑重启`, 'network', '', '2025-03-10 09:30', '2025-05-20 14:15'],
+
+      [2, '防火墙策略变更流程', `# 防火墙策略变更流程
+
+## 适用范围
+
+本流程适用于 FortiGate 系列防火墙的策略新增、修改、删除操作。
+
+## 变更前检查
+
+1. **确认业务影响范围** — 涉及哪些 IP 段和端口
+2. **备份当前配置**
+3. **创建变更工单** — 记录变更原因和时间窗口
+
+## 操作步骤
+
+### 新增策略
+
+1. 登录 Web 管理界面
+2. 导航至 **策略&对象** → **IPv4策略**
+3. 点击 **新建**
+4. 填写参数并启用日志记录
+
+## 回滚方案
+
+如果变更后出现异常，立即执行配置恢复。
+
+## 变更后验证
+
+- [ ] 策略序列号正确
+- [ ] 业务方确认服务可达
+- [ ] 日志无异常拦截记录`, 'security', '', '2025-04-02 16:00', '2025-04-02 16:00'],
+
+      [3, 'MySQL 主从切换操作手册', `# MySQL 主从切换操作手册
+
+## 适用环境
+
+- **主库**: 10.0.1.20:3306 (R750xa)
+- **从库**: 10.0.1.21:3306 (R750xa)
+- **版本**: MySQL 8.0.35
+
+## 切换前准备
+
+### 1. 确认主从同步状态
+
+\`\`\`sql
+SHOW SLAVE STATUS\\G
+\`\`\`
+
+关键指标：
+- \`Slave_IO_Running: Yes\`
+- \`Slave_SQL_Running: Yes\`
+- \`Seconds_Behind_Master\` 接近 0
+
+### 2. 锁定主库写入
+
+\`\`\`sql
+SET GLOBAL read_only = ON;
+FLUSH TABLES WITH READ LOCK;
+\`\`\`
+
+## 执行切换
+
+### Step 1: 确保从库追平
+
+### Step 2: 提升从库为主库
+
+\`\`\`sql
+STOP SLAVE;
+RESET SLAVE ALL;
+SET GLOBAL read_only = OFF;
+\`\`\`
+
+### Step 3: 修改应用连接地址
+
+## 验证清单
+
+- [x] 新主库可写入
+- [x] 应用服务正常启动
+- [x] 监控告警恢复`, 'database', '', '2025-01-16 09:00', '2025-04-10 11:30'],
+
+      [4, '服务器上架标准流程', `# 服务器上架标准流程
+
+## 准备工作
+
+### 硬件检查
+
+- 核对设备清单（型号、序列号）
+- 检查外观无运输损坏
+- 确认配件齐全（导轨、电源线、网线）
+
+### 机柜准备
+
+- 确认目标机柜预留 U 位足够
+- 检查 PDU 电源接口可用
+- 确认网络交换机端口充足
+
+## 上架步骤
+
+1. **安装导轨** — 按机柜前后立柱间距调整导轨长度
+2. **安装服务器** — 两人协作将服务器推入导轨，锁紧螺丝
+3. **接线** — 电源线双路接入 + 网线接入
+4. **标签** — 机柜前后贴设备标签
+
+## 上电检查
+
+\`\`\`bash
+ipmitool -H 10.0.0.50 -U admin -P password power status
+\`\`\`
+
+> ⚠️ 上架后 24 小时内密切监控温度和风扇转速`, 'server', '', '2025-02-20 08:30', '2025-05-01 10:00'],
+
+      [5, '每日巡检清单', `# 每日巡检清单
+
+## 巡检时间
+
+**每日上午 9:00 - 9:30**
+
+## 巡检项目
+
+### 1. 系统监控大盘
+
+登录 Grafana 检查：
+
+- [ ] CPU 使用率均 < 80%
+- [ ] 内存使用率均 < 85%
+- [ ] 磁盘使用率均 < 90%
+- [ ] 无新增告警
+
+### 2. 核心服务状态
+
+| 服务 | 检查方式 | 预期 |
+|------|---------|------|
+| Zabbix | Web 可访问 | 在线 |
+| Gitea | curl 检查 | 200 |
+| Grafana | Web 可访问 | 在线 |
+
+### 3. 备份检查
+
+### 4. 日志异常扫描
+
+## 异常处理
+
+- 黄色告警：记录并跟踪
+- 红色告警：立即通知运维经理
+- 磁盘 > 95%：立即执行清理脚本`, 'routine', '', '2024-12-01 09:00', '2025-05-15 09:00'],
+
+      [6, 'SSL 证书申请与部署', `# SSL 证书申请与部署
+
+## 证书类型
+
+| 类型 | 适用场景 | 有效期 |
+|------|---------|--------|
+| Let's Encrypt | 公网服务 | 90天 |
+| 内部 CA | 内网服务 | 1年 |
+| 商业证书 | 对外业务 | 1年 |
+
+## Let's Encrypt 申请
+
+\`\`\`bash
+apt install certbot
+certbot certonly --manual --preferred-challenges dns -d api.example.com
+\`\`\`
+
+## Nginx 部署
+
+\`\`\`nginx
+server {
+    listen 443 ssl http2;
+    server_name api.example.com;
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+}
+\`\`\`
+
+## 自动续期
+
+\`\`\`bash
+0 3 1 * * certbot renew --quiet --post-hook "nginx -s reload"
+\`\`\``, 'security', '', '2025-01-14 11:20', '2025-03-01 09:00'],
+
+      [7, 'Docker 服务部署规范', `# Docker 服务部署规范
+
+## 镜像管理
+
+- **命名规范**: 项目名/服务名:版本号
+- **基础镜像**: 统一使用 node:20-alpine / python:3.12-slim
+- **安全扫描**: 部署前运行 docker scan
+
+## 容器配置模板
+
+\`\`\`yaml
+version: '3.8'
+services:
+  app:
+    image: project/app:1.0.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+\`\`\`
+
+## 部署检查清单
+
+- [ ] docker-compose config 语法正确
+- [ ] 端口不冲突
+- [ ] 数据卷路径存在
+- [ ] 环境变量完整
+- [ ] 健康检查配置`, 'server', '', '2025-02-10 14:00', '2025-04-20 16:30'],
+
+      [8, '网络故障排查 SOP', `# 网络故障排查 SOP
+
+## 排查原则
+
+> 从物理层到应用层，逐层排查
+
+## 一、物理层
+
+1. 设备指示灯是否正常
+2. 网线是否松动
+3. 交换机端口状态
+
+## 二、链路层
+
+### ARP 检查
+\`\`\`bash
+arp -a | grep 10.0.0.1
+\`\`\`
+
+## 三、网络层
+
+### 连通性测试
+\`\`\`bash
+ping -c 4 10.0.0.1
+traceroute 10.0.0.1
+\`\`\`
+
+## 四、传输层
+
+### 端口连通性
+\`\`\`bash
+nc -zv 10.0.0.1 443
+\`\`\`
+
+## 五、应用层
+
+\`\`\`bash
+curl -I -m 5 http://10.0.0.1
+\`\`\`
+
+## 常用排查工具速查表
+
+| 场景 | 工具 | 命令 |
+|------|------|------|
+| DNS 解析 | dig | dig api.example.com |
+| 抓包分析 | tcpdump | tcpdump -i eth0 port 443 |
+| 带宽测试 | iperf3 | iperf3 -c 10.0.0.1 |`, 'network', '', '2025-03-05 10:00', '2025-05-10 08:45'],
+    ]
+    docs.forEach(d => insertDoc.run(...d))
+
+    console.log(`[db] 已初始化 ${folders.length} 个手册文件夹, ${docs.length} 篇手册文档`)
+  })
+  seedManuals()
+}
+
+// 打印机楼层数据初始化
+const pfCount = db.prepare('SELECT COUNT(*) as cnt FROM printer_floors').get() as { cnt: number }
+if (pfCount.cnt === 0) {
+  const insertPF = db.prepare('INSERT INTO printer_floors (name, sort_order) VALUES (?, ?)')
+  const pfData: [string, number][] = [
+    ['-2F', 0], ['-1F', 1], ['1F', 2], ['2F', 3], ['3F', 4], ['4F', 5], ['5F', 6],
+    ['南宜', 7], ['秘园', 8], ['威斯顿', 9],
+  ]
+  const seedPF = db.transaction(() => { pfData.forEach(f => insertPF.run(...f)) })
+  seedPF()
+  console.log(`[db] 已初始化 ${pfData.length} 个打印机楼层`)
+}
+
+// 打印机数据初始化
+const printerCount = db.prepare('SELECT COUNT(*) as cnt FROM printers').get() as { cnt: number }
+if (printerCount.cnt === 0) {
+  const insertPrinter = db.prepare(
+    'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+  const printers: [string, string, string, string, string, string, string][] = [
+    ['-2F', '地下二层仓库', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
+    ['-1F', '地下一层配电间旁', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '彩色激光', '缺墨'],
+    ['1F', '一楼大厅服务台', 'Epson', 'L6190', 'Epson 002 原装墨水', '墨仓式', '正常'],
+    ['2F', '二楼前台接待处', 'Brother', 'DCP-L2550DW', 'Brother TN-2420', '备用机', '正常'],
+    ['3F', '三楼东区茶水间', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
+    ['3F', '三楼IT运维办公室', 'HP', 'LaserJet Pro M203dw', 'HP 30A (CF230A)', '', '正常'],
+    ['4F', '四楼市场部打印区', 'HP', 'Color LaserJet Pro M454dw', 'HP 414A 四色套装', '报修中', '故障'],
+    ['5F', '五楼财务部办公室', 'HP', 'LaserJet MFP M437n', 'HP 56A (CF256A)', '', '正常'],
+    ['-2F', '地下二层配电房', 'Xerox', 'WorkCentre 6515', 'Xerox 106R03780', '', '正常'],
+    ['3F', '三楼西区走廊', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '彩色激光', '缺墨'],
+    ['南宜', '南宜行政楼大堂', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
+    ['秘园', '秘园研发中心二楼', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '', '正常'],
+    ['威斯顿', '威斯顿综合楼前台', 'Brother', 'DCP-L2550DW', 'Brother TN-2420', '', '正常'],
+  ]
+  const seedPrinters = db.transaction(() => { printers.forEach(p => insertPrinter.run(...p)) })
+  seedPrinters()
+  console.log(`[db] 已初始化 ${printers.length} 台打印机数据`)
 }
 
 export default db

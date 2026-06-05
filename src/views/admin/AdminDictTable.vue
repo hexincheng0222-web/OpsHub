@@ -49,6 +49,13 @@ const tableConfigs: Record<string, { title: string; columns: ColumnConfig[] }> =
       { prop: 'sort_order', label: '排序', type: 'number' },
     ],
   },
+  'printer-floors': {
+    title: '楼层管理',
+    columns: [
+      { prop: 'name', label: '楼层名称', type: 'text', required: true },
+      { prop: 'sort_order', label: '排序', type: 'number' },
+    ],
+  },
   'printer-brands': {
     title: '品牌管理',
     columns: [
@@ -68,6 +75,7 @@ const tableConfigs: Record<string, { title: string; columns: ColumnConfig[] }> =
     title: '墨粉型号',
     columns: [
       { prop: 'name', label: '墨粉型号', type: 'text', required: true },
+      { prop: 'brand_id', label: '所属品牌', type: 'select', required: true, options: [] },
       { prop: 'compatible', label: '适用机型', type: 'textarea' },
       { prop: 'sort_order', label: '排序', type: 'number' },
     ],
@@ -121,6 +129,13 @@ async function loadData() {
       const types = await fetchDict('device-types')
       const typeCol = config.value.columns.find(c => c.prop === 'type_key')
       if (typeCol) typeCol.options = types.map((t: any) => ({ label: t.name, value: t.key }))
+    }
+    // 如果是 toner-models，加载品牌选项
+    if (dictKey.value === 'toner-models') {
+      const brands = await fetchDict('printer-brands')
+      brandOptions.value = brands.map((b: any) => ({ label: b.name, value: b.id }))
+      const brandCol = config.value.columns.find(c => c.prop === 'brand_id')
+      if (brandCol) brandCol.options = brandOptions.value
     }
   } catch (e: any) {
     ElMessage.error(e.message || '加载失败')

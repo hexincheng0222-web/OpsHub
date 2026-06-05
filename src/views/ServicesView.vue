@@ -1,10 +1,10 @@
 <template>
   <div class="services-page">
-    <el-breadcrumb separator=">" class="breadcrumb-nav">
-      <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-      <el-breadcrumb-item>内网服务管理</el-breadcrumb-item>
-    </el-breadcrumb>
     <div class="top-bar">
+      <button class="back-btn" @click="$router.push('/')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>返回</span>
+      </button>
       <h3>内网服务管理</h3>
       <div class="top-actions">
         <el-button
@@ -519,25 +519,26 @@ function statusLabel(status: string) {
   min-height: 100vh;
 }
 
-.breadcrumb-nav {
-  font-size: 13px;
-  margin-bottom: 12px;
+.back-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px 6px 10px;
+  background: var(--ops-bg-card-hover);
+  border: 1px solid var(--ops-border-card);
+  border-radius: 20px;
+  color: var(--ops-text-secondary);
+  cursor: pointer; font-size: 12px; font-family: inherit;
+  transition: all 0.2s ease;
 }
-
-:deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
-  color: var(--ops-text-primary);
-}
-
-:deep(.el-breadcrumb__item:not(:last-child) .el-breadcrumb__inner) {
-  color: var(--ops-text-tertiary);
-}
+.back-btn svg { transition: transform 0.2s ease; }
+.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.06); }
+.back-btn:hover svg { transform: translateX(-2px); }
 
 .top-bar {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   margin-bottom: 20px;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--ops-border-card);
 }
 

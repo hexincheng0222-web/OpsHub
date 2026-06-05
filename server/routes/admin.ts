@@ -38,6 +38,12 @@ const tables: Record<string, TableConfig> = {
     listColumns: 'id, name, sort_order, created_at, updated_at',
     module: '打印机品牌',
   },
+  'printer-floors': {
+    table: 'printer_floors',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '打印机楼层',
+  },
   'printer-models': {
     table: 'printer_models',
     columns: ['brand_id', 'name', 'sort_order'],
@@ -47,8 +53,8 @@ const tables: Record<string, TableConfig> = {
   },
   'toner-models': {
     table: 'toner_models',
-    columns: ['name', 'compatible', 'sort_order'],
-    listColumns: 'id, name, compatible, sort_order, created_at, updated_at',
+    columns: ['name', 'brand_id', 'compatible', 'sort_order'],
+    listColumns: 'id, name, brand_id, compatible, sort_order, created_at, updated_at',
     module: '墨粉型号',
   },
   'service-categories': {
