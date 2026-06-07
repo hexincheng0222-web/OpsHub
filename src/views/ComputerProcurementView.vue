@@ -34,7 +34,7 @@
 
     <!-- 搜索/筛选 -->
     <div class="filter-bar">
-      <el-input v-model="search" placeholder="搜索型号/部门/申请人/MAC地址..." clearable style="width:280px">
+      <el-input v-model="search" placeholder="搜索型号/部门/申请人/MAC地址..." clearable style="width:300px">
         <template #prefix>
           <el-icon><search /></el-icon>
         </template>
@@ -99,7 +99,7 @@
     </div>
 
     <!-- 分页 -->
-    <div v-if="filteredCount > 10" class="pagination">
+    <div v-if="filteredCount > pageSize" class="pagination">
       <el-pagination v-model:current-page="page" v-model:pageSize="pageSize" :page-sizes="[10,20,50]"
         :total="filteredCount" layout="total, sizes, prev, pager, next" small />
     </div>
@@ -146,13 +146,25 @@
       <el-form :model="form" label-width="130px" :rules="rules" ref="formRef">
         <!-- 设备信息 -->
         <div class="form-section-title">📦 设备信息</div>
-        <el-form-item label="采购型号" prop="model"><el-input v-model="form.model" placeholder="如 MacBook Pro 16&quot;" /></el-form-item>
-        <el-form-item label="设备型号" prop="deviceModel"><el-input v-model="form.deviceModel" placeholder="如 MacBook Pro M3 Max" /></el-form-item>
+        <el-form-item label="采购型号" prop="model">
+          <el-select v-model="form.model" filterable allow-create placeholder="请选择采购型号" style="width:100%" @change="form.deviceModel = ''">
+            <el-option v-for="m in purchaseModelOpts" :key="m" :label="m" :value="m" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="设备型号" prop="deviceModel">
+          <el-select v-model="form.deviceModel" filterable allow-create placeholder="请先选择采购型号" :disabled="!form.model" style="width:100%">
+            <el-option v-for="m in deviceModelOptions" :key="m" :label="m" :value="m" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="MAC 地址"><el-input v-model="form.macAddress" placeholder="AA:BB:CC:DD:EE:FF" /></el-form-item>
 
         <!-- 人员信息 -->
         <div class="form-section-title">👤 人员信息</div>
-        <el-form-item label="使用部门" prop="department"><el-input v-model="form.department" placeholder="如 研发部" /></el-form-item>
+        <el-form-item label="使用部门" prop="department">
+          <el-select v-model="form.department" filterable allow-create placeholder="请选择部门" style="width:100%">
+            <el-option v-for="d in departments" :key="d" :label="d" :value="d" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="申请人" prop="applicant"><el-input v-model="form.applicant" /></el-form-item>
         <el-form-item label="实际使用人"><el-input v-model="form.actualUser" placeholder="与申请人不同时填写" /></el-form-item>
         <el-form-item label="使用人 CE 号"><el-input v-model="form.ceNumber" placeholder="CE 编号" /></el-form-item>
@@ -169,7 +181,11 @@
         <el-form-item label="固定资产编号"><el-input v-model="form.assetNumber" placeholder="IT-PC-YYYY-NNN" /></el-form-item>
         <el-form-item label="收货日期"><el-date-picker v-model="form.receiveDate" type="date" value-format="YYYY-MM-DD" format="YYYY年MM月DD日" style="width:100%" /></el-form-item>
         <el-form-item label="设备交付日期"><el-date-picker v-model="form.deliveryDate" type="date" value-format="YYYY-MM-DD" format="YYYY年MM月DD日" style="width:100%" /></el-form-item>
-        <el-form-item label="设备交付人"><el-input v-model="form.deliveryPerson" placeholder="运维组经手人" /></el-form-item>
+        <el-form-item label="设备交付人">
+          <el-select v-model="form.deliveryPerson" filterable allow-create placeholder="请选择交付人" style="width:100%">
+            <el-option v-for="p in deliveryPersons" :key="p" :label="p" :value="p" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -183,16 +199,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useComputerProcurementStore } from '../stores/procurement'
 import type { ComputerProcurement } from '../stores/procurement'
 import { Plus, Search, ArrowDown, Download, Upload, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { fetchDict } from '../api/admin'
 
 const store = useComputerProcurementStore()
+
+// 字典数据
+const departmentOptions = ref<string[]>([])
+const handlerOptions = ref<string[]>([])
+const purchaseModelOptions = ref<string[]>([])
+const deviceModelMap = ref<Record<string, string[]>>({})
+
+onMounted(async () => {
+  store.loadComputers()
+  try {
+    const [depts, handlers, purchaseModels, deviceModels] = await Promise.all([
+      fetchDict('procurement-departments'),
+      fetchDict('procurement-handlers'),
+      fetchDict('computer-purchase-models'),
+      fetchDict('computer-device-models'),
+    ])
+    departmentOptions.value = depts.map((d: any) => d.name)
+    handlerOptions.value = handlers.map((h: any) => h.name)
+    purchaseModelOptions.value = purchaseModels.map((m: any) => m.name)
+    // 构建采购型号→设备型号映射
+    const map: Record<string, string[]> = {}
+    for (const pm of purchaseModels) {
+      const dms = deviceModels.filter((dm: any) => dm.purchase_model_id === pm.id).map((dm: any) => dm.name)
+      map[pm.name] = dms
+    }
+    deviceModelMap.value = map
+  } catch (e) {
+    console.error('加载字典数据失败:', e)
+  }
+})
 const tableRef = ref()
 const fileInput = ref<HTMLInputElement>()
-const formRef = ref()
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -205,6 +251,9 @@ const filterBrand = ref('')
 const dateRange = ref<[string, string] | null>(null)
 const page = ref(1)
 const pageSize = ref(10)
+
+// 筛选条件变化时重置分页
+watch([search, filterDepartment, filterBrand, dateRange], () => { page.value = 1 })
 
 const form = reactive({
   model: '', department: '', applicant: '', macAddress: '', deviceModel: '',
@@ -222,22 +271,45 @@ const rules = {
 }
 
 // ===== 筛选相关 =====
-const departments = computed(() => [...new Set(store.computers.map(c => c.department))].sort())
-const brands = computed(() => [...new Set(store.computers.map(c => {
-  const m = c.model.toLowerCase()
+const departments = computed(() => departmentOptions.value.length ? departmentOptions.value : [...new Set(store.computers.map(c => c.department))].sort())
+const deliveryPersons = computed(() => handlerOptions.value.length ? handlerOptions.value : [...new Set(store.computers.map(c => c.deliveryPerson).filter(Boolean))].sort())
+
+// 品牌推断函数（复用）
+function inferBrand(model: string): string {
+  const m = model.toLowerCase()
   if (m.includes('macbook') || m.includes('mac')) return 'Apple'
   if (m.includes('dell') || m.includes('xps')) return 'Dell'
   if (m.includes('thinkpad') || m.includes('lenovo')) return 'Lenovo'
   if (m.includes('hp') || m.includes('elitebook')) return 'HP'
-  return c.model.split(' ')[0]
-}))].sort())
+  return model.split(' ')[0]
+}
+const brands = computed(() => [...new Set(store.computers.map(c => inferBrand(c.model)))].sort())
+
+// 采购型号 → 设备型号映射
+const purchaseModels = computed(() => {
+  // 优先用字典数据
+  if (Object.keys(deviceModelMap.value).length) return deviceModelMap.value
+  // fallback: 从已有数据中补充
+  const map: Record<string, string[]> = {}
+  for (const c of store.computers) {
+    if (c.model) {
+      if (!map[c.model]) map[c.model] = []
+      if (c.deviceModel && !map[c.model].includes(c.deviceModel)) map[c.model].push(c.deviceModel)
+    }
+  }
+  return map
+})
+const purchaseModelOpts = computed(() => purchaseModelOptions.value.length ? purchaseModelOptions.value : Object.keys(purchaseModels.value).sort())
+const deviceModelOptions = computed(() => {
+  if (!form.model) return []
+  return (purchaseModels.value[form.model] || []).sort()
+})
 
 const filteredData = computed(() => {
   let data = store.computers
   if (filterDepartment.value) data = data.filter(c => c.department === filterDepartment.value)
   if (filterBrand.value) {
-    const brand = filterBrand.value.toLowerCase()
-    data = data.filter(c => c.model.toLowerCase().includes(brand))
+    data = data.filter(c => inferBrand(c.model) === filterBrand.value)
   }
   if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
     const [start, end] = dateRange.value
@@ -315,28 +387,31 @@ function openEditDialog(row: ComputerProcurement | null) {
   drawerVisible.value = false
 }
 
-function handleSave() {
+async function handleSave() {
   if (!form.model.trim() || !form.department.trim() || !form.applicant.trim()) {
     ElMessage.warning('请填写必填项')
     return
   }
   saving.value = true
-  setTimeout(() => {
+  try {
     if (editingId.value) {
-      store.updateComputer(editingId.value, { ...form })
+      await store.updateComputer(editingId.value, { ...form })
       ElMessage.success('修改成功')
     } else {
-      store.addComputer({ id: store.nextId(), ...form })
+      await store.addComputer({ ...form } as Omit<ComputerProcurement, 'id'>)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  } finally {
     saving.value = false
-  }, 300)
+  }
 }
 
 function handleDelete(row: ComputerProcurement) {
   ElMessageBox.confirm(`确定删除「${row.model}」吗？`, '确认删除', { type: 'warning' })
-    .then(() => { store.deleteComputer(row.id); ElMessage.success('删除成功') })
+    .then(async () => { await store.deleteComputer(row.id); ElMessage.success('删除成功') })
     .catch(() => {})
 }
 
@@ -375,11 +450,12 @@ function downloadCsv(header: string, rows: string[], filename: string) {
 }
 
 function batchDelete() {
-  ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 条记录吗？`, '批量删除', { type: 'warning' })
-    .then(() => {
-      selectedRows.value.forEach(r => store.deleteComputer(r.id))
+  const count = selectedRows.value.length
+  ElMessageBox.confirm(`确定删除选中的 ${count} 条记录吗？`, '批量删除', { type: 'warning' })
+    .then(async () => {
+      await store.batchDelete(selectedRows.value.map(r => r.id))
       clearSelection()
-      ElMessage.success(`已删除 ${selectedRows.value.length} 条记录`)
+      ElMessage.success(`已删除 ${count} 条记录`)
     })
     .catch(() => {})
 }
@@ -389,16 +465,15 @@ function importCSV() { fileInput.value?.click() }
 function handleImport(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return
   const r = new FileReader()
-  r.onload = () => {
+  r.onload = async () => {
     const text = r.result as string
     const lines = text.trim().split(/\r?\n/)
     if (lines.length < 2) { ElMessage.error('CSV 文件为空'); return }
-    let imported = 0
+    const rows: any[] = []
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim())
       if (cols.length < 4) continue
-      store.addComputer({
-        id: store.nextId(),
+      rows.push({
         model: cols[0] || '', department: cols[1] || '', applicant: cols[2] || '',
         macAddress: cols[3] || '', deviceModel: cols[4] || '',
         ceNumber: cols[5] || '', actualUser: cols[6] || '',
@@ -407,9 +482,13 @@ function handleImport(e: Event) {
         deliveryPerson: cols[11] || '', pickupApproval: cols[12] || '',
         ceProcessed: cols[13] === '是', price: parseFloat(cols[14]) || 0,
       })
-      imported++
     }
-    ElMessage.success(`导入 ${imported} 条`)
+    try {
+      const result = await store.batchImport(rows)
+      ElMessage.success(`导入 ${result.imported} 条`)
+    } catch (e: any) {
+      ElMessage.error(e.message || '导入失败')
+    }
     if (fileInput.value) fileInput.value.value = ''
   }
   r.readAsText(f)
@@ -418,6 +497,28 @@ function handleImport(e: Event) {
 
 <style scoped>
 .proc-page { padding: 24px; background: var(--ops-bg-page); min-height: 100vh; }
+
+/* ===== 表头高亮 ===== */
+:deep(.el-table thead th) {
+  background: linear-gradient(180deg, rgba(88,166,255,0.12) 0%, rgba(88,166,255,0.04) 100%) !important;
+  color: var(--ops-accent-blue) !important;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 2px solid rgba(88,166,255,0.25) !important;
+}
+:deep(.el-table thead th .cell) {
+  color: var(--ops-accent-blue);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 表格内容居中 */
+:deep(.el-table td.el-table__cell .cell) {
+  text-align: center;
+}
 
 /* 顶部导航 */
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }

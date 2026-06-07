@@ -197,6 +197,102 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_manual_docs_folder ON manual_docs (folder_id);
 
+  CREATE TABLE IF NOT EXISTS computer_procurement (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    model            VARCHAR(128) NOT NULL DEFAULT '',
+    department       VARCHAR(64)  NOT NULL DEFAULT '',
+    applicant        VARCHAR(32)  NOT NULL DEFAULT '',
+    mac_address      VARCHAR(32)  NOT NULL DEFAULT '',
+    device_model     VARCHAR(128) NOT NULL DEFAULT '',
+    ce_number        VARCHAR(32)  NOT NULL DEFAULT '',
+    actual_user      VARCHAR(32)  NOT NULL DEFAULT '',
+    approval_number  VARCHAR(64)  NOT NULL DEFAULT '',
+    receive_date     VARCHAR(16)  NOT NULL DEFAULT '',
+    asset_number     VARCHAR(32)  NOT NULL DEFAULT '',
+    delivery_date    VARCHAR(16)  NOT NULL DEFAULT '',
+    delivery_person  VARCHAR(32)  NOT NULL DEFAULT '',
+    pickup_approval  VARCHAR(64)  NOT NULL DEFAULT '',
+    ce_processed     INTEGER      NOT NULL DEFAULT 0,
+    price            REAL         NOT NULL DEFAULT 0,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS procurement_departments (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS procurement_handlers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS phone_brands (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS phone_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id   INTEGER NOT NULL REFERENCES phone_brands(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_phone_models UNIQUE (brand_id, name)
+  );
+
+  CREATE TABLE IF NOT EXISTS computer_purchase_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS computer_device_models (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    purchase_model_id INTEGER NOT NULL REFERENCES computer_purchase_models(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_computer_device_models UNIQUE (purchase_model_id, name)
+  );
+
+  CREATE TABLE IF NOT EXISTS phone_procurement (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_number     VARCHAR(32)  NOT NULL UNIQUE,
+    part_no          VARCHAR(64)  NOT NULL DEFAULT '',
+    serial_no        VARCHAR(64)  NOT NULL DEFAULT '',
+    imei             VARCHAR(32)  NOT NULL DEFAULT '',
+    arrival_date     VARCHAR(16)  NOT NULL DEFAULT '',
+    pickup_date      VARCHAR(16)  NOT NULL DEFAULT '',
+    brand            VARCHAR(32)  NOT NULL DEFAULT '',
+    model            VARCHAR(128) NOT NULL DEFAULT '',
+    asset_link       VARCHAR(32)  NOT NULL DEFAULT '',
+    department       VARCHAR(64)  NOT NULL DEFAULT '',
+    handler          VARCHAR(32)  NOT NULL DEFAULT '',
+    recipient        VARCHAR(32)  NOT NULL DEFAULT '',
+    dingtalk_creator VARCHAR(32)  NOT NULL DEFAULT '',
+    purchase_type    VARCHAR(8)   NOT NULL DEFAULT '新购',
+    dingtalk_flow    VARCHAR(64)  NOT NULL DEFAULT '',
+    original_owner   VARCHAR(32)  NOT NULL DEFAULT '',
+    notes            TEXT         NOT NULL DEFAULT '',
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS operation_logs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     module     TEXT NOT NULL,
@@ -916,6 +1012,111 @@ if (printerCount.cnt === 0) {
   const seedPrinters = db.transaction(() => { printers.forEach(p => insertPrinter.run(...p)) })
   seedPrinters()
   console.log(`[db] 已初始化 ${printers.length} 台打印机数据`)
+}
+
+// 采购字典数据初始化
+const deptCount = db.prepare('SELECT COUNT(*) as cnt FROM procurement_departments').get() as { cnt: number }
+if (deptCount.cnt === 0) {
+  const seedProcDicts = db.transaction(() => {
+    // 部门
+    const insertDept = db.prepare('INSERT INTO procurement_departments (name, sort_order) VALUES (?, ?)')
+    const depts = ['研发部', '设计部', '市场部', '财务部', '人事部', '行政部', '销售部']
+    depts.forEach((d, i) => insertDept.run(d, i))
+
+    // 经手人
+    const insertHandler = db.prepare('INSERT INTO procurement_handlers (name, sort_order) VALUES (?, ?)')
+    const handlers = ['运维-王五', '运维-赵六', '运维-钱七']
+    handlers.forEach((h, i) => insertHandler.run(h, i))
+
+    // 手机品牌
+    const insertPhoneBrand = db.prepare('INSERT INTO phone_brands (name, sort_order) VALUES (?, ?)')
+    const phoneBrands = ['Apple', 'Samsung', '华为', '小米', 'OPPO', 'vivo', '荣耀', '一加', 'realme']
+    phoneBrands.forEach((b, i) => insertPhoneBrand.run(b, i))
+
+    // 手机型号
+    const insertPhoneModel = db.prepare('INSERT INTO phone_models (brand_id, name, sort_order) VALUES (?, ?, ?)')
+    const phoneBrandId = (name: string) => (db.prepare('SELECT id FROM phone_brands WHERE name = ?').get(name) as any).id
+    const phoneModels: [string, string[]][] = [
+      ['Apple', ['iPhone 16 Pro Max', 'iPhone 16 Pro', 'iPhone 16', 'iPhone 16 Plus', 'iPhone 15 Pro Max', 'iPhone 15 Pro', 'iPhone 15', 'iPhone 14 Pro Max', 'iPhone 14', 'iPhone SE']],
+      ['Samsung', ['Galaxy S24 Ultra', 'Galaxy S24+', 'Galaxy S24', 'Galaxy S23 Ultra', 'Galaxy S23', 'Galaxy A55', 'Galaxy A35', 'Galaxy Z Fold5', 'Galaxy Z Flip5']],
+      ['华为', ['Mate 60 Pro+', 'Mate 60 Pro', 'Mate 60', 'Pura 70 Pro+', 'Pura 70 Pro', 'Pura 70', 'nova 12 Pro', 'nova 12']],
+      ['小米', ['Xiaomi 14 Ultra', 'Xiaomi 14 Pro', 'Xiaomi 14', 'Redmi K70 Pro', 'Redmi K70', 'Redmi Note 13 Pro+']],
+      ['OPPO', ['Find X7 Ultra', 'Find X7', 'Reno11 Pro', 'Reno11', 'A3 Pro']],
+      ['vivo', ['X100 Pro', 'X100', 'S18 Pro', 'S18', 'Y100']],
+      ['荣耀', ['Magic6 Pro', 'Magic6', 'Magic V2', '200 Pro', 'X50']],
+      ['一加', ['12', '11', 'Ace 3', 'Ace 2']],
+      ['realme', ['GT5 Pro', 'GT5', '12 Pro+', '12 Pro']],
+    ]
+    for (const [brand, models] of phoneModels) {
+      const bid = phoneBrandId(brand)
+      models.forEach((m, i) => insertPhoneModel.run(bid, m, i))
+    }
+
+    // 电脑采购型号
+    const insertCPM = db.prepare('INSERT INTO computer_purchase_models (name, sort_order) VALUES (?, ?)')
+    const cpmNames = ['MacBook Pro 16"', 'MacBook Pro 14"', 'MacBook Air 15"', 'MacBook Air 13"', 'Dell XPS 15', 'Dell XPS 13', 'Dell Latitude 5540', 'ThinkPad X1 Carbon', 'ThinkPad T14', 'ThinkPad E14', 'HP EliteBook 840', 'HP ProBook 450']
+    cpmNames.forEach((n, i) => insertCPM.run(n, i))
+
+    // 电脑设备型号
+    const insertCDM = db.prepare('INSERT INTO computer_device_models (purchase_model_id, name, sort_order) VALUES (?, ?, ?)')
+    const cpmId = (name: string) => (db.prepare('SELECT id FROM computer_purchase_models WHERE name = ?').get(name) as any).id
+    const deviceModels: [string, string[]][] = [
+      ['MacBook Pro 16"', ['MacBook Pro 16 M3 Max', 'MacBook Pro 16 M3 Pro', 'MacBook Pro 16 M2 Pro']],
+      ['MacBook Pro 14"', ['MacBook Pro 14 M3 Max', 'MacBook Pro 14 M3 Pro', 'MacBook Pro 14 M2 Pro']],
+      ['MacBook Air 15"', ['MacBook Air 15 M3', 'MacBook Air 15 M2']],
+      ['MacBook Air 13"', ['MacBook Air 13 M3', 'MacBook Air 13 M2', 'MacBook Air 13 M1']],
+      ['Dell XPS 15', ['Dell XPS 15 9530', 'Dell XPS 15 9520']],
+      ['Dell XPS 13', ['Dell XPS 13 9340', 'Dell XPS 13 9330']],
+      ['Dell Latitude 5540', ['Dell Latitude 5540', 'Dell Latitude 5550']],
+      ['ThinkPad X1 Carbon', ['ThinkPad X1 Carbon Gen 11', 'ThinkPad X1 Carbon Gen 12']],
+      ['ThinkPad T14', ['ThinkPad T14 Gen 4', 'ThinkPad T14 Gen 3']],
+      ['ThinkPad E14', ['ThinkPad E14 Gen 5', 'ThinkPad E14 Gen 4']],
+      ['HP EliteBook 840', ['HP EliteBook 840 G10', 'HP EliteBook 840 G9']],
+      ['HP ProBook 450', ['HP ProBook 450 G10', 'HP ProBook 450 G9']],
+    ]
+    for (const [pm, dms] of deviceModels) {
+      const pid = cpmId(pm)
+      dms.forEach((dm, i) => insertCDM.run(pid, dm, i))
+    }
+
+    console.log('[db] 已初始化采购字典数据')
+  })
+  seedProcDicts()
+}
+
+// 采购数据初始化
+const cpCount = db.prepare('SELECT COUNT(*) as cnt FROM computer_procurement').get() as { cnt: number }
+if (cpCount.cnt === 0) {
+  const insertCP = db.prepare(
+    'INSERT INTO computer_procurement (model, department, applicant, mac_address, device_model, ce_number, actual_user, approval_number, receive_date, asset_number, delivery_date, delivery_person, pickup_approval, ce_processed, price) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
+  const cpData: any[][] = [
+    ['MacBook Pro 16"', '研发部', '张三', 'A1:B2:C3:D4:E5:F6', 'MacBook Pro M3 Max', 'CE20250001', '张三', 'DT202501001', '2025-01-15', 'IT-PC-2025-001', '2025-01-16', '运维-王五', 'DT202501002', 1, 18999],
+    ['Dell XPS 15', '设计部', '李四', 'B2:C3:D4:E5:F6:A1', 'Dell XPS 15 9530', 'CE20250002', '李四', 'DT202502001', '2025-02-10', 'IT-PC-2025-002', '2025-02-11', '运维-王五', 'DT202502002', 1, 12999],
+    ['ThinkPad X1 Carbon', '市场部', '王五', 'C3:D4:E5:F6:A1:B2', 'ThinkPad X1 Carbon Gen 11', 'CE20250003', '王五', 'DT202503001', '2025-03-05', 'IT-PC-2025-003', '2025-03-06', '运维-赵六', 'DT202503002', 0, 10999],
+    ['MacBook Air 15"', '财务部', '赵六', 'D4:E5:F6:A1:B2:C3', 'MacBook Air M3', 'CE20250004', '赵六', 'DT202504001', '2025-04-20', 'IT-PC-2025-004', '2025-04-21', '运维-王五', 'DT202504002', 1, 8999],
+    ['HP EliteBook 840', '人事部', '钱七', 'E5:F6:A1:B2:C3:D4', 'HP EliteBook 840 G10', '', '钱七', 'DT202505001', '2025-05-08', 'IT-PC-2025-005', '2025-05-09', '运维-赵六', '', 0, 7599],
+  ]
+  const seedCP = db.transaction(() => { cpData.forEach(r => insertCP.run(...r)) })
+  seedCP()
+  console.log(`[db] 已初始化 ${cpData.length} 条电脑采购数据`)
+}
+
+const ppCount = db.prepare('SELECT COUNT(*) as cnt FROM phone_procurement').get() as { cnt: number }
+if (ppCount.cnt === 0) {
+  const insertPP = db.prepare(
+    'INSERT INTO phone_procurement (asset_number, part_no, serial_no, imei, arrival_date, pickup_date, brand, model, asset_link, department, handler, recipient, dingtalk_creator, purchase_type, dingtalk_flow, original_owner, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+  )
+  const ppData: any[][] = [
+    ['IT-PH-2025-001', 'A2849-001', 'F2LW48XHQJ6D', '356812090123456', '2025-01-10', '2025-01-12', 'Apple', 'iPhone 16 Pro Max 256G', 'IT-PC-2025-001', '研发部', '运维-王五', '张三', '张三', '新购', 'DT202501001', '—', '研发新机'],
+    ['IT-PH-2025-002', 'S24U-002', 'R5YT72NPLK8H', '356812090123457', '2025-02-05', '2025-02-07', 'Samsung', 'Galaxy S24 Ultra 512G', 'IT-PC-2025-002', '设计部', '运维-王五', '李四', '李四', '新购', 'DT202502001', '—', '设计备用机'],
+    ['IT-PH-2025-003', 'MI14-003', 'T9ZU34WVMN2P', '860123456789012', '2025-03-15', '2025-03-16', '小米', 'Xiaomi 14 Ultra', 'IT-PC-2025-003', '市场部', '运维-赵六', '王五', '王五', '换', 'DT202503001', '王五', '旧机屏幕损坏换新'],
+    ['IT-PH-2025-004', 'OP12-004', 'K3LMW5QXRJ7T', '860123456789013', '2025-04-01', '2025-04-03', 'OPPO', 'Find X7 Ultra', 'IT-PC-2025-004', '财务部', '运维-王五', '赵六', '赵六', '新购', 'DT202504001', '—', ''],
+    ['IT-PH-2025-005', 'HW60-005', 'P8QNX2VYKM4R', '860123456789014', '2025-05-20', '2025-05-21', '华为', 'Mate 60 Pro+', 'IT-PC-2025-005', '人事部', '运维-赵六', '钱七', '钱七', '新购', 'DT202505001', '—', '商务机'],
+  ]
+  const seedPP = db.transaction(() => { ppData.forEach(r => insertPP.run(...r)) })
+  seedPP()
+  console.log(`[db] 已初始化 ${ppData.length} 条手机采购数据`)
 }
 
 export default db

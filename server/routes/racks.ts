@@ -2,11 +2,16 @@ import { Router, Request, Response } from 'express'
 import db from '../db'
 
 const router = Router()
-const FLOORS = ['-1F', '1F', '2F', '3F', '4F']
+
+// 从数据库读取楼层列表
+function getFloors(): string[] {
+  const rows = db.prepare('SELECT name FROM device_floors ORDER BY sort_order ASC, id ASC').all() as { name: string }[]
+  return rows.length > 0 ? rows.map(r => r.name) : ['-1F', '1F', '2F', '3F', '4F']
+}
 
 // ============ 11. 获取楼层列表 ============
 router.get('/floors', (_req: Request, res: Response) => {
-  res.json({ code: 200, data: { floors: FLOORS } })
+  res.json({ code: 200, data: { floors: getFloors() } })
 })
 
 // ============ 10. 获取统计汇总 ============
@@ -24,7 +29,7 @@ router.get('/stats', (_req: Request, res: Response) => {
 
   // 按楼层统计
   const byFloor: Record<string, any> = {}
-  for (const f of FLOORS) {
+  for (const f of getFloors()) {
     const floorRacks = racks.filter(r => r.floor === f)
     const totalU = floorRacks.reduce((sum, r) => sum + r.total_u, 0)
     const usedSlots = db.prepare(`
@@ -182,7 +187,7 @@ router.post('/', (req: Request, res: Response) => {
   const { id, name, floor, totalU = 42 } = req.body
 
   if (!name) return res.status(400).json({ code: 400, message: 'name 为必填项' })
-  if (!floor || !FLOORS.includes(floor)) return res.status(400).json({ code: 400, message: 'floor 必须是 ' + FLOORS.join(', ') + ' 之一' })
+  if (!floor || !getFloors().includes(floor)) return res.status(400).json({ code: 400, message: 'floor 必须是已配置的楼层之一' })
 
   const rackId = id || 'rack-' + Date.now()
 

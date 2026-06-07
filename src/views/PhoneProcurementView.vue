@@ -34,7 +34,7 @@
 
     <!-- 搜索/筛选 -->
     <div class="filter-bar">
-      <el-input v-model="search" placeholder="搜索品牌/型号/资产编号/IMEI/领用人..." clearable style="width:320px">
+      <el-input v-model="search" placeholder="搜索品牌/型号/资产编号/IMEI/领用人..." clearable style="width:300px">
         <template #prefix>
           <el-icon><search /></el-icon>
         </template>
@@ -74,7 +74,7 @@
     >
       <el-table-column type="selection" width="40" />
       <el-table-column prop="assetNumber" label="资产编号" width="140" fixed />
-      <el-table-column prop="brand" label="品牌" width="80" />
+      <el-table-column prop="brand" label="品牌" width="110" />
       <el-table-column prop="model" label="型号" min-width="160" show-overflow-tooltip />
       <el-table-column prop="imei" label="IMEI/MEID" width="150" show-overflow-tooltip />
       <el-table-column prop="department" label="领用部门" width="90" />
@@ -102,7 +102,7 @@
     </div>
 
     <!-- 分页 -->
-    <div v-if="filteredCount > 10" class="pagination">
+    <div v-if="filteredCount > pageSize" class="pagination">
       <el-pagination v-model:current-page="page" v-model:pageSize="pageSize" :page-sizes="[10,20,50]"
         :total="filteredCount" layout="total, sizes, prev, pager, next" small />
     </div>
@@ -154,8 +154,16 @@
       <el-form :model="form" label-width="130px" :rules="rules" ref="formRef">
         <!-- 设备信息 -->
         <div class="form-section-title">📱 设备信息</div>
-        <el-form-item label="品牌" prop="brand"><el-input v-model="form.brand" placeholder="如 Apple、Samsung、华为" /></el-form-item>
-        <el-form-item label="型号" prop="model"><el-input v-model="form.model" placeholder="如 iPhone 16 Pro Max 256G" /></el-form-item>
+        <el-form-item label="品牌" prop="brand">
+          <el-select v-model="form.brand" filterable placeholder="请选择品牌" style="width:100%" @change="form.model = ''">
+            <el-option v-for="b in brands" :key="b" :label="b" :value="b" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="型号" prop="model">
+          <el-select v-model="form.model" filterable placeholder="请先选择品牌" :disabled="!form.brand" style="width:100%">
+            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="资产编号"><el-input v-model="form.assetNumber" placeholder="留空自动生成" /></el-form-item>
         <el-form-item label="Part No"><el-input v-model="form.partNo" placeholder="零件编号" /></el-form-item>
         <el-form-item label="Serial No"><el-input v-model="form.serialNo" placeholder="序列号" /></el-form-item>
@@ -163,9 +171,17 @@
 
         <!-- 人员信息 -->
         <div class="form-section-title">👤 人员信息</div>
-        <el-form-item label="领用部门" prop="department"><el-input v-model="form.department" placeholder="如 研发部" /></el-form-item>
+        <el-form-item label="领用部门" prop="department">
+          <el-select v-model="form.department" filterable allow-create placeholder="请选择部门" style="width:100%">
+            <el-option v-for="d in departments" :key="d" :label="d" :value="d" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="领用人" prop="recipient"><el-input v-model="form.recipient" /></el-form-item>
-        <el-form-item label="经手人"><el-input v-model="form.handler" placeholder="运维组经手人" /></el-form-item>
+        <el-form-item label="经手人">
+          <el-select v-model="form.handler" filterable allow-create placeholder="请选择经手人" style="width:100%">
+            <el-option v-for="h in handlers" :key="h" :label="h" :value="h" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="原手机归属"><el-input v-model="form.originalOwner" placeholder="换机时填写" /></el-form-item>
 
         <!-- 采购与审批 -->
@@ -198,16 +214,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { usePhoneProcurementStore } from '../stores/procurement'
 import type { PhoneProcurement } from '../stores/procurement'
 import { Plus, Search, ArrowDown, Download, Upload, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { fetchDict } from '../api/admin'
 
 const store = usePhoneProcurementStore()
+
+// 字典数据
+const departmentOptions = ref<string[]>([])
+const handlerOptions = ref<string[]>([])
+const phoneBrandOptions = ref<string[]>([])
+const phoneModelMap = ref<Record<string, string[]>>({})
+
+onMounted(async () => {
+  store.loadPhones()
+  try {
+    const [depts, handlers, brands, models] = await Promise.all([
+      fetchDict('procurement-departments'),
+      fetchDict('procurement-handlers'),
+      fetchDict('phone-brands'),
+      fetchDict('phone-models'),
+    ])
+    departmentOptions.value = depts.map((d: any) => d.name)
+    handlerOptions.value = handlers.map((h: any) => h.name)
+    phoneBrandOptions.value = brands.map((b: any) => b.name)
+    // 构建品牌→型号映射
+    const map: Record<string, string[]> = {}
+    for (const brand of brands) {
+      const ms = models.filter((m: any) => m.brand_id === brand.id).map((m: any) => m.name)
+      map[brand.name] = ms
+    }
+    phoneModelMap.value = map
+  } catch (e) {
+    console.error('加载字典数据失败:', e)
+  }
+})
 const tableRef = ref()
 const fileInput = ref<HTMLInputElement>()
-const formRef = ref()
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -221,6 +267,9 @@ const filterBrand = ref('')
 const dateRange = ref<[string, string] | null>(null)
 const page = ref(1)
 const pageSize = ref(10)
+
+// 筛选条件变化时重置分页
+watch([search, filterPurchaseType, filterBrand, dateRange], () => { page.value = 1 })
 
 const form = reactive({
   assetNumber: '', partNo: '', serialNo: '', imei: '',
@@ -238,8 +287,28 @@ const rules = {
 }
 
 // ===== 筛选相关 =====
-const departments = computed(() => [...new Set(store.phones.map(p => p.department))].sort())
-const brands = computed(() => [...new Set(store.phones.map(p => p.brand))].sort())
+const departments = computed(() => departmentOptions.value.length ? departmentOptions.value : [...new Set(store.phones.map(p => p.department))].sort())
+const brands = computed(() => phoneBrandOptions.value.length ? phoneBrandOptions.value : [...new Set(store.phones.map(p => p.brand))].sort())
+const handlers = computed(() => handlerOptions.value.length ? handlerOptions.value : [...new Set(store.phones.map(p => p.handler).filter(Boolean))].sort())
+
+// 品牌 → 型号映射
+const phoneModels = computed(() => {
+  // 优先用字典数据
+  if (Object.keys(phoneModelMap.value).length) return phoneModelMap.value
+  // fallback: 从已有数据中补充
+  const map: Record<string, string[]> = {}
+  for (const p of store.phones) {
+    if (p.brand && p.model) {
+      if (!map[p.brand]) map[p.brand] = []
+      if (!map[p.brand].includes(p.model)) map[p.brand].push(p.model)
+    }
+  }
+  return map
+})
+const modelOptions = computed(() => {
+  if (!form.brand) return []
+  return (phoneModels.value[form.brand] || []).sort()
+})
 
 const filteredData = computed(() => {
   let data = store.phones
@@ -316,30 +385,32 @@ function openEditDialog(row: PhoneProcurement | null) {
   drawerVisible.value = false
 }
 
-function handleSave() {
+async function handleSave() {
   if (!form.brand.trim() || !form.model.trim() || !form.department.trim() || !form.recipient.trim()) {
     ElMessage.warning('请填写必填项（品牌、型号、领用部门、领用人）')
     return
   }
   saving.value = true
-  setTimeout(() => {
+  try {
     const data = { ...form }
-    if (!data.assetNumber) data.assetNumber = 'IT-PH-' + new Date().getFullYear() + '-' + String(store.phones.length + 1).padStart(3, '0')
     if (editingId.value) {
-      store.updatePhone(editingId.value, data)
+      await store.updatePhone(editingId.value, data)
       ElMessage.success('修改成功')
     } else {
-      store.addPhone({ id: store.nextId(), ...data })
+      await store.addPhone(data as Omit<PhoneProcurement, 'id'>)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  } finally {
     saving.value = false
-  }, 300)
+  }
 }
 
 function handleDelete(row: PhoneProcurement) {
   ElMessageBox.confirm(`确定删除「${row.brand} ${row.model}」吗？`, '确认删除', { type: 'warning' })
-    .then(() => { store.deletePhone(row.id); ElMessage.success('删除成功') })
+    .then(async () => { await store.deletePhone(row.id); ElMessage.success('删除成功') })
     .catch(() => {})
 }
 
@@ -378,11 +449,12 @@ function downloadCsv(header: string, rows: string[], filename: string) {
 }
 
 function batchDelete() {
-  ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 条记录吗？`, '批量删除', { type: 'warning' })
-    .then(() => {
-      selectedRows.value.forEach(r => store.deletePhone(r.id))
+  const count = selectedRows.value.length
+  ElMessageBox.confirm(`确定删除选中的 ${count} 条记录吗？`, '批量删除', { type: 'warning' })
+    .then(async () => {
+      await store.batchDelete(selectedRows.value.map(r => r.id))
       clearSelection()
-      ElMessage.success(`已删除 ${selectedRows.value.length} 条记录`)
+      ElMessage.success(`已删除 ${count} 条记录`)
     })
     .catch(() => {})
 }
@@ -392,16 +464,16 @@ function importCSV() { fileInput.value?.click() }
 function handleImport(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return
   const r = new FileReader()
-  r.onload = () => {
+  r.onload = async () => {
     const text = r.result as string
     const lines = text.trim().split(/\r?\n/)
     if (lines.length < 2) { ElMessage.error('CSV 文件为空'); return }
-    let imported = 0
+    const rows: any[] = []
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim())
       if (cols.length < 7) continue
-      store.addPhone({
-        id: store.nextId(), assetNumber: cols[0] || '', partNo: cols[1] || '',
+      rows.push({
+        assetNumber: cols[0] || '', partNo: cols[1] || '',
         serialNo: cols[2] || '', imei: cols[3] || '', arrivalDate: cols[4] || '',
         pickupDate: cols[5] || '', brand: cols[6] || '', model: cols[7] || '',
         assetLink: cols[8] || '', department: cols[9] || '', handler: cols[10] || '',
@@ -409,9 +481,13 @@ function handleImport(e: Event) {
         purchaseType: cols[13] || '新购', dingtalkFlow: cols[14] || '',
         originalOwner: cols[15] || '', notes: cols[16] || '',
       })
-      imported++
     }
-    ElMessage.success(`导入 ${imported} 条`)
+    try {
+      const result = await store.batchImport(rows)
+      ElMessage.success(`导入 ${result.imported} 条`)
+    } catch (e: any) {
+      ElMessage.error(e.message || '导入失败')
+    }
     if (fileInput.value) fileInput.value.value = ''
   }
   r.readAsText(f)
@@ -420,6 +496,28 @@ function handleImport(e: Event) {
 
 <style scoped>
 .proc-page { padding: 24px; background: var(--ops-bg-page); min-height: 100vh; }
+
+/* ===== 表头高亮 ===== */
+:deep(.el-table thead th) {
+  background: linear-gradient(180deg, rgba(88,166,255,0.12) 0%, rgba(88,166,255,0.04) 100%) !important;
+  color: var(--ops-accent-blue) !important;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 2px solid rgba(88,166,255,0.25) !important;
+}
+:deep(.el-table thead th .cell) {
+  color: var(--ops-accent-blue);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 表格内容居中 */
+:deep(.el-table td.el-table__cell .cell) {
+  text-align: center;
+}
 
 /* 顶部导航 */
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }

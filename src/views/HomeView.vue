@@ -19,7 +19,7 @@
       </h1>
       <p class="intro-text">一站式运维管理平台 — 集中管理内网服务、运维工单流程、公司设备资产与打印机</p>
     </div>
-    <div class="big-cards">
+    <div class="big-cards" @mousemove="trackMouse">
       <div class="big-card card-blue" @click="$router.push('/services')">
         <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
         <div class="card-icon-wrap"><el-icon :size="32"><Link /></el-icon></div>
@@ -74,7 +74,7 @@
         <div class="card-stat">
           <span class="stat-num">{{ printersStore.total }}</span>
           <span class="stat-label">台打印机</span>
-          <span class="stat-sub">缺墨/故障 {{ printersStore.lowInkCount }}</span>
+
         </div>
       </div>
     </div>
@@ -103,12 +103,23 @@ const printersStore = usePrintersStore()
 const computerStore = useComputerProcurementStore()
 const phoneStore = usePhoneProcurementStore()
 const themeStore = useThemeStore()
+
+function trackMouse(e: MouseEvent) {
+  const card = (e.target as HTMLElement).closest('.big-card') as HTMLElement | null
+  if (!card) return
+  const rect = card.getBoundingClientRect()
+  card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
+  card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
+}
+
 onMounted(() => {
   servicesStore.loadServices()
   opsStore.loadFolders()
   opsStore.loadDocs()
   devicesStore.loadRacks()
   printersStore.loadPrinters()
+  computerStore.loadComputers()
+  phoneStore.loadPhones()
 })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
 function particleStyle(i: number) {

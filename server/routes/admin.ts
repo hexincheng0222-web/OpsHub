@@ -69,6 +69,43 @@ const tables: Record<string, TableConfig> = {
     listColumns: 'id, name, ip, os, description, sort_order, created_at, updated_at',
     module: '服务主机',
   },
+  'procurement-departments': {
+    table: 'procurement_departments',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '采购部门',
+  },
+  'procurement-handlers': {
+    table: 'procurement_handlers',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '采购经手人',
+  },
+  'phone-brands': {
+    table: 'phone_brands',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '手机品牌',
+  },
+  'phone-models': {
+    table: 'phone_models',
+    columns: ['brand_id', 'name', 'sort_order'],
+    listColumns: 'id, brand_id, name, sort_order, created_at, updated_at',
+    module: '手机型号',
+    foreignKey: { table: 'phone_brands', column: 'brand_id', ref: 'brand' },
+  },
+  'computer-purchase-models': {
+    table: 'computer_purchase_models',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '电脑采购型号',
+  },
+  'computer-device-models': {
+    table: 'computer_device_models',
+    columns: ['purchase_model_id', 'name', 'sort_order'],
+    listColumns: 'id, purchase_model_id, name, sort_order, created_at, updated_at',
+    module: '电脑设备型号',
+  },
 }
 
 // 记录操作日志
@@ -183,15 +220,24 @@ router.delete('/logs/clear', (_req: Request, res: Response) => {
 
 // GET /api/v1/admin/overview  — 各模块数据统计
 router.get('/overview/stats', (_req: Request, res: Response) => {
+  const cnt = (table: string) => (db.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).get() as { cnt: number }).cnt
   const stats = {
-    deviceFloors: (db.prepare('SELECT COUNT(*) as cnt FROM device_floors').get() as { cnt: number }).cnt,
-    deviceTypes: (db.prepare('SELECT COUNT(*) as cnt FROM device_types').get() as { cnt: number }).cnt,
-    deviceModels: (db.prepare('SELECT COUNT(*) as cnt FROM device_models').get() as { cnt: number }).cnt,
-    printerBrands: (db.prepare('SELECT COUNT(*) as cnt FROM printer_brands').get() as { cnt: number }).cnt,
-    printerModels: (db.prepare('SELECT COUNT(*) as cnt FROM printer_models').get() as { cnt: number }).cnt,
-    tonerModels: (db.prepare('SELECT COUNT(*) as cnt FROM toner_models').get() as { cnt: number }).cnt,
-    serviceCategories: (db.prepare('SELECT COUNT(*) as cnt FROM service_categories').get() as { cnt: number }).cnt,
-    totalLogs: (db.prepare('SELECT COUNT(*) as cnt FROM operation_logs').get() as { cnt: number }).cnt,
+    deviceFloors: cnt('device_floors'),
+    deviceTypes: cnt('device_types'),
+    deviceModels: cnt('device_models'),
+    printerFloors: cnt('printer_floors'),
+    printerBrands: cnt('printer_brands'),
+    printerModels: cnt('printer_models'),
+    tonerModels: cnt('toner_models'),
+    serviceCategories: cnt('service_categories'),
+    serviceHosts: cnt('service_hosts'),
+    procurementDepartments: cnt('procurement_departments'),
+    procurementHandlers: cnt('procurement_handlers'),
+    phoneBrands: cnt('phone_brands'),
+    phoneModels: cnt('phone_models'),
+    computerPurchaseModels: cnt('computer_purchase_models'),
+    computerDeviceModels: cnt('computer_device_models'),
+    totalLogs: cnt('operation_logs'),
     recentLogs: db.prepare('SELECT * FROM operation_logs ORDER BY created_at DESC LIMIT 10').all(),
   }
   res.json({ code: 200, data: stats })

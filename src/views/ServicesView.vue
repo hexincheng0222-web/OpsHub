@@ -34,7 +34,7 @@
         </template>
       </el-input>
       <el-select v-model="filterCategory" placeholder="全部分类" clearable class="filter-select">
-        <el-option v-for="cat in SERVICE_CATEGORIES" :key="cat" :label="cat" :value="cat" />
+        <el-option v-for="cat in serviceCategories" :key="cat" :label="cat" :value="cat" />
       </el-select>
       <el-select v-model="filterStatus" placeholder="全部状态" clearable class="filter-select">
         <el-option label="在线" value="online" />
@@ -141,7 +141,7 @@
           </el-form-item>
           <el-form-item label="分类" prop="category" class="form-item-half">
             <el-select v-model="form.category" filterable allow-create placeholder="选择分类" style="width: 100%">
-              <el-option v-for="cat in SERVICE_CATEGORIES" :key="cat" :label="cat" :value="cat" />
+              <el-option v-for="cat in serviceCategories" :key="cat" :label="cat" :value="cat" />
             </el-select>
           </el-form-item>
         </div>
@@ -324,21 +324,23 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useServicesStore } from '../stores/services'
 import type { Service } from '../mock/services'
-import { SERVICE_CATEGORIES } from '../mock/services'
 import { fetchDict } from '../api/admin'
+import { ElMessage } from 'element-plus'
 
 const servicesStore = useServicesStore()
 
-// 主机数据
+// 字典数据
 const hosts = ref<any[]>([])
 const selectedHostId = ref<number | null>(null)
+const serviceCategories = ref<string[]>([])
 
 onMounted(async () => {
   await servicesStore.loadServices()
   servicesStore.checkAllServices()
   loading.value = false
-  // 加载主机列表
+  // 加载字典
   fetchDict('service-hosts').then(data => { hosts.value = data }).catch(() => {})
+  fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch(() => {})
 })
 
 // 统计每个主机的服务数
@@ -453,33 +455,49 @@ function openEditFromDrawer() {
   }
 }
 
-function deleteFromDrawer() {
+async function deleteFromDrawer() {
   if (selectedService.value) {
-    servicesStore.deleteService(selectedService.value.id)
+    try {
+      await servicesStore.deleteService(selectedService.value.id)
+      ElMessage.success('删除成功')
+    } catch (e: any) {
+      ElMessage.error(e.message || '删除失败')
+    }
     drawerVisible.value = false
     selectedService.value = null
   }
 }
 
-function deleteAndClose() {
+async function deleteAndClose() {
   if (selectedService.value) {
-    servicesStore.deleteService(selectedService.value.id)
+    try {
+      await servicesStore.deleteService(selectedService.value.id)
+      ElMessage.success('删除成功')
+    } catch (e: any) {
+      ElMessage.error(e.message || '删除失败')
+    }
     detailVisible.value = false
     selectedService.value = null
   }
 }
 
-function saveService() {
+async function saveService() {
   if (saving.value) return
   saving.value = true
-  serviceFormRef.value.validate((valid: boolean) => {
+  serviceFormRef.value.validate(async (valid: boolean) => {
     if (valid) {
-      if (editingService.value) {
-        servicesStore.updateService(editingService.value.id, { ...form })
-      } else {
-        servicesStore.addService({ ...form })
+      try {
+        if (editingService.value) {
+          await servicesStore.updateService(editingService.value.id, { ...form })
+          ElMessage.success('修改成功')
+        } else {
+          await servicesStore.addService({ ...form })
+          ElMessage.success('添加成功')
+        }
+        dialogVisible.value = false
+      } catch (e: any) {
+        ElMessage.error(e.message || '操作失败')
       }
-      dialogVisible.value = false
     }
     saving.value = false
   })

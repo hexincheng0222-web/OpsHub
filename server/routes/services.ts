@@ -3,7 +3,11 @@ import db from '../db'
 
 const router = Router()
 
-const CATEGORIES = ['DevOps', '监控', '基础设施', '协作']
+// 从数据库读取服务分类
+function getCategories(): string[] {
+  const rows = db.prepare('SELECT name FROM service_categories ORDER BY sort_order ASC, id ASC').all() as { name: string }[]
+  return rows.length > 0 ? rows.map(r => r.name) : ['DevOps', '监控', '基础设施', '协作']
+}
 const STATUSES = ['online', 'offline', 'maintenance']
 
 function toApi(row: any) {
@@ -68,7 +72,7 @@ router.get('/', (req: Request, res: Response) => {
 
 // 2. 获取分类列表（必须在 /:id 之前）
 router.get('/categories', (_req: Request, res: Response) => {
-  res.json({ code: 200, data: { categories: CATEGORIES } })
+  res.json({ code: 200, data: { categories: getCategories() } })
 })
 
 // 3. 获取单个服务
@@ -91,8 +95,8 @@ router.post('/', (req: Request, res: Response) => {
   if (!url || typeof url !== 'string' || url.length > 500) {
     return res.status(400).json({ code: 400, message: 'url 为必填项，最多 500 字符' })
   }
-  if (!category || !CATEGORIES.includes(category)) {
-    return res.status(400).json({ code: 400, message: 'category 必须是 ' + CATEGORIES.join(', ') + ' 之一' })
+  if (!category || !getCategories().includes(category)) {
+    return res.status(400).json({ code: 400, message: 'category 必须是已配置的服务分类之一' })
   }
   if (status && !STATUSES.includes(status)) {
     return res.status(400).json({ code: 400, message: 'status 必须是 ' + STATUSES.join(', ') + ' 之一' })

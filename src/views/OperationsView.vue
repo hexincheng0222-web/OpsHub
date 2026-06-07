@@ -182,14 +182,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitize'
 import { useOperationsStore } from '../stores/operations'
 import type { ManualDoc, ManualFolder } from '../mock/operations'
 
 const router = useRouter()
-const route = useRoute()
 const store = useOperationsStore()
 const sbListRef = ref<HTMLElement>()
 
@@ -476,7 +475,6 @@ watch(selectedDoc, () => {
 })
 
 // ---- Keyboard navigation ----
-const searchInputRefKb = searchInputRef // reuse for keyboard
 onMounted(() => {
   document.addEventListener('keydown', onGlobalKey)
 })

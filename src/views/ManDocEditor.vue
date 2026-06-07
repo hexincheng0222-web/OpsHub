@@ -203,12 +203,6 @@ function insertAtCursor(text: string) {
 function insertTab() {
   insertAtCursor('  ')
 }
-
-function formatNow() {
-  const n = new Date()
-  const pad = (v: number) => String(v).padStart(2, '0')
-  return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())} ${pad(n.getHours())}:${pad(n.getMinutes())}`
-}
 </script>
 
 <style scoped>

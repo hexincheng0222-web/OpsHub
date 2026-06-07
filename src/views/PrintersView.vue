@@ -101,21 +101,37 @@
           <div class="df-header">{{ editingPrinter ? '编辑打印机' : '添加打印机' }}</div>
           <div class="df-body">
             <div class="df-row">
-              <label class="df-field"><span class="df-label">楼层</span><input v-model="form.floor" class="df-input" placeholder="如 3F" /></label>
+              <label class="df-field"><span class="df-label">楼层</span>
+                <el-select v-model="form.floor" filterable allow-create placeholder="请选择楼层" style="width:100%">
+                  <el-option v-for="f in floors" :key="f" :label="f" :value="f" />
+                </el-select>
+              </label>
             </div>
             <div class="df-row"><label class="df-field"><span class="df-label">位置</span><input v-model="form.location" class="df-input" placeholder="如 东区茶水间旁" /></label></div>
             <div class="df-row">
-              <label class="df-field"><span class="df-label">厂商</span><input v-model="form.manufacturer" class="df-input" placeholder="如 HP" /></label>
-              <label class="df-field"><span class="df-label">型号</span><input v-model="form.model" class="df-input" placeholder="如 LaserJet Pro M404dn" /></label>
+              <label class="df-field"><span class="df-label">厂商</span>
+                <el-select v-model="form.manufacturer" filterable allow-create placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
+                  <el-option v-for="m in manufacturers" :key="m" :label="m" :value="m" />
+                </el-select>
+              </label>
+              <label class="df-field"><span class="df-label">型号</span>
+                <el-select v-model="form.model" filterable allow-create placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
+                  <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+                </el-select>
+              </label>
             </div>
-            <label class="df-field"><span class="df-label">硒鼓型号</span><input v-model="form.tonerModel" class="df-input" placeholder="如 HP 58A (CF258A)" /></label>
+            <label class="df-field"><span class="df-label">硒鼓型号</span>
+              <el-select v-model="form.tonerModel" filterable allow-create placeholder="请选择硒鼓型号" style="width:100%">
+                <el-option v-for="t in allTonerModels" :key="t" :label="t" :value="t" />
+              </el-select>
+            </label>
             <label class="df-field"><span class="df-label">备注</span><input v-model="form.notes" class="df-input" placeholder="备注信息" /></label>
             <div class="df-row">
               <label class="df-field" style="flex:1">
                 <span class="df-label">状态</span>
-                <select v-model="form.status" class="df-input">
-                  <option value="正常">正常</option><option value="缺墨">缺墨</option><option value="故障">故障</option>
-                </select>
+                <el-select v-model="form.status" style="width:100%">
+                  <el-option value="正常" /><el-option value="缺墨" /><el-option value="故障" />
+                </el-select>
               </label>
               <div style="flex:1" />
             </div>
@@ -136,8 +152,37 @@ import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
 import { Plus, ArrowDown, Download, Upload, Document } from '@element-plus/icons-vue'
+import { ElMessageBox, ElMessage } from 'element-plus'
 
 const store = usePrintersStore()
+
+// 字典数据：从已有打印机提取
+const floors = computed(() => [...new Set(store.printers.map(p => p.floor))].sort())
+const manufacturers = computed(() => [...new Set(store.printers.map(p => p.manufacturer))].sort())
+const allTonerModels = computed(() => [...new Set(store.printers.map(p => p.tonerModel).filter(Boolean))].sort())
+
+// 厂商 → 型号映射
+const manufacturerModelMap: Record<string, string[]> = {
+  HP: ['LaserJet Pro M404dn', 'LaserJet Pro MFP M428fdw', 'LaserJet Enterprise M609', 'Color LaserJet Pro MFP M479fdw', 'DeskJet 2720'],
+  Canon: ['imageCLASS MF743Cdw', 'imageCLASS MF445dw', 'PIXMA G3810', 'PIXMA TS3300'],
+  Brother: ['HL-L2370DW', 'MFC-L2750DW', 'HL-L5200DW', 'MFC-L8900CDW'],
+  Epson: ['L3150', 'L3250', 'WF-C5790', 'WF-C21000'],
+  Lenovo: ['LJ2268', 'M7206', 'LJ2600D', 'M7400Pro'],
+}
+const manufacturerModels = computed(() => {
+  const map = { ...manufacturerModelMap }
+  for (const p of store.printers) {
+    if (p.manufacturer && p.model) {
+      if (!map[p.manufacturer]) map[p.manufacturer] = []
+      if (!map[p.manufacturer].includes(p.model)) map[p.manufacturer].push(p.model)
+    }
+  }
+  return map
+})
+const modelOptions = computed(() => {
+  if (!form.manufacturer) return []
+  return (manufacturerModels.value[form.manufacturer] || []).sort()
+})
 
 function handleTopAction(command: string) {
   if (command === 'template') downloadTemplate()
@@ -158,7 +203,16 @@ const selectedIds = ref(new Set<number>())
 function toggleOne(id: number) { const n = new Set(selectedIds.value); n.has(id) ? n.delete(id) : n.add(id); selectedIds.value = n }
 function toggleGroupAll(g: FloorGroup) { const ids = g.printers.map(p => p.id); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
 function groupAllSelected(g: FloorGroup) { return g.printers.every(p => selectedIds.value.has(p.id)) }
-function batchDelete() { store.deletePrinters([...selectedIds.value]); selectedIds.value = new Set() }
+function batchDelete() {
+  const count = selectedIds.value.size
+  ElMessageBox.confirm(`确定删除选中的 ${count} 台打印机吗？`, '批量删除', { type: 'warning' })
+    .then(() => {
+      store.deletePrinters([...selectedIds.value])
+      selectedIds.value = new Set()
+      ElMessage.success(`已删除 ${count} 台打印机`)
+    })
+    .catch(() => {})
+}
 
 const fileInput = ref<HTMLInputElement>()
 function triggerImport() { fileInput.value?.click() }

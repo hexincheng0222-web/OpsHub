@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchLogs, clearLogs } from '../../api/admin'
-import { Delete } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 
 const logs = ref<any[]>([])
 const loading = ref(false)
@@ -10,12 +10,24 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const filterModule = ref('')
+const searchText = ref('')
 
 const moduleOptions = [
   '设备楼层', '设备类型', '设备型号',
   '打印机品牌', '打印机型号', '墨粉型号',
   '服务分类', '系统',
 ]
+
+const filteredLogs = computed(() => {
+  if (!searchText.value) return logs.value
+  const q = searchText.value.toLowerCase()
+  return logs.value.filter(row =>
+    (row.module || '').toLowerCase().includes(q) ||
+    (row.action || '').toLowerCase().includes(q) ||
+    (row.target || '').toLowerCase().includes(q) ||
+    (row.detail || '').toLowerCase().includes(q)
+  )
+})
 
 async function loadLogs() {
   loading.value = true
@@ -36,15 +48,10 @@ async function loadLogs() {
 
 onMounted(loadLogs)
 
-function handlePageChange(p: number) {
-  page.value = p
-  loadLogs()
-}
-
-function handleFilterChange() {
+watch(filterModule, () => {
   page.value = 1
   loadLogs()
-}
+})
 
 async function handleClear() {
   try {
@@ -78,40 +85,42 @@ function getActionType(action: string): string {
 <template>
   <div class="logs-page">
     <div class="page-header">
-      <h2 class="page-title">操作日志</h2>
-      <el-button type="danger" plain :icon="Delete" @click="handleClear" size="small">清空日志</el-button>
+      <div class="header-left">
+        <span class="page-title">操作日志</span>
+        <span class="total-text">共 {{ total }} 条</span>
+      </div>
+      <el-button type="danger" text size="small" @click="handleClear">清空</el-button>
     </div>
 
     <div class="filter-bar">
       <el-select
         v-model="filterModule"
-        placeholder="按模块筛选"
+        placeholder="模块"
         clearable
-        style="width: 180px"
-        @change="handleFilterChange"
+        size="small"
+        style="width: 140px"
       >
         <el-option v-for="m in moduleOptions" :key="m" :label="m" :value="m" />
       </el-select>
-      <span class="total-text">共 {{ total }} 条</span>
+      <el-input v-model="searchText" placeholder="搜索..." clearable size="small" :prefix-icon="Search" style="width: 220px" />
     </div>
 
-    <el-table :data="logs" v-loading="loading" style="width: 100%" stripe>
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="module" label="模块" width="120">
+    <el-table :data="filteredLogs" v-loading="loading" style="width: 100%" size="small">
+      <el-table-column prop="module" label="模块" width="110">
         <template #default="{ row }">
-          <el-tag size="small" type="info">{{ row.module }}</el-tag>
+          <span class="cell-module">{{ row.module }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="action" label="操作" width="80">
+      <el-table-column prop="action" label="操作" width="70">
         <template #default="{ row }">
-          <el-tag size="small" :type="getActionType(row.action)">{{ row.action }}</el-tag>
+          <span class="cell-action" :class="getActionType(row.action)">{{ row.action }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="target" label="目标" width="200" show-overflow-tooltip />
-      <el-table-column prop="detail" label="详情" show-overflow-tooltip />
-      <el-table-column prop="created_at" label="时间" width="180">
+      <el-table-column prop="target" label="目标" min-width="160" show-overflow-tooltip />
+      <el-table-column prop="detail" label="详情" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="created_at" label="时间" width="160">
         <template #default="{ row }">
-          {{ formatTime(row.created_at) }}
+          <span class="cell-time">{{ formatTime(row.created_at) }}</span>
         </template>
       </el-table-column>
     </el-table>
@@ -122,7 +131,7 @@ function getActionType(action: string): string {
         :page-size="pageSize"
         :total="total"
         layout="prev, pager, next"
-        @current-change="handlePageChange"
+        @current-change="(p: number) => { page = p; loadLogs() }"
       />
     </div>
   </div>
@@ -130,7 +139,7 @@ function getActionType(action: string): string {
 
 <style scoped>
 .logs-page {
-  max-width: 1100px;
+  max-width: 1000px;
 }
 
 .page-header {
@@ -140,28 +149,53 @@ function getActionType(action: string): string {
   margin-bottom: 16px;
 }
 
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
 .page-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--ops-text-primary);
-  margin: 0;
+}
+
+.total-text {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
 }
 
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.total-text {
-  font-size: 13px;
-  color: var(--ops-text-secondary);
+.cell-module {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+}
+
+.cell-action {
+  font-size: 12px;
+  font-weight: 500;
+}
+.cell-action.success { color: #3fb950; }
+.cell-action.warning { color: #d29922; }
+.cell-action.danger { color: #f85149; }
+.cell-action.info { color: var(--ops-text-tertiary); }
+
+.cell-time {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 </style>

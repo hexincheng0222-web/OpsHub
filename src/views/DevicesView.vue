@@ -10,6 +10,7 @@ import RackCard from '../components/devices/RackCard.vue'
 import DeviceForm from '../components/devices/DeviceForm.vue'
 import { useDragDrop } from '../components/devices/useDragDrop'
 import { fetchDict } from '../api/admin'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const store = useDevicesStore()
@@ -105,8 +106,13 @@ function openAddRackDialog() {
 
 async function confirmAddRack() {
   if (!newRackForm.value.name) return
-  await store.addRackToServer(newRackForm.value.name, newRackForm.value.floor, newRackForm.value.totalU)
-  showAddRackDialog.value = false
+  try {
+    await store.addRackToServer(newRackForm.value.name, newRackForm.value.floor, newRackForm.value.totalU)
+    ElMessage.success('机柜创建成功')
+    showAddRackDialog.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '创建失败')
+  }
 }
 
 // --- Edit rack ---
@@ -122,7 +128,12 @@ function openEditRackDialog(rack: Rack) {
 
 async function saveRackName() {
   if (editingRack.value && editRackName.value) {
-    await store.updateRackOnServer(editingRack.value.id, editRackName.value)
+    try {
+      await store.updateRackOnServer(editingRack.value.id, editRackName.value)
+      ElMessage.success('修改成功')
+    } catch (e: any) {
+      ElMessage.error(e.message || '修改失败')
+    }
   }
   showEditRackDialog.value = false
 }
@@ -142,7 +153,7 @@ function onSlotClick(rack: Rack, _index: number, slot: SlotInfo) {
   }
 }
 
-function onDeviceSubmit(data: Omit<Device, 'id'>) {
+async function onDeviceSubmit(data: Omit<Device, 'id'>) {
   const rack = store.racks.find(r => r.id === addDeviceRackId.value)
   if (!rack) return
 
@@ -179,7 +190,12 @@ function onDeviceSubmit(data: Omit<Device, 'id'>) {
   }
 
   if (targetOffset < 0) return
-  store.addDeviceToRackOnServer(addDeviceRackId.value, targetOffset, data)
+  try {
+    await store.addDeviceToRackOnServer(addDeviceRackId.value, targetOffset, data)
+    ElMessage.success('设备添加成功')
+  } catch (e: any) {
+    ElMessage.error(e.message || '添加失败')
+  }
   showAddDeviceDialog.value = false
 }
 
@@ -200,22 +216,36 @@ function closeDrawer() {
 }
 
 function deleteSelectedDevice() {
-  if (drawerDevice.value) {
-    store.deleteDeviceFromServer(drawerDevice.value.id)
-    closeDrawer()
-  }
+  if (!drawerDevice.value) return
+  ElMessageBox.confirm(`确定删除设备「${drawerDevice.value.name}」？`, '确认删除', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await store.deleteDeviceFromServer(drawerDevice.value!.id)
+      ElMessage.success('删除成功')
+      closeDrawer()
+    } catch (e: any) {
+      ElMessage.error(e.message || '删除失败')
+    }
+  }).catch(() => {})
 }
 
-function updateDeviceStatus(status: Device['status']) {
+async function updateDeviceStatus(status: Device['status']) {
   if (drawerDevice.value) {
-    store.updateDeviceOnServer(drawerDevice.value.id, { status })
+    try {
+      await store.updateDeviceOnServer(drawerDevice.value.id, { status })
+    } catch (e: any) {
+      ElMessage.error(e.message || '更新失败')
+    }
   }
 }
 
 // --- Drag and drop ---
 const { onMouseDown } = useDragDrop(
   () => store.racks,
-  (sourceRackId, targetRackId, targetOffset, deviceId) => {
+  (_sourceRackId, targetRackId, targetOffset, deviceId) => {
     store.moveDeviceOnServer(deviceId, targetRackId, targetOffset)
   }
 )
@@ -285,7 +315,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
         :key="rack.id"
         :rack="rack"
         @edit-rack="openEditRackDialog"
-        @delete-rack="(id: string) => store.deleteRackFromServer(id)"
+        @delete-rack="async (id: string) => { try { await ElMessageBox.confirm('确定删除该机柜？所有设备将被移除。', '确认删除', { type: 'warning' }); await store.deleteRackFromServer(id); ElMessage.success('删除成功') } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') } }"
         @slot-click="onSlotClick"
         @drag-start="handleDragStart"
       />
