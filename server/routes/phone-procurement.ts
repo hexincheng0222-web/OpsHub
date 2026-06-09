@@ -3,6 +3,10 @@ import db from '../db'
 
 const router = Router()
 
+function logOperation(module: string, action: string, target: string, detail: string = '') {
+  db.prepare('INSERT INTO operation_logs (module, action, target, detail) VALUES (?, ?, ?, ?)').run(module, action, target, detail)
+}
+
 function toApi(row: any) {
   return {
     id: row.id, assetNumber: row.asset_number, partNo: row.part_no, serialNo: row.serial_no,
@@ -27,7 +31,7 @@ function generateAssetNumber(): string {
 // GET /
 router.get('/', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  const pageSize = Math.min(10000, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const search = req.query.search as string
   const department = req.query.department as string
   const purchaseType = req.query.purchaseType as string
@@ -67,6 +71,7 @@ router.post('/', (req: Request, res: Response) => {
     d.brand||'', d.model||'', d.assetLink||'', d.department||'', d.handler||'', d.recipient||'',
     d.dingtalkCreator||'', d.purchaseType||'新购', d.dingtalkFlow||'', d.originalOwner||'', d.notes||'')
   const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(result.lastInsertRowid)
+  logOperation('手机采购', '新增', d.model || assetNumber)
   res.status(201).json({ code: 201, data: toApi(row) })
 })
 
@@ -91,12 +96,15 @@ router.put('/:id', (req: Request, res: Response) => {
   values.push(req.params.id)
   db.prepare('UPDATE phone_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
   const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(req.params.id)
+  logOperation('手机采购', '修改', (row as any).model || `ID:${req.params.id}`)
   res.json({ code: 200, data: toApi(row) })
 })
 
 // DELETE /:id
 router.delete('/:id', (req: Request, res: Response) => {
+  const existing = db.prepare('SELECT model, asset_number FROM phone_procurement WHERE id = ?').get(req.params.id) as any
   db.prepare('DELETE FROM phone_procurement WHERE id = ?').run(req.params.id)
+  logOperation('手机采购', '删除', existing?.model || existing?.asset_number || `ID:${req.params.id}`)
   res.json({ code: 200, message: '删除成功' })
 })
 
@@ -104,9 +112,12 @@ router.delete('/:id', (req: Request, res: Response) => {
 router.post('/batch-delete', (req: Request, res: Response) => {
   const { ids } = req.body
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-  const ph = ids.map(() => '?').join(',')
-  db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph})`).run(...ids)
-  res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+  const validIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
+  if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
+  const ph = validIds.map(() => '?').join(',')
+  db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph})`).run(...validIds)
+  logOperation('手机采购', '批量删除', `${validIds.length} 条记录`)
+  res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
 })
 
 // POST /import

@@ -38,7 +38,7 @@ export async function updateRack(id: string, data: { name: string; floor?: strin
 
 // 4. 删除机柜
 export async function deleteRack(id: string): Promise<void> {
-  await fetch(`${BASE_RACKS}/${id}`, { method: 'DELETE' })
+  await request(`${BASE_RACKS}/${id}`, { method: 'DELETE' })
 }
 
 // 5. 获取机柜详情（含设备布局）
@@ -64,7 +64,7 @@ export async function updateDevice(id: number, data: Partial<Device>): Promise<D
 
 // 8. 删除设备
 export async function deleteDevice(id: number): Promise<void> {
-  await fetch(`${BASE_DEVICES}/${id}`, { method: 'DELETE' })
+  await request(`${BASE_DEVICES}/${id}`, { method: 'DELETE' })
 }
 
 // 9. 移动设备

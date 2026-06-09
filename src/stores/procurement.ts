@@ -49,7 +49,7 @@ export const useComputerProcurementStore = defineStore('computerProcurement', ()
   const total = computed(() => computers.value.length)
 
   async function loadComputers(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
-    const { list } = await computerApi.fetchComputers(params)
+    const { list } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
     computers.value = list
   }
 
@@ -90,7 +90,7 @@ export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
   const total = computed(() => phones.value.length)
 
   async function loadPhones(params?: { page?: number; pageSize?: number; search?: string; department?: string; purchaseType?: string }) {
-    const { list } = await phoneApi.fetchPhones(params)
+    const { list } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
     phones.value = list
   }
 

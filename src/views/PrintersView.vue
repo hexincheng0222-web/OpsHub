@@ -35,12 +35,29 @@
 
     <!-- Toolbar -->
     <div class="toolbar">
+      <el-input v-model="searchInput" placeholder="搜索厂商/型号/位置..." clearable size="small" style="width:220px">
+        <template #prefix><el-icon><Search /></el-icon></template>
+      </el-input>
       <span v-if="selectedIds.size > 0" class="sel-info">
         已选 <strong>{{ selectedIds.size }}</strong> 项
         <button class="sel-del-btn" @click="batchDelete">批量删除</button>
         <button class="sel-clr-btn" @click="selectedIds = new Set()">取消选择</button>
       </span>
       <span v-else class="sel-info dim">共 <strong>{{ store.total }}</strong> 台打印机</span>
+    </div>
+
+    <!-- 楼层标签栏 -->
+    <div class="floor-tabs">
+      <button
+        v-for="floor in allFloors"
+        :key="floor"
+        class="floor-tab"
+        :class="{ active: selectedFloor === floor }"
+        @click="selectedFloor = floor"
+      >
+        {{ floor }}
+        <span class="floor-tab-count">{{ store.printers.filter(p => p.floor === floor).length }}</span>
+      </button>
     </div>
 
     <!-- 空状态 -->
@@ -54,7 +71,7 @@
         <div class="fc-header-left">
           <span class="fc-dot" />
           <span class="fc-floor">{{ group.floor }}</span>
-          <span class="fc-badge">{{ group.printers.length }} 台</span>
+          <span class="fc-badge">{{ group.totalCount }} 台</span>
         </div>
         <label class="fc-check">
           <input type="checkbox" :checked="groupAllSelected(group)" @change="toggleGroupAll(group)" />
@@ -76,19 +93,29 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in group.printers" :key="p.id" :class="{ selected: selectedIds.has(p.id) }">
-              <td class="col-cb"><input type="checkbox" :checked="selectedIds.has(p.id)" @change="toggleOne(p.id)" /></td>
-              <td>{{ p.location }}</td>
-              <td><span class="brand-tag">{{ p.manufacturer }}</span></td>
-              <td class="col-model" :title="p.model">{{ p.model }}</td>
-              <td class="col-toner" :title="p.tonerModel">{{ p.tonerModel || '—' }}</td>
-              <td class="col-notes" :title="p.notes">{{ p.notes || '—' }}</td>
-              <td>
-                <span class="status-dot" :class="'st-' + p.status" />
-                <span v-if="p.status !== '正常'" class="status-text">{{ p.status }}</span>
-              </td>
-              <td class="col-act"><button class="row-btn" @click="openEditDialog(p)">编辑</button></td>
-            </tr>
+            <template v-for="row in group.rows" :key="row.printer.id">
+              <tr :class="{ selected: row.ids.some(id => selectedIds.has(id)), 'loc-odd': row.locationOdd, 'loc-even': !row.locationOdd }">
+                <td class="col-cb">
+                  <input type="checkbox" :checked="row.ids.every(id => selectedIds.has(id))" @change="toggleRow(row)" />
+                </td>
+                <td v-if="row.isFirstInLocation" :rowspan="row.locationSpan" class="cell-location">
+                  {{ row.printer.location }}
+                </td>
+                <td><span class="brand-tag">{{ row.printer.manufacturer }}</span></td>
+                <td class="col-model" :title="row.printer.model">
+                  {{ row.printer.model }}<span v-if="row.count > 1" class="model-count"> ×{{ row.count }}</span>
+                </td>
+                <td class="col-toner" :title="row.printer.tonerModel">{{ row.printer.tonerModel || '—' }}</td>
+                <td class="col-notes" :title="row.printer.notes">{{ row.printer.notes || '—' }}</td>
+                <td>
+                  <span class="status-dot" :class="'st-' + row.printer.status" />
+                  <span v-if="row.printer.status !== '正常'" class="status-text">{{ row.printer.status }}</span>
+                </td>
+                <td class="col-act">
+                  <button class="row-btn" @click="openEditDialog(row.printer)">编辑</button>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -100,21 +127,21 @@
         <div class="df-dialog">
           <div class="df-header">{{ editingPrinter ? '编辑打印机' : '添加打印机' }}</div>
           <div class="df-body">
-            <div class="df-row">
-              <label class="df-field"><span class="df-label">楼层</span>
-                <el-select v-model="form.floor" filterable allow-create placeholder="请选择楼层" style="width:100%">
-                  <el-option v-for="f in floors" :key="f" :label="f" :value="f" />
-                </el-select>
-              </label>
-            </div>
+            <label class="df-field"><span class="df-label">楼层</span>
+              <el-select v-model="form.floor" filterable allow-create placeholder="请选择楼层" style="width:100%">
+                <el-option v-for="f in floors" :key="f" :label="f" :value="f" />
+              </el-select>
+            </label>
             <div class="df-row"><label class="df-field"><span class="df-label">位置</span><input v-model="form.location" class="df-input" placeholder="如 东区茶水间旁" /></label></div>
             <div class="df-row">
-              <label class="df-field"><span class="df-label">厂商</span>
+              <label class="df-field" style="flex:1"><span class="df-label">厂商</span>
                 <el-select v-model="form.manufacturer" filterable allow-create placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
                   <el-option v-for="m in manufacturers" :key="m" :label="m" :value="m" />
                 </el-select>
               </label>
-              <label class="df-field"><span class="df-label">型号</span>
+            </div>
+            <div class="df-row">
+              <label class="df-field" style="flex:1"><span class="df-label">型号</span>
                 <el-select v-model="form.model" filterable allow-create placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
                   <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
                 </el-select>
@@ -147,30 +174,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
-import { Plus, ArrowDown, Download, Upload, Document } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { fetchDict } from '../api/admin'
 
 const store = usePrintersStore()
+
+// 加载打印机型号字典
+onMounted(async () => {
+  try {
+    const [brands, models] = await Promise.all([
+      fetchDict('printer-brands'),
+      fetchDict('printer-models'),
+    ])
+    const map: Record<string, string[]> = {}
+    for (const brand of brands) {
+      const ms = models.filter((m: any) => m.brand_id === brand.id).map((m: any) => m.name)
+      if (ms.length) map[brand.name] = ms
+    }
+    dictModelMap.value = map
+  } catch (e) {
+    console.error('加载打印机型号字典失败:', e)
+  }
+})
 
 // 字典数据：从已有打印机提取
 const floors = computed(() => [...new Set(store.printers.map(p => p.floor))].sort())
 const manufacturers = computed(() => [...new Set(store.printers.map(p => p.manufacturer))].sort())
 const allTonerModels = computed(() => [...new Set(store.printers.map(p => p.tonerModel).filter(Boolean))].sort())
 
-// 厂商 → 型号映射
-const manufacturerModelMap: Record<string, string[]> = {
-  HP: ['LaserJet Pro M404dn', 'LaserJet Pro MFP M428fdw', 'LaserJet Enterprise M609', 'Color LaserJet Pro MFP M479fdw', 'DeskJet 2720'],
-  Canon: ['imageCLASS MF743Cdw', 'imageCLASS MF445dw', 'PIXMA G3810', 'PIXMA TS3300'],
-  Brother: ['HL-L2370DW', 'MFC-L2750DW', 'HL-L5200DW', 'MFC-L8900CDW'],
-  Epson: ['L3150', 'L3250', 'WF-C5790', 'WF-C21000'],
-  Lenovo: ['LJ2268', 'M7206', 'LJ2600D', 'M7400Pro'],
-}
+// 厂商 → 型号映射（从字典加载 + 已有数据补充）
+const dictModelMap = ref<Record<string, string[]>>({})
 const manufacturerModels = computed(() => {
-  const map = { ...manufacturerModelMap }
+  const map = { ...dictModelMap.value }
   for (const p of store.printers) {
     if (p.manufacturer && p.model) {
       if (!map[p.manufacturer]) map[p.manufacturer] = []
@@ -190,26 +230,126 @@ function handleTopAction(command: string) {
   else if (command === 'export') exportCSV()
 }
 
-interface FloorGroup { floor: string; printers: Printer[] }
-const floorGroups = computed(() => {
-  const map = new Map<string, Printer[]>()
-  for (const p of store.printers) {
-    const list = map.get(p.floor) || []; list.push(p); map.set(p.floor, list)
+// 搜索
+const searchInput = ref('')
+const searchQuery = ref('')
+let printerSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (v) => {
+  if (printerSearchTimer) clearTimeout(printerSearchTimer)
+  printerSearchTimer = setTimeout(() => { searchQuery.value = v }, 300)
+})
+
+// 楼层排序权重
+function floorWeight(f: string): number {
+  const map: Record<string, number> = {
+    '负二楼': -20, '负一楼': -10, '负0.5': -5,
+    '一楼': 1, '二楼': 2, '三楼': 3, '四楼': 4, '五楼': 5, '六楼': 6, '七楼': 7, '八楼': 8, '九楼': 9, '十楼': 10,
   }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([floor, printers]) => ({ floor, printers }))
+  if (map[f] !== undefined) return map[f]
+  const m = f.match(/负?(\d+(\.\d+)?)F?/)
+  if (m) return f.startsWith('负') ? -parseFloat(m[1]) : parseFloat(m[1])
+  return 999
+}
+
+const allFloors = computed(() => {
+  const floors = [...new Set(store.printers.map(p => p.floor))]
+  return floors.sort((a, b) => floorWeight(a) - floorWeight(b))
+})
+
+const selectedFloor = ref('')
+watch(allFloors, (floors) => {
+  if (floors.length && !floors.includes(selectedFloor.value)) {
+    selectedFloor.value = floors[0]
+  }
+}, { immediate: true })
+
+interface TableRow {
+  printer: Printer
+  count: number        // 同型号合并数量
+  ids: number[]        // 合并的所有 ID
+  isFirstInLocation: boolean  // 该位置的第一行（用于 rowspan）
+  locationSpan: number        // 该位置占几行
+  locationOdd: boolean        // 位置组奇偶（用于交替背景）
+}
+
+interface FloorGroup { floor: string; rows: TableRow[]; totalCount: number }
+
+const floorGroups = computed((): FloorGroup[] => {
+  const q = searchQuery.value.toLowerCase()
+  let printers = store.printers
+
+  // 按楼层筛选
+  if (selectedFloor.value) {
+    printers = printers.filter(p => p.floor === selectedFloor.value)
+  }
+
+  const filtered = q
+    ? printers.filter(p =>
+        p.manufacturer.toLowerCase().includes(q) ||
+        p.model.toLowerCase().includes(q) ||
+        p.location.toLowerCase().includes(q) ||
+        p.tonerModel.toLowerCase().includes(q)
+      )
+    : printers
+
+  // 按楼层分组
+  const floorMap = new Map<string, Printer[]>()
+  for (const p of filtered) {
+    const list = floorMap.get(p.floor) || []; list.push(p); floorMap.set(p.floor, list)
+  }
+
+  return [...floorMap.entries()].sort(([a], [b]) => floorWeight(a) - floorWeight(b)).map(([floor, printers]) => {
+    // 按位置分组，保持顺序
+    const locMap = new Map<string, Printer[]>()
+    for (const p of printers) {
+      const key = p.location || '未分配'
+      const list = locMap.get(key) || []; list.push(p); locMap.set(key, list)
+    }
+
+    const rows: TableRow[] = []
+    let locIdx = 0
+    for (const [, locPrinters] of locMap) {
+      // 同位置内按型号合并
+      const modelMap = new Map<string, Printer[]>()
+      for (const p of locPrinters) {
+        const key = `${p.manufacturer}|${p.model}`
+        const list = modelMap.get(key) || []; list.push(p); modelMap.set(key, list)
+      }
+      const modelEntries = [...modelMap.values()]
+      const locationSpan = modelEntries.length
+      const locationOdd = locIdx % 2 === 0
+
+      modelEntries.forEach((group, idx) => {
+        rows.push({
+          printer: group[0],
+          count: group.length,
+          ids: group.map(p => p.id),
+          isFirstInLocation: idx === 0,
+          locationSpan,
+          locationOdd,
+        })
+      })
+      locIdx++
+    }
+    return { floor, rows, totalCount: printers.length }
+  })
 })
 
 const selectedIds = ref(new Set<number>())
 function toggleOne(id: number) { const n = new Set(selectedIds.value); n.has(id) ? n.delete(id) : n.add(id); selectedIds.value = n }
-function toggleGroupAll(g: FloorGroup) { const ids = g.printers.map(p => p.id); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
-function groupAllSelected(g: FloorGroup) { return g.printers.every(p => selectedIds.value.has(p.id)) }
+function toggleRow(row: TableRow) { const all = row.ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) row.ids.forEach(id => n.delete(id)); else row.ids.forEach(id => n.add(id)); selectedIds.value = n }
+function toggleGroupAll(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
+function groupAllSelected(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); return ids.length > 0 && ids.every(id => selectedIds.value.has(id)) }
 function batchDelete() {
-  const count = selectedIds.value.size
-  ElMessageBox.confirm(`确定删除选中的 ${count} 台打印机吗？`, '批量删除', { type: 'warning' })
-    .then(() => {
-      store.deletePrinters([...selectedIds.value])
+  const ids = [...selectedIds.value]
+  const printers = store.printers.filter(p => selectedIds.value.has(p.id))
+  const list = printers.slice(0, 5).map(p => `• ${p.manufacturer} ${p.model} — ${p.location}`).join('\n')
+  const suffix = printers.length > 5 ? `\n...等共 ${printers.length} 台` : ''
+  ElMessageBox.confirm(`确定删除以下打印机？\n\n${list}${suffix}`, '批量删除', { type: 'warning', confirmButtonText: '删除' })
+    .then(async () => {
+      await store.deletePrinters(ids)
       selectedIds.value = new Set()
-      ElMessage.success(`已删除 ${count} 台打印机`)
+      ElMessage.success(`已删除 ${ids.length} 台打印机`)
     })
     .catch(() => {})
 }
@@ -224,15 +364,28 @@ const dialogVisible = ref(false); const editingPrinter = ref<Printer | null>(nul
 const form = reactive<Omit<Printer, 'id'>>({ floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' })
 function openAddDialog() { editingPrinter.value = null; Object.assign(form, { floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' as const }); dialogVisible.value = true }
 function openEditDialog(r: Printer) { editingPrinter.value = r; Object.assign(form, { ...r }); dialogVisible.value = true }
-function savePrinter() {
-  if (editingPrinter.value) store.updatePrinter(editingPrinter.value.id, { ...form })
-  else { const maxId = store.printers.reduce((max, p) => Math.max(max, p.id), 0); store.addPrinter({ id: maxId + 1, ...form } as Printer) }
-  dialogVisible.value = false
+async function savePrinter() {
+  if (!form.floor) { ElMessage.warning('请选择楼层'); return }
+  if (!form.location.trim()) { ElMessage.warning('请输入位置'); return }
+  if (!form.manufacturer) { ElMessage.warning('请选择厂商'); return }
+  if (!form.model) { ElMessage.warning('请选择型号'); return }
+  try {
+    if (editingPrinter.value) {
+      await store.updatePrinter(editingPrinter.value.id, { ...form })
+      ElMessage.success('修改成功')
+    } else {
+      await store.addPrinter({ ...form } as Omit<Printer, 'id'>)
+      ElMessage.success('添加成功')
+    }
+    dialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  }
 }
 </script>
 
 <style scoped>
-.printers-page { max-width: 1100px; margin: 0 auto; padding: 24px; min-height: 100vh; background: var(--dv-page-bg); }
+.printers-page { padding: 16px 20px; min-height: 100vh; background: var(--ops-bg-page); }
 
 /* Header — same as PhoneProcurementView */
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }
@@ -245,26 +398,33 @@ function savePrinter() {
 .top-count { font-size: 12px; font-weight: 400; color: var(--ops-text-tertiary); margin-left: 6px; }
 
 /* Toolbar */
-.toolbar { display: flex; align-items: center; margin-bottom: 16px; padding: 4px 0; }
-.sel-info { font-size: 12px; color: var(--dv-light-dim); display: flex; align-items: center; gap: 8px; }
-.sel-info.dim { color: var(--dv-light-faint); }
-.sel-info strong { font-weight: 700; color: var(--dv-light-text); }
+.toolbar { display: flex; align-items: center; margin-bottom: 12px; padding: 4px 0; }
+.sel-info { font-size: 12px; color: var(--ops-text-tertiary); display: flex; align-items: center; gap: 8px; }
+.sel-info.dim { color: var(--ops-text-tertiary); }
+.sel-info strong { font-weight: 700; color: var(--ops-text-primary); }
+
+/* 楼层标签栏 */
+.floor-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; flex-wrap: wrap; }
+.floor-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; background: var(--ops-bg-card); border: 1px solid var(--ops-border-card); color: var(--ops-text-secondary); transition: all 0.2s; font-family: inherit; white-space: nowrap; }
+.floor-tab:hover { border-color: var(--ops-accent-blue); color: var(--ops-text-primary); }
+.floor-tab.active { background: rgba(88,166,255,0.12); border-color: var(--ops-accent-blue); color: var(--ops-accent-blue); font-weight: 600; }
+.floor-tab-count { font-size: 10px; background: rgba(88,166,255,0.1); color: var(--ops-accent-blue); padding: 1px 6px; border-radius: 10px; font-weight: 600; }
 .sel-del-btn { background: rgba(220,50,50,0.1); color: #f87171; border: 1px solid rgba(220,50,50,0.2); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
 .sel-del-btn:hover { background: rgba(220,50,50,0.2); }
-.sel-clr-btn { background: none; color: var(--dv-light-dim); border: 1px solid var(--dv-kpi-border); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
-.sel-clr-btn:hover { color: var(--dv-light-text); }
+.sel-clr-btn { background: none; color: var(--ops-text-tertiary); border: 1px solid var(--ops-border-card); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
+.sel-clr-btn:hover { color: var(--ops-text-primary); }
 
-.empty-state { text-align: center; padding: 80px 20px; color: var(--dv-light-faint); }
+.empty-state { text-align: center; padding: 80px 20px; color: var(--ops-text-tertiary); }
 .empty-icon { font-size: 36px; display: block; margin-bottom: 12px; opacity: 0.35; }
 
 /* ===== 楼层卡片 ===== */
 .floor-card {
   margin-bottom: 16px;
-  border: 1px solid var(--dv-kpi-border);
+  border: 1px solid var(--ops-border-card);
   border-radius: 10px;
   overflow: hidden;
-  background: var(--dv-kpi-bg);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: var(--ops-bg-card);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   transition: box-shadow 0.2s;
 }
 .floor-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
@@ -273,44 +433,50 @@ function savePrinter() {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 16px;
   background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(88,166,255,0.02));
-  border-bottom: 1px solid var(--dv-kpi-border);
+  border-bottom: 1px solid var(--ops-border-card);
 }
 .fc-header-left { display: flex; align-items: center; gap: 8px; }
-.fc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dv-accent-blue); box-shadow: 0 0 8px rgba(88,166,255,0.4); }
-.fc-floor { font-size: 14px; font-weight: 700; color: var(--dv-accent-blue-glow); letter-spacing: 0.5px; }
-.fc-badge { font-size: 10px; color: var(--dv-light-faint); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 10px; border: 1px solid var(--dv-kpi-border); }
-.fc-check { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--dv-light-dim); cursor: pointer; }
-.fc-check input { cursor: pointer; accent-color: var(--dv-accent-blue); }
+.fc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ops-accent-blue); box-shadow: 0 0 8px rgba(88,166,255,0.4); }
+.fc-floor { font-size: 14px; font-weight: 700; color: var(--ops-accent-blue); letter-spacing: 0.5px; }
+.fc-badge { font-size: 10px; color: var(--ops-text-tertiary); background: var(--ops-bg-card-hover); padding: 2px 8px; border-radius: 10px; border: 1px solid var(--ops-border-card); }
+.fc-check { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ops-text-tertiary); cursor: pointer; }
+.fc-check input { cursor: pointer; accent-color: var(--ops-accent-blue); }
 
 .fc-table-wrap { overflow-x: auto; }
 .fc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .fc-table thead th {
-  background: rgba(0,0,0,0.06);
-  color: var(--dv-light-faint);
+  background: var(--ops-bg-card-hover);
+  color: var(--ops-text-tertiary);
   font-weight: 600; font-size: 10px;
   text-transform: uppercase; letter-spacing: 0.3px;
-  padding: 7px 12px; text-align: left;
-  border-bottom: 1px solid var(--dv-kpi-border);
+  padding: 7px 12px; text-align: center;
+  border-bottom: 1px solid var(--ops-border-card);
   white-space: nowrap;
 }
 .fc-table thead th.col-cb { text-align: center; }
 .fc-table thead th.col-act { text-align: center; }
 .fc-table tbody td {
   padding: 6px 12px;
-  color: var(--dv-light-sub);
-  border-bottom: 1px solid var(--dv-header-border);
-  white-space: nowrap; vertical-align: middle;
+  color: var(--ops-text-secondary);
+  border-bottom: 1px solid var(--ops-border-card);
+  white-space: nowrap; vertical-align: middle; text-align: center;
 }
 .fc-table tbody tr:last-child td { border-bottom: none; }
-.fc-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+.fc-table tbody tr:hover td { background: rgba(88,166,255,0.04); }
 .fc-table tbody tr.selected td { background: rgba(88,166,255,0.1) !important; }
 
 /* Columns */
 .col-cb { width: 36px; text-align: center !important; }
-.col-cb input { cursor: pointer; accent-color: var(--dv-accent-blue); width: 14px; height: 14px; }
+.col-cb input { cursor: pointer; accent-color: var(--ops-accent-blue); width: 14px; height: 14px; }
 .col-model { max-width: 200px; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono','Consolas',monospace; font-size: 12px; }
-.col-toner { max-width: 180px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--dv-light-faint); }
-.col-notes { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--dv-light-faint); }
+.col-toner { max-width: 180px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--ops-text-tertiary); }
+.cell-location { font-weight: 600; color: var(--ops-text-primary); vertical-align: middle; background: var(--ops-bg-card-hover); border-right: 2px solid var(--ops-accent-blue); padding: 6px 10px; }
+.loc-odd { background: rgba(88,166,255,0.04); }
+.loc-even { background: transparent; }
+.loc-odd .cell-location { background: rgba(88,166,255,0.08); }
+.loc-even .cell-location { background: var(--ops-bg-card-hover); }
+.model-count { font-size: 11px; color: var(--ops-accent-blue); font-weight: 700; margin-left: 4px; }
+.col-notes { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--ops-text-tertiary); }
 .col-act { width: 60px; }
 
 .brand-tag { font-weight: 600; font-size: 12px; }
@@ -319,24 +485,24 @@ function savePrinter() {
 .st-正常 { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
 .st-缺墨 { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.5); }
 .st-故障 { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
-.status-text { font-size: 11px; color: var(--dv-light-faint); margin-left: 2px; vertical-align: middle; }
+.status-text { font-size: 11px; color: var(--ops-text-tertiary); margin-left: 2px; vertical-align: middle; }
 
-.row-btn { background: none; border: 1px solid transparent; color: var(--dv-light-muted); cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; font-family: inherit; }
-.row-btn:hover { background: rgba(255,255,255,0.05); color: var(--dv-accent-blue-glow); }
+.row-btn { background: none; border: 1px solid transparent; color: var(--ops-text-tertiary); cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; font-family: inherit; }
+.row-btn:hover { background: var(--ops-bg-card-hover); color: var(--ops-accent-blue); }
 
 /* Dialog */
 .df-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-.df-dialog { background: var(--dv-stat-card-bg); border: 1px solid var(--dv-stat-card-border); border-radius: 10px; padding: 20px; width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-.df-header { font-size: 16px; font-weight: 600; color: var(--dv-light-text); margin-bottom: 16px; }
+.df-dialog { background: var(--ops-bg-card); border: 1px solid var(--ops-border-card); border-radius: 10px; padding: 20px; width: 600px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+.df-header { font-size: 16px; font-weight: 600; color: var(--ops-text-primary); margin-bottom: 16px; }
 .df-body { display: flex; flex-direction: column; gap: 10px; }
 .df-field { display: flex; flex-direction: column; gap: 3px; }
-.df-label { font-size: 12px; color: var(--dv-light-dim); }
-.df-input { background: var(--dv-bar-track); border: 1px solid var(--dv-kpi-border); color: var(--dv-light-muted); border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
-.df-input:focus { border-color: var(--dv-accent-blue); }
+.df-label { font-size: 12px; color: var(--ops-text-tertiary); }
+.df-input { background: var(--ops-bg-card-hover); border: 1px solid var(--ops-border-card); color: var(--ops-text-primary); border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
+.df-input:focus { border-color: var(--ops-accent-blue); }
 .df-row { display: flex; gap: 12px; }
 .df-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .df-btn { padding: 6px 16px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
-.df-btn-cancel { background: var(--dv-bar-track); color: var(--dv-light-muted); }
-.df-btn-confirm { background: rgba(88,166,255,0.12); color: var(--dv-accent-blue-glow); border: 1px solid rgba(88,166,255,0.25); font-weight: 600; }
+.df-btn-cancel { background: var(--ops-bg-card-hover); color: var(--ops-text-secondary); }
+.df-btn-confirm { background: rgba(88,166,255,0.12); color: var(--ops-accent-blue); border: 1px solid rgba(88,166,255,0.25); font-weight: 600; }
 .df-btn-confirm:hover { background: rgba(88,166,255,0.2); }
 </style>

@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessage } from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
@@ -11,6 +11,16 @@ import App from './App.vue'
 import './styles/global.css'
 
 const app = createApp(App)
+
+// 全局错误处理
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Vue Error]', err, info)
+  ElMessage.error('页面发生错误，请刷新重试')
+}
+app.onUnhandledrejection = (event) => {
+  console.error('[Unhandled Rejection]', event.reason)
+  event.preventDefault()
+}
 
 // 注册所有 Element Plus 图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

@@ -34,7 +34,7 @@
 
     <!-- 搜索/筛选 -->
     <div class="filter-bar">
-      <el-input v-model="search" placeholder="搜索品牌/型号/资产编号/IMEI/领用人..." clearable style="width:300px">
+      <el-input v-model="searchInput" placeholder="搜索品牌/型号/资产编号/IMEI/领用人..." clearable style="width:300px">
         <template #prefix>
           <el-icon><search /></el-icon>
         </template>
@@ -58,6 +58,7 @@
         value-format="YYYY-MM-DD"
         style="width:280px"
       />
+      <el-button size="small" @click="resetFilters">重置</el-button>
       <span v-if="filteredCount !== store.phones.length" class="filter-count">筛选 {{ filteredCount }} / {{ store.phones.length }} 条</span>
     </div>
 
@@ -75,12 +76,12 @@
       <el-table-column type="selection" width="40" />
       <el-table-column prop="assetNumber" label="资产编号" width="140" fixed />
       <el-table-column prop="brand" label="品牌" width="110" />
-      <el-table-column prop="model" label="型号" min-width="160" show-overflow-tooltip />
+      <el-table-column prop="model" label="型号" min-width="120" show-overflow-tooltip />
       <el-table-column prop="imei" label="IMEI/MEID" width="150" show-overflow-tooltip />
-      <el-table-column prop="department" label="领用部门" width="90" />
+      <el-table-column prop="department" label="领用部门" width="130" />
       <el-table-column prop="recipient" label="领用人" width="80" />
-      <el-table-column prop="arrivalDate" label="到货时间" width="110" sortable />
-      <el-table-column prop="pickupDate" label="领用时间" width="110" sortable />
+      <el-table-column prop="arrivalDate" label="到货时间" width="110" />
+      <el-table-column prop="pickupDate" label="领用时间" width="110" />
       <el-table-column label="操作" width="130" fixed="right">
         <template #default="{ row }">
           <div class="action-btns">
@@ -102,7 +103,7 @@
     </div>
 
     <!-- 分页 -->
-    <div v-if="filteredCount > pageSize" class="pagination">
+    <div v-if="filteredCount > 0" class="pagination">
       <el-pagination v-model:current-page="page" v-model:pageSize="pageSize" :page-sizes="[10,20,50]"
         :total="filteredCount" layout="total, sizes, prev, pager, next" small />
     </div>
@@ -144,13 +145,15 @@
         </div>
       </template>
       <template #footer>
+        <el-button type="danger" plain @click="handleDelete(selectedRow)">删除</el-button>
+        <div style="flex:1" />
         <el-button @click="drawerVisible = false">关闭</el-button>
         <el-button type="primary" @click="openEditDialog(selectedRow)">编辑</el-button>
       </template>
     </el-drawer>
 
     <!-- 添加/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑手机采购' : '添加手机采购'" width="600px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑手机采购' : '添加手机采购'" width="600px" destroy-on-close :before-close="onDialogClose">
       <el-form :model="form" label-width="130px" :rules="rules" ref="formRef">
         <!-- 设备信息 -->
         <div class="form-section-title">📱 设备信息</div>
@@ -220,6 +223,7 @@ import type { PhoneProcurement } from '../stores/procurement'
 import { Plus, Search, ArrowDown, Download, Upload, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchDict } from '../api/admin'
+import { downloadCsv, escapeCsvField } from '../utils/csv'
 
 const store = usePhoneProcurementStore()
 
@@ -254,6 +258,7 @@ onMounted(async () => {
 })
 const tableRef = ref()
 const fileInput = ref<HTMLInputElement>()
+const formRef = ref()
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -261,6 +266,12 @@ const drawerVisible = ref(false)
 const selectedRow = ref<PhoneProcurement | null>(null)
 const selectedRows = ref<PhoneProcurement[]>([])
 const search = ref('')
+const searchInput = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { search.value = v }, 300)
+})
 const filterDepartment = ref('')
 const filterPurchaseType = ref('')
 const filterBrand = ref('')
@@ -269,7 +280,7 @@ const page = ref(1)
 const pageSize = ref(10)
 
 // 筛选条件变化时重置分页
-watch([search, filterPurchaseType, filterBrand, dateRange], () => { page.value = 1 })
+watch([search, filterDepartment, filterPurchaseType, filterBrand, dateRange], () => { page.value = 1 })
 
 const form = reactive({
   assetNumber: '', partNo: '', serialNo: '', imei: '',
@@ -284,9 +295,20 @@ const rules = {
   model: [{ required: true, message: '请输入型号', trigger: 'blur' }],
   department: [{ required: true, message: '请输入领用部门', trigger: 'blur' }],
   recipient: [{ required: true, message: '请输入领用人', trigger: 'blur' }],
+  imei: [{ pattern: /^\d{15}$/, message: 'IMEI 必须为 15 位数字', trigger: 'blur' }],
 }
 
 // ===== 筛选相关 =====
+function resetFilters() {
+  searchInput.value = ''
+  search.value = ''
+  filterDepartment.value = ''
+  filterPurchaseType.value = ''
+  filterBrand.value = ''
+  dateRange.value = null
+  page.value = 1
+}
+
 const departments = computed(() => departmentOptions.value.length ? departmentOptions.value : [...new Set(store.phones.map(p => p.department))].sort())
 const brands = computed(() => phoneBrandOptions.value.length ? phoneBrandOptions.value : [...new Set(store.phones.map(p => p.brand))].sort())
 const handlers = computed(() => handlerOptions.value.length ? handlerOptions.value : [...new Set(store.phones.map(p => p.handler).filter(Boolean))].sort())
@@ -377,6 +399,18 @@ function openAddDialog() {
   dialogVisible.value = true
 }
 
+// 弹窗关闭前确认
+const formDirty = computed(() => form.brand || form.model || form.department || form.recipient || form.imei || form.serialNo)
+function onDialogClose(done: () => void) {
+  if (!editingId.value && formDirty.value) {
+    ElMessageBox.confirm('表单已填写内容，确定关闭？', '提示', { type: 'warning' })
+      .then(() => done())
+      .catch(() => {})
+  } else {
+    done()
+  }
+}
+
 function openEditDialog(row: PhoneProcurement | null) {
   if (!row) return
   editingId.value = row.id
@@ -386,8 +420,10 @@ function openEditDialog(row: PhoneProcurement | null) {
 }
 
 async function handleSave() {
-  if (!form.brand.trim() || !form.model.trim() || !form.department.trim() || !form.recipient.trim()) {
-    ElMessage.warning('请填写必填项（品牌、型号、领用部门、领用人）')
+  if (!formRef.value) return
+  try {
+    await formRef.value.validate()
+  } catch {
     return
   }
   saving.value = true
@@ -409,7 +445,7 @@ async function handleSave() {
 }
 
 function handleDelete(row: PhoneProcurement) {
-  ElMessageBox.confirm(`确定删除「${row.brand} ${row.model}」吗？`, '确认删除', { type: 'warning' })
+  ElMessageBox.confirm(`确定删除「${row.brand} ${row.model}」（${row.assetNumber}）吗？`, '确认删除', { type: 'warning' })
     .then(async () => { await store.deletePhone(row.id); ElMessage.success('删除成功') })
     .catch(() => {})
 }
@@ -424,29 +460,20 @@ function handleTopAction(command: string) {
 function exportCSV() {
   const header = ['资产编号','Part No','Serial No','IMEI/MEID','到货时间','领用时间','品牌','型号','资产关联','领用部门','经手人','领用人','钉钉流程创建人','换/新购','钉钉流程','原手机归属','备注'].join(',')
   const rows = store.phones.map(p =>
-    [p.assetNumber, p.partNo, p.serialNo, p.imei, p.arrivalDate, p.pickupDate, p.brand, p.model, p.assetLink, p.department, p.handler, p.recipient, p.dingtalkCreator, p.purchaseType, p.dingtalkFlow, p.originalOwner, p.notes].map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')
+    [p.assetNumber, p.partNo, p.serialNo, p.imei, p.arrivalDate, p.pickupDate, p.brand, p.model, p.assetLink, p.department, p.handler, p.recipient, p.dingtalkCreator, p.purchaseType, p.dingtalkFlow, p.originalOwner, p.notes].map(escapeCsvField).join(',')
   )
   downloadCsv(header, rows, '手机采购登记表')
 }
 
 function batchExport() {
   if (!selectedRows.value.length) { ElMessage.warning('请先选择要导出的记录'); return }
-  const header = ['资产编号','品牌','型号','IMEI/MEID','领用部门','领用人','换/新购','到货时间'].join(',')
+  const header = ['资产编号','Part No','Serial No','IMEI/MEID','到货时间','领用时间','品牌','型号','资产关联','领用部门','经手人','领用人','钉钉流程创建人','换/新购','钉钉流程','原手机归属','备注'].join(',')
   const rows = selectedRows.value.map(p =>
-    [p.assetNumber, p.brand, p.model, p.imei, p.department, p.recipient, p.purchaseType, p.arrivalDate].map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')
+    [p.assetNumber, p.partNo, p.serialNo, p.imei, p.arrivalDate, p.pickupDate, p.brand, p.model, p.assetLink, p.department, p.handler, p.recipient, p.dingtalkCreator, p.purchaseType, p.dingtalkFlow, p.originalOwner, p.notes].map(escapeCsvField).join(',')
   )
   downloadCsv(header, rows, '手机采购选中记录')
 }
 
-function downloadCsv(header: string, rows: string[], filename: string) {
-  const bom = '\uFEFF'
-  const csv = bom + header + '\n' + rows.join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = `${filename}.csv`; a.click()
-  URL.revokeObjectURL(url)
-}
 
 function batchDelete() {
   const count = selectedRows.value.length
@@ -484,7 +511,11 @@ function handleImport(e: Event) {
     }
     try {
       const result = await store.batchImport(rows)
-      ElMessage.success(`导入 ${result.imported} 条`)
+      if (result.errors && result.errors.length) {
+        ElMessage.warning(`导入 ${result.imported} 条，${result.errors.length} 条失败: ${result.errors[0]}`)
+      } else {
+        ElMessage.success(`导入 ${result.imported} 条`)
+      }
     } catch (e: any) {
       ElMessage.error(e.message || '导入失败')
     }
@@ -496,6 +527,7 @@ function handleImport(e: Event) {
 
 <style scoped>
 .proc-page { padding: 24px; background: var(--ops-bg-page); min-height: 100vh; }
+:deep(.el-table__body tr) { cursor: pointer; }
 
 /* ===== 表头高亮 ===== */
 :deep(.el-table thead th) {

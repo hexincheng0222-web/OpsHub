@@ -77,7 +77,7 @@ export async function patchService(id: number, data: Partial<Pick<Service, 'stat
 
 // 6. 删除服务
 export async function deleteService(id: number): Promise<void> {
-  await fetch(`${BASE}/${id}`, { method: 'DELETE' })
+  await request(`${BASE}/${id}`, { method: 'DELETE' })
 }
 
 // 7. 批量检测连通性

@@ -74,7 +74,17 @@
         <div class="card-stat">
           <span class="stat-num">{{ printersStore.total }}</span>
           <span class="stat-label">台打印机</span>
-
+        </div>
+      </div>
+      <div class="big-card card-gold" @click="$router.push('/phones')">
+        <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
+        <div class="card-icon-wrap"><el-icon :size="32"><Phone /></el-icon></div>
+        <div class="card-body"><h3>ATCOM 话机管理</h3><p>IP 话机统一管控，设备发现与配置管理</p></div>
+        <div class="card-stat">
+          <span class="stat-num">{{ phoneTotal || '--' }}</span>
+          <span class="stat-label">台话机</span>
+          <span class="stat-sub" v-if="phoneTotal">{{ phoneOnline }} 在线</span>
+          <span class="stat-sub" v-else>待接入</span>
         </div>
       </div>
     </div>
@@ -88,14 +98,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useServicesStore } from '../stores/services'
 import { useOperationsStore } from '../stores/operations'
 import { useDevicesStore } from '../stores/devices'
 import { usePrintersStore } from '../stores/printers'
 import { useComputerProcurementStore, usePhoneProcurementStore } from '../stores/procurement'
-import { Monitor, Cellphone } from '@element-plus/icons-vue'
+import { Monitor, Cellphone, Phone } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
+import { fetchPhones } from '../api/phones'
 const servicesStore = useServicesStore()
 const opsStore = useOperationsStore()
 const devicesStore = useDevicesStore()
@@ -103,6 +114,8 @@ const printersStore = usePrintersStore()
 const computerStore = useComputerProcurementStore()
 const phoneStore = usePhoneProcurementStore()
 const themeStore = useThemeStore()
+const phoneTotal = ref(0)
+const phoneOnline = ref(0)
 
 function trackMouse(e: MouseEvent) {
   const card = (e.target as HTMLElement).closest('.big-card') as HTMLElement | null
@@ -113,13 +126,21 @@ function trackMouse(e: MouseEvent) {
 }
 
 onMounted(() => {
-  servicesStore.loadServices()
-  opsStore.loadFolders()
-  opsStore.loadDocs()
-  devicesStore.loadRacks()
-  printersStore.loadPrinters()
-  computerStore.loadComputers()
-  phoneStore.loadPhones()
+  // 渐进式加载：各 store 独立加载，不互相阻塞
+  Promise.all([
+    servicesStore.loadServices(),
+    opsStore.loadFolders().then(() => opsStore.loadDocs()),
+    devicesStore.loadRacks(),
+    printersStore.loadPrinters(),
+    computerStore.loadComputers(),
+    phoneStore.loadPhones(),
+    fetchPhones().then(res => {
+      if (res.code === 200) {
+        phoneTotal.value = res.total
+        phoneOnline.value = res.online
+      }
+    }).catch(() => {}),
+  ])
 })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
 function particleStyle(i: number) {
@@ -156,7 +177,7 @@ function particleStyle(i: number) {
 .intro-text{font-size:14px;color:#8b949e;max-width:520px;line-height:1.8;margin:0 auto;letter-spacing:.5px}
 .light-theme .intro-text{color:#656d76}
 .light-theme .title-icon{background:linear-gradient(135deg,rgba(9,105,218,.12),rgba(9,105,218,.03));border-color:rgba(9,105,218,.12);color:#0969da;backdrop-filter:none}
-.big-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;max-width:900px;width:100%;position:relative;z-index:2}
+.big-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1200px;width:100%;position:relative;z-index:2}
 .big-card{position:relative;background:rgba(13,17,23,.70);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:26px 28px 22px;cursor:pointer;overflow:hidden;transition:all .4s cubic-bezier(.25,.1,.25,1);display:flex;flex-direction:column;gap:18px}
 .big-card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(600px circle at var(--mouse-x,50%) var(--mouse-y,50%),rgba(255,255,255,.03),transparent 40%);opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:0}
 .big-card:hover::before{opacity:1}
@@ -212,6 +233,11 @@ function particleStyle(i: number) {
 .card-cyan .card-icon-wrap{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(34,211,238,.06));color:#22d3ee;box-shadow:0 0 20px rgba(34,211,238,.10)}
 .card-cyan:hover .card-icon-wrap{box-shadow:0 0 30px rgba(34,211,238,.25)}
 .card-cyan .stat-num{color:#22d3ee}
+.card-gold .card-glow{background:linear-gradient(135deg,rgba(210,153,34,.30),transparent 45%,rgba(210,153,34,.06))}
+.card-gold:hover{border-color:rgba(210,153,34,.35);box-shadow:0 0 60px rgba(210,153,34,.08),0 0 120px rgba(210,153,34,.04),0 8px 32px rgba(0,0,0,.5)}
+.card-gold .card-icon-wrap{background:linear-gradient(135deg,rgba(210,153,34,.18),rgba(210,153,34,.06));color:#e3b341;box-shadow:0 0 20px rgba(210,153,34,.10)}
+.card-gold:hover .card-icon-wrap{box-shadow:0 0 30px rgba(210,153,34,.25)}
+.card-gold .stat-num{color:#e3b341}
 .light-theme .card-pink .stat-num{color:#db2777}
 .light-theme .card-cyan .stat-num{color:#0891b2}
 .light-theme .card-pink .card-icon-wrap{background:linear-gradient(135deg,rgba(219,39,119,.12),rgba(219,39,119,.04));color:#db2777;box-shadow:0 0 20px rgba(219,39,119,.08)}
@@ -224,6 +250,8 @@ function particleStyle(i: number) {
 .light-theme .card-green .card-icon-wrap{background:linear-gradient(135deg,rgba(26,127,55,.12),rgba(26,127,55,.04));color:#1a7f37;box-shadow:0 0 20px rgba(26,127,55,.08)}
 .light-theme .card-purple .card-icon-wrap{background:linear-gradient(135deg,rgba(130,80,223,.12),rgba(130,80,223,.04));color:#8250df;box-shadow:0 0 20px rgba(130,80,223,.08)}
 .light-theme .card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
+.light-theme .card-gold .stat-num{color:#9a6700}
+.light-theme .card-gold .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
 .stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
 .stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .theme-toggle{position:fixed;bottom:32px;right:32px;width:52px;height:52px;border-radius:50%;background:rgba(13,17,23,.80);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .35s cubic-bezier(.25,.1,.25,1);z-index:1000;color:#8b949e}

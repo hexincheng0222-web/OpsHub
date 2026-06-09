@@ -152,9 +152,20 @@ const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formData = ref<Record<string, any>>({})
+const formRef = ref()
 const brandOptions = ref<{ label: string; value: number }[]>([])
 const searchText = ref('')
 const selectedBrand = ref<number | null>(null)
+
+const formRules = computed(() => {
+  const rules: Record<string, any[]> = {}
+  for (const col of config.value.columns) {
+    if (col.required) {
+      rules[col.prop] = [{ required: true, message: `请输入${col.label}`, trigger: col.type === 'select' ? 'change' : 'blur' }]
+    }
+  }
+  return rules
+})
 
 const filteredData = computed(() => {
   let data = tableData.value
@@ -268,6 +279,8 @@ async function handleDelete(row: any) {
 }
 
 async function handleSubmit() {
+  if (!formRef.value) return
+  try { await formRef.value.validate() } catch { return }
   try {
     if (isEdit.value) {
       await updateDict(dictKey.value, formData.value.id, formData.value)
@@ -409,7 +422,7 @@ function getTypeName(typeKey: string): string {
       width="480px"
       destroy-on-close
     >
-      <el-form :model="formData" label-width="90px" ref="formRef" size="default">
+      <el-form :model="formData" :rules="formRules" label-width="90px" ref="formRef" size="default">
         <template v-for="col in config.columns" :key="col.prop">
           <el-form-item v-if="col.type === 'color'" :label="col.label">
             <el-color-picker v-model="formData[col.prop]" show-alpha />

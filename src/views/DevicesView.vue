@@ -1,6 +1,6 @@
 <!-- src/views/DevicesView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDevicesStore } from '../stores/devices'
 import type { Device, Rack } from '../mock/devices'
@@ -38,6 +38,12 @@ const activeFloor = computed({
 
 // --- Search & filter ---
 const searchQuery = ref('')
+const searchQueryInput = ref('')
+let devSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchQueryInput, (v) => {
+  if (devSearchTimer) clearTimeout(devSearchTimer)
+  devSearchTimer = setTimeout(() => { searchQuery.value = v }, 300)
+})
 const filterType = ref('')
 const filteredDeviceCount = computed(() => {
   let count = 0
@@ -105,7 +111,7 @@ function openAddRackDialog() {
 }
 
 async function confirmAddRack() {
-  if (!newRackForm.value.name) return
+  if (!newRackForm.value.name.trim()) { ElMessage.warning('请输入机柜名称'); return }
   try {
     await store.addRackToServer(newRackForm.value.name, newRackForm.value.floor, newRackForm.value.totalU)
     ElMessage.success('机柜创建成功')
@@ -258,7 +264,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 </script>
 
 <template>
-  <div class="devices-page">
+  <div class="devices-page" v-loading="store.loading" element-loading-text="加载中...">
     <!-- Header -->
     <div class="page-header">
       <button class="back-btn" @click="router.push('/')">
@@ -300,11 +306,11 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
       <div class="floor-tabs">
         <button v-for="floor in store.floors" :key="floor" class="floor-tab" :class="{ active: activeFloor === floor }" @click="activeFloor = floor">{{ floor }}</button>
       </div>
-      <input v-model="searchQuery" class="search-input" placeholder="搜索设备...">
-      <select v-model="filterType" class="filter-select">
-        <option value="">全部类型</option>
-        <option v-for="(label, key) in DEVICE_TYPE_LABELS" :key="key" :value="key">{{ label }}</option>
-      </select>
+      <el-input v-model="searchQueryInput" placeholder="搜索设备..." clearable size="small" style="width:180px" />
+      <el-select v-model="filterType" placeholder="全部类型" clearable size="small" style="width:120px">
+        <el-option label="全部类型" value="" />
+        <el-option v-for="(label, key) in DEVICE_TYPE_LABELS" :key="key" :label="label" :value="key" />
+      </el-select>
       <span class="filter-count" v-if="searchQuery || filterType">{{ filteredDeviceCount }} 台设备</span>
     </div>
 

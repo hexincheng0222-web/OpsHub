@@ -8,6 +8,7 @@ import operationsRouter from './routes/operations'
 import printersRouter from './routes/printers'
 import computerProcRouter from './routes/computer-procurement'
 import phoneProcRouter from './routes/phone-procurement'
+import phonesRouter from './routes/phones'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3001')
@@ -25,6 +26,7 @@ app.use('/api/v1/operations', operationsRouter)
 app.use('/api/v1/printers', printersRouter)
 app.use('/api/v1/computer-procurement', computerProcRouter)
 app.use('/api/v1/phone-procurement', phoneProcRouter)
+app.use('/api/v1/phones', phonesRouter)
 
 // 全局错误处理
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

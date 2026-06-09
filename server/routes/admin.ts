@@ -115,6 +115,49 @@ function logOperation(module: string, action: string, target: string, detail: st
   ).run(module, action, target, detail)
 }
 
+// ========== 系统配置（必须在 /:table 之前） ==========
+
+// GET /api/v1/admin/config/list — 获取所有配置项
+router.get('/config/list', (_req: Request, res: Response) => {
+  const rows = db.prepare('SELECT key, value, description, updated_at FROM system_config ORDER BY key').all()
+  res.json({ code: 200, data: rows })
+})
+
+// GET /api/v1/admin/config/:key — 获取单个配置项
+router.get('/config/:key', (req: Request, res: Response) => {
+  const row = db.prepare('SELECT key, value, description FROM system_config WHERE key = ?').get(req.params.key)
+  if (!row) return res.status(404).json({ code: 404, message: '配置项不存在' })
+  res.json({ code: 200, data: row })
+})
+
+// PUT /api/v1/admin/config — 更新配置（批量或单个）
+router.put('/config', (req: Request, res: Response) => {
+  const configs = req.body.configs as Array<{ key: string; value: string }>
+  if (!Array.isArray(configs) || configs.length === 0) {
+    return res.status(400).json({ code: 400, message: '缺少 configs 数组' })
+  }
+
+  const update = db.prepare("UPDATE system_config SET value = ?, updated_at = datetime('now') WHERE key = ?")
+  const insert = db.prepare("INSERT OR REPLACE INTO system_config (key, value, description, updated_at) VALUES (?, ?, '', datetime('now'))")
+
+  const tx = db.transaction(() => {
+    for (const cfg of configs) {
+      const existing = db.prepare('SELECT key FROM system_config WHERE key = ?').get(cfg.key)
+      if (existing) {
+        update.run(cfg.value, cfg.key)
+      } else {
+        insert.run(cfg.key, cfg.value)
+      }
+    }
+  })
+  tx()
+
+  logOperation('系统配置', '修改', configs.map(c => c.key).join(', '), JSON.stringify(configs))
+  res.json({ code: 200, message: '配置已保存' })
+})
+
+// ========== 通用 CRUD（/:table 路由） ==========
+
 // GET /api/v1/admin/:table  — 列表
 router.get('/:table', (req: Request, res: Response) => {
   const config = tables[req.params.table]
@@ -143,6 +186,9 @@ router.post('/:table', (req: Request, res: Response) => {
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
       return res.status(409).json({ code: 409, message: '名称已存在' })
+    }
+    if (err.message?.includes('FOREIGN KEY')) {
+      return res.status(409).json({ code: 409, message: '引用的关联数据不存在' })
     }
     res.status(500).json({ code: 500, message: err.message })
   }
@@ -180,9 +226,16 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
   const existing = db.prepare(`SELECT name FROM ${config.table} WHERE id = ?`).get(req.params.id) as { name: string } | undefined
   if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
-  db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
-  logOperation(config.module, '删除', existing.name)
-  res.json({ code: 200, message: '删除成功' })
+  try {
+    db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
+    logOperation(config.module, '删除', existing.name)
+    res.json({ code: 200, message: '删除成功' })
+  } catch (err: any) {
+    if (err.message?.includes('FOREIGN KEY')) {
+      return res.status(409).json({ code: 409, message: '该记录被其他数据引用，无法删除' })
+    }
+    res.status(500).json({ code: 500, message: err.message })
+  }
 })
 
 // ========== 操作日志 ==========

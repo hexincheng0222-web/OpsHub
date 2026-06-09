@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   DataBoard, Document, Monitor, Printer,
-  FolderOpened, HomeFilled, ShoppingBag
+  FolderOpened, HomeFilled, ShoppingBag, Phone
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -68,6 +68,14 @@ const menuItems: MenuItem[] = [
       { key: 'procurement/phone-models', label: '手机型号', route: '/admin/procurement/phone-models' },
       { key: 'procurement/computer-purchase-models', label: '电脑采购型号', route: '/admin/procurement/computer-purchase-models' },
       { key: 'procurement/computer-device-models', label: '电脑设备型号', route: '/admin/procurement/computer-device-models' },
+    ],
+  },
+  {
+    key: 'atcom',
+    label: 'ATCOM 话机',
+    icon: Phone,
+    children: [
+      { key: 'atcom-config', label: '连接配置', route: '/admin/atcom-config' },
     ],
   },
 ]

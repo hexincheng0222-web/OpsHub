@@ -1,5 +1,5 @@
 <template>
-  <div class="ops-page">
+  <div class="ops-page" v-loading="loading" element-loading-text="加载中...">
     <!-- Sidebar -->
     <aside class="ops-sidebar">
       <div class="sb-header">
@@ -136,7 +136,7 @@
         <div class="mo-dialog">
           <div class="mo-dlg-header">重命名文件夹</div>
           <div class="mo-body">
-            <label class="mo-field"><span>新名称</span><input v-model="renameForm.name" class="mo-input" @keyup.enter="doRename"></label>
+            <label class="mo-field"><span>新名称</span><input v-model="renameForm.name" class="mo-input" maxlength="50" @keyup.enter="doRename"></label>
           </div>
           <div class="mo-footer">
             <button class="mo-btn-cancel" @click="showRenameDialog = false">取消</button>
@@ -152,7 +152,7 @@
         <div class="mo-dialog">
           <div class="mo-dlg-header">新建文件夹</div>
           <div class="mo-body">
-            <label class="mo-field"><span>名称</span><input v-model="newFolder.name" class="mo-input" placeholder="如：网络运维" @keyup.enter="createFolder"></label>
+            <label class="mo-field"><span>名称</span><input v-model="newFolder.name" class="mo-input" placeholder="如：网络运维" maxlength="50" @keyup.enter="createFolder"></label>
           </div>
           <div class="mo-footer">
             <button class="mo-btn-cancel" @click="showAddFolder = false">取消</button>
@@ -185,11 +185,13 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitize'
+import { ElMessageBox } from 'element-plus'
 import { useOperationsStore } from '../stores/operations'
 import type { ManualDoc, ManualFolder } from '../mock/operations'
 
 const router = useRouter()
 const store = useOperationsStore()
+const loading = ref(true)
 const sbListRef = ref<HTMLElement>()
 
 // Marked config — custom heading renderer for header IDs
@@ -236,6 +238,7 @@ onMounted(async () => {
   // 先从后端加载数据
   await store.loadFolders()
   await store.loadDocs()
+  loading.value = false
 
   // 恢复上次选中状态
   const saved = sessionStorage.getItem(SESSION_KEY)
@@ -342,7 +345,9 @@ async function doDelete() {
     const folder = contextMenu.value.folder
     const count = store.manuals.filter(m => m.folderId === folder.id).length
     if (count > 0) {
-      if (!confirm(`文件夹「${folder.name}」中有 ${count} 篇手册，删除文件夹将同时删除所有手册。确认？`)) {
+      try {
+        await ElMessageBox.confirm(`文件夹「${folder.name}」中有 ${count} 篇手册，删除文件夹将同时删除所有手册。`, '确认删除', { type: 'warning' })
+      } catch {
         showDeleteConfirm.value = false
         return
       }
@@ -436,6 +441,7 @@ function onDocScroll() {
 // Cleanup
 onUnmounted(() => {
   if (scrollContainer) scrollContainer.removeEventListener('scroll', onDocScroll)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
 function scrollToHeading(id: string) {

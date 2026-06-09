@@ -34,7 +34,7 @@
 
     <!-- 搜索/筛选 -->
     <div class="filter-bar">
-      <el-input v-model="search" placeholder="搜索型号/部门/申请人/MAC地址..." clearable style="width:300px">
+      <el-input v-model="searchInput" placeholder="搜索型号/部门/申请人/MAC地址..." clearable style="width:300px">
         <template #prefix>
           <el-icon><search /></el-icon>
         </template>
@@ -54,6 +54,7 @@
         value-format="YYYY-MM-DD"
         style="width:280px"
       />
+      <el-button size="small" @click="resetFilters">重置</el-button>
       <span v-if="filteredCount !== store.computers.length" class="filter-count">筛选 {{ filteredCount }} / {{ store.computers.length }} 条</span>
     </div>
 
@@ -69,15 +70,14 @@
       :empty-text="emptyText"
     >
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="model" label="采购型号" min-width="140" fixed />
+      <el-table-column prop="assetNumber" label="资产序号" width="130" fixed show-overflow-tooltip />
+      <el-table-column prop="model" label="采购型号" min-width="140" />
       <el-table-column prop="department" label="使用部门" width="100" />
       <el-table-column prop="applicant" label="申请人" width="90" />
       <el-table-column prop="macAddress" label="MAC 地址" width="140" show-overflow-tooltip />
       <el-table-column prop="deviceModel" label="设备型号" min-width="140" show-overflow-tooltip />
-      <el-table-column prop="price" label="价格" width="90" align="right" sortable>
-        <template #default="{ row }">&yen;{{ row.price.toLocaleString() }}</template>
-      </el-table-column>
-      <el-table-column prop="receiveDate" label="收货日期" width="110" sortable />
+      <el-table-column prop="receiveDate" label="收货日期" width="110" />
+      <el-table-column prop="deliveryDate" label="交付日期" width="110" />
       <el-table-column label="操作" width="130" fixed="right">
         <template #default="{ row }">
           <div class="action-btns">
@@ -98,8 +98,13 @@
       <el-button size="small" text @click="clearSelection">取消选择</el-button>
     </div>
 
+    <!-- 价格合计 -->
+    <div v-if="filteredCount > 0" class="price-summary">
+      筛选结果合计: <strong>¥{{ filteredPriceTotal.toLocaleString() }}</strong>
+    </div>
+
     <!-- 分页 -->
-    <div v-if="filteredCount > pageSize" class="pagination">
+    <div v-if="filteredCount > 0" class="pagination">
       <el-pagination v-model:current-page="page" v-model:pageSize="pageSize" :page-sizes="[10,20,50]"
         :total="filteredCount" layout="total, sizes, prev, pager, next" small />
     </div>
@@ -136,13 +141,15 @@
         </div>
       </template>
       <template #footer>
+        <el-button type="danger" plain @click="handleDelete(selectedRow)">删除</el-button>
+        <div style="flex:1" />
         <el-button @click="drawerVisible = false">关闭</el-button>
         <el-button type="primary" @click="openEditDialog(selectedRow)">编辑</el-button>
       </template>
     </el-drawer>
 
     <!-- 添加/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑电脑采购' : '添加电脑采购'" width="600px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑电脑采购' : '添加电脑采购'" width="600px" destroy-on-close :before-close="onDialogClose">
       <el-form :model="form" label-width="130px" :rules="rules" ref="formRef">
         <!-- 设备信息 -->
         <div class="form-section-title">📦 设备信息</div>
@@ -205,6 +212,7 @@ import type { ComputerProcurement } from '../stores/procurement'
 import { Plus, Search, ArrowDown, Download, Upload, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchDict } from '../api/admin'
+import { downloadCsv, escapeCsvField } from '../utils/csv'
 
 const store = useComputerProcurementStore()
 
@@ -239,6 +247,7 @@ onMounted(async () => {
 })
 const tableRef = ref()
 const fileInput = ref<HTMLInputElement>()
+const formRef = ref()
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -246,6 +255,12 @@ const drawerVisible = ref(false)
 const selectedRow = ref<ComputerProcurement | null>(null)
 const selectedRows = ref<ComputerProcurement[]>([])
 const search = ref('')
+const searchInput = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { search.value = v }, 300)
+})
 const filterDepartment = ref('')
 const filterBrand = ref('')
 const dateRange = ref<[string, string] | null>(null)
@@ -268,22 +283,40 @@ const rules = {
   applicant: [{ required: true, message: '请输入申请人', trigger: 'blur' }],
   deviceModel: [{ required: true, message: '请输入设备型号', trigger: 'blur' }],
   price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
+  macAddress: [{ pattern: /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/, message: '格式: AA:BB:CC:DD:EE:FF', trigger: 'blur' }],
 }
 
 // ===== 筛选相关 =====
+function resetFilters() {
+  searchInput.value = ''
+  search.value = ''
+  filterDepartment.value = ''
+  filterBrand.value = ''
+  dateRange.value = null
+  page.value = 1
+}
+
 const departments = computed(() => departmentOptions.value.length ? departmentOptions.value : [...new Set(store.computers.map(c => c.department))].sort())
 const deliveryPersons = computed(() => handlerOptions.value.length ? handlerOptions.value : [...new Set(store.computers.map(c => c.deliveryPerson).filter(Boolean))].sort())
 
-// 品牌推断函数（复用）
+// 品牌推断（从采购型号提取首词）
 function inferBrand(model: string): string {
+  if (!model) return ''
   const m = model.toLowerCase()
   if (m.includes('macbook') || m.includes('mac')) return 'Apple'
-  if (m.includes('dell') || m.includes('xps')) return 'Dell'
+  if (m.includes('dell') || m.includes('xps') || m.includes('latitude')) return 'Dell'
   if (m.includes('thinkpad') || m.includes('lenovo')) return 'Lenovo'
-  if (m.includes('hp') || m.includes('elitebook')) return 'HP'
-  return model.split(' ')[0]
+  if (m.includes('hp') || m.includes('elitebook') || m.includes('probook')) return 'HP'
+  if (m.includes('asus') || m.includes('zenbook')) return 'ASUS'
+  if (m.includes('surface')) return 'Microsoft'
+  return model.split(' ')[0] || model
 }
-const brands = computed(() => [...new Set(store.computers.map(c => inferBrand(c.model)))].sort())
+// 从采购型号字典提取品牌列表
+const brands = computed(() => {
+  const dictBrands = purchaseModelOpts.value.map(m => inferBrand(m))
+  const dataBrands = store.computers.map(c => inferBrand(c.model))
+  return [...new Set([...dictBrands, ...dataBrands])].filter(Boolean).sort()
+})
 
 // 采购型号 → 设备型号映射
 const purchaseModels = computed(() => {
@@ -330,6 +363,7 @@ const filteredData = computed(() => {
 })
 
 const filteredCount = computed(() => filteredData.value.length)
+const filteredPriceTotal = computed(() => filteredData.value.reduce((sum, c) => sum + (c.price || 0), 0))
 
 const pagedData = computed(() => {
   const start = (page.value - 1) * pageSize.value
@@ -371,6 +405,13 @@ function openAddDialog() {
   dialogVisible.value = true
 }
 
+const formDirty = computed(() => form.model || form.department || form.applicant || form.macAddress || form.deviceModel)
+function onDialogClose(done: () => void) {
+  if (!editingId.value && formDirty.value) {
+    ElMessageBox.confirm('表单已填写内容，确定关闭？', '提示', { type: 'warning' }).then(() => done()).catch(() => {})
+  } else { done() }
+}
+
 function openEditDialog(row: ComputerProcurement | null) {
   if (!row) return
   editingId.value = row.id
@@ -388,10 +429,8 @@ function openEditDialog(row: ComputerProcurement | null) {
 }
 
 async function handleSave() {
-  if (!form.model.trim() || !form.department.trim() || !form.applicant.trim()) {
-    ElMessage.warning('请填写必填项')
-    return
-  }
+  if (!formRef.value) return
+  try { await formRef.value.validate() } catch { return }
   saving.value = true
   try {
     if (editingId.value) {
@@ -410,7 +449,7 @@ async function handleSave() {
 }
 
 function handleDelete(row: ComputerProcurement) {
-  ElMessageBox.confirm(`确定删除「${row.model}」吗？`, '确认删除', { type: 'warning' })
+  ElMessageBox.confirm(`确定删除「${row.model}」（${row.assetNumber || row.applicant}）吗？`, '确认删除', { type: 'warning' })
     .then(async () => { await store.deleteComputer(row.id); ElMessage.success('删除成功') })
     .catch(() => {})
 }
@@ -422,32 +461,21 @@ function handleTopAction(command: string) {
 }
 
 // ===== 导出 =====
+const CSV_HEADERS = '采购型号,使用部门,申请人,MAC 地址,设备型号,使用人 CE 号,实际使用人,申请审批流程,收货日期,固定资产编号,设备交付日期,设备交付人,领用审批流程,已走 CE 流程,价格'
+function toCsvRow(c: ComputerProcurement) {
+  return [c.model, c.department, c.applicant, c.macAddress, c.deviceModel, c.ceNumber, c.actualUser, c.approvalNumber, c.receiveDate, c.assetNumber, c.deliveryDate, c.deliveryPerson, c.pickupApproval, c.ceProcessed ? '是' : '否', c.price].map(escapeCsvField).join(',')
+}
 function exportCSV() {
-  const header = ['采购型号','使用部门','申请人','MAC 地址','设备型号','使用人 CE 号','实际使用人','申请审批流程','收货日期','固定资产编号','设备交付日期','设备交付人','领用审批流程','已走 CE 流程','价格'].join(',')
-  const rows = store.computers.map(c =>
-    [c.model, c.department, c.applicant, c.macAddress, c.deviceModel, c.ceNumber, c.actualUser, c.approvalNumber, c.receiveDate, c.assetNumber, c.deliveryDate, c.deliveryPerson, c.pickupApproval, c.ceProcessed ? '是' : '否', c.price].map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')
-  )
-  downloadCsv(header, rows, '电脑采购登记表')
+  const rows = store.computers.map(toCsvRow)
+  downloadCsv(CSV_HEADERS, rows, '电脑采购登记表')
 }
 
 function batchExport() {
   if (!selectedRows.value.length) { ElMessage.warning('请先选择要导出的记录'); return }
-  const header = ['采购型号','使用部门','申请人','MAC 地址','设备型号','价格','收货日期','设备交付日期'].join(',')
-  const rows = selectedRows.value.map(c =>
-    [c.model, c.department, c.applicant, c.macAddress, c.deviceModel, c.price, c.receiveDate, c.deliveryDate].map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')
-  )
-  downloadCsv(header, rows, '电脑采购选中记录')
+  const rows = selectedRows.value.map(toCsvRow)
+  downloadCsv(CSV_HEADERS, rows, '电脑采购选中记录')
 }
 
-function downloadCsv(header: string, rows: string[], filename: string) {
-  const bom = '\uFEFF'
-  const csv = bom + header + '\n' + rows.join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = `${filename}.csv`; a.click()
-  URL.revokeObjectURL(url)
-}
 
 function batchDelete() {
   const count = selectedRows.value.length
@@ -485,7 +513,11 @@ function handleImport(e: Event) {
     }
     try {
       const result = await store.batchImport(rows)
-      ElMessage.success(`导入 ${result.imported} 条`)
+      if (result.errors && result.errors.length) {
+        ElMessage.warning(`导入 ${result.imported} 条，${result.errors.length} 条失败: ${result.errors[0]}`)
+      } else {
+        ElMessage.success(`导入 ${result.imported} 条`)
+      }
     } catch (e: any) {
       ElMessage.error(e.message || '导入失败')
     }
@@ -497,6 +529,10 @@ function handleImport(e: Event) {
 
 <style scoped>
 .proc-page { padding: 24px; background: var(--ops-bg-page); min-height: 100vh; }
+:deep(.el-table__body tr) { cursor: pointer; }
+.price-summary { text-align: right; padding: 8px 0; font-size: 13px; color: var(--ops-text-secondary); }
+.price-summary strong { color: var(--ops-accent-blue); font-size: 15px; }
+.field-value.price { text-align: right; font-weight: 700; color: var(--ops-accent-blue); }
 
 /* ===== 表头高亮 ===== */
 :deep(.el-table thead th) {

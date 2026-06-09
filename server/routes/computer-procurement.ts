@@ -3,6 +3,10 @@ import db from '../db'
 
 const router = Router()
 
+function logOperation(module: string, action: string, target: string, detail: string = '') {
+  db.prepare('INSERT INTO operation_logs (module, action, target, detail) VALUES (?, ?, ?, ?)').run(module, action, target, detail)
+}
+
 function toApi(row: any) {
   return {
     id: row.id, model: row.model, department: row.department, applicant: row.applicant,
@@ -16,7 +20,7 @@ function toApi(row: any) {
 // GET / — 列表
 router.get('/', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  const pageSize = Math.min(10000, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const search = req.query.search as string
   const department = req.query.department as string
 
@@ -53,6 +57,7 @@ router.post('/', (req: Request, res: Response) => {
     d.ceNumber||'', d.actualUser||'', d.approvalNumber||'', d.receiveDate||'', d.assetNumber||'',
     d.deliveryDate||'', d.deliveryPerson||'', d.pickupApproval||'', d.ceProcessed?1:0, d.price||0)
   const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ?').get(result.lastInsertRowid)
+  logOperation('电脑采购', '新增', d.model || `ID:${result.lastInsertRowid}`)
   res.status(201).json({ code: 201, data: toApi(row) })
 })
 
@@ -80,12 +85,15 @@ router.put('/:id', (req: Request, res: Response) => {
   values.push(req.params.id)
   db.prepare('UPDATE computer_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
   const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ?').get(req.params.id)
+  logOperation('电脑采购', '修改', (row as any).model || `ID:${req.params.id}`)
   res.json({ code: 200, data: toApi(row) })
 })
 
 // DELETE /:id
 router.delete('/:id', (req: Request, res: Response) => {
+  const existing = db.prepare('SELECT model FROM computer_procurement WHERE id = ?').get(req.params.id) as any
   db.prepare('DELETE FROM computer_procurement WHERE id = ?').run(req.params.id)
+  logOperation('电脑采购', '删除', existing?.model || `ID:${req.params.id}`)
   res.json({ code: 200, message: '删除成功' })
 })
 
@@ -93,9 +101,12 @@ router.delete('/:id', (req: Request, res: Response) => {
 router.post('/batch-delete', (req: Request, res: Response) => {
   const { ids } = req.body
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-  const ph = ids.map(() => '?').join(',')
-  db.prepare(`DELETE FROM computer_procurement WHERE id IN (${ph})`).run(...ids)
-  res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+  const validIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
+  if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
+  const ph = validIds.map(() => '?').join(',')
+  db.prepare(`DELETE FROM computer_procurement WHERE id IN (${ph})`).run(...validIds)
+  logOperation('电脑采购', '批量删除', `${validIds.length} 条记录`)
+  res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
 })
 
 // POST /import

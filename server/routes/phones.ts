@@ -1,0 +1,580 @@
+import { Router, Request, Response } from 'express'
+import db from '../db'
+import http from 'http'
+import crypto from 'crypto'
+
+const router = Router()
+
+// ========== ATCOM Digest Auth 客户端 ==========
+
+interface DigestAuthState {
+  realm: string
+  nonce: string
+  qop: string
+  opaque: string
+  ha1: string
+  nonceCount: number
+}
+
+const digestCache = new Map<string, DigestAuthState>()
+
+function parseDigestChallenge(wwwAuth: string): { realm: string; nonce: string; qop: string; opaque: string } {
+  const params: Record<string, string> = {}
+  for (const m of wwwAuth.matchAll(/(\w+)="?([^",]+)"?/g)) {
+    params[m[1]] = m[2]
+  }
+  return { realm: params.realm || '', nonce: params.nonce || '', qop: params.qop || 'auth', opaque: params.opopaque || '' }
+}
+
+function buildDigestAuth(ip: string, method: string, uri: string, username: string, password: string): string {
+  let state = digestCache.get(ip)
+  if (!state) {
+    // 首次需要先获取 challenge
+    return ''
+  }
+  state.nonceCount++
+  const nc = format(state.nonceCount, '08x')
+  const cnonce = crypto.randomBytes(8).toString('hex')
+
+  const ha2 = crypto.createHash('md5').update(`${method}:${uri}`).digest('hex')
+  const response = crypto.createHash('md5').update(`${state.ha1}:${state.nonce}:${nc}:${cnonce}:${state.qop}:${ha2}`).digest('hex')
+
+  return `Digest username="${username}", realm="${state.realm}", nonce="${state.nonce}", uri="${uri}", response="${response}", qop=${state.qop}, nc=${nc}, cnonce="${cnonce}", opaque="${state.opaque}"`
+}
+
+function format(n: number, fmt: string): string {
+  return n.toString(16).padStart(8, '0')
+}
+
+// 带 Digest Auth 的 HTTP 请求
+function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data: string = '', username = 'admin', password = 'admin'): Promise<any> {
+  const url = `/cgi-bin/web_cgi_main.cgi?${command}`
+  return new Promise((resolve, reject) => {
+    const doRequest = (authHeader?: string) => {
+      const headers: Record<string, string> = { 'User-Agent': 'OpsHub/1.0' }
+      if (authHeader) headers['Authorization'] = authHeader
+      if (method === 'POST') {
+        headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
+        headers['Content-Length'] = Buffer.byteLength(data).toString()
+      }
+      const req = http.request({ host: ip, port: 80, path: url, method, headers, timeout: 10000 }, (res) => {
+        let body = ''
+        res.on('data', c => { body += c })
+        res.on('end', () => {
+          if (res.statusCode === 401) {
+            const wwwAuth = res.headers['www-authenticate'] || ''
+            if (!wwwAuth) { reject(new Error('未收到认证挑战')); return }
+
+            // 解析 challenge 并缓存
+            const challenge = parseDigestChallenge(wwwAuth)
+            const ha1 = crypto.createHash('md5').update(`${username}:${challenge.realm}:${password}`).digest('hex')
+            digestCache.set(ip, { ...challenge, ha1, nonceCount: 0 })
+
+            // 带认证重试
+            const auth = buildDigestAuth(ip, method, url, username, password)
+            if (!auth) { reject(new Error('认证失败')); return }
+
+            const retryHeaders: Record<string, string> = { 'User-Agent': 'OpsHub/1.0', 'Authorization': auth }
+            if (method === 'POST') {
+              retryHeaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
+              retryHeaders['Content-Length'] = Buffer.byteLength(data).toString()
+            }
+            const retryReq = http.request({ host: ip, port: 80, path: url, method, headers: retryHeaders, timeout: 10000 }, (retryRes) => {
+              let retryBody = ''
+              retryRes.on('data', c => { retryBody += c })
+              retryRes.on('end', () => {
+                if (retryRes.statusCode === 401) { reject(new Error('认证失败，请检查用户名密码')); return }
+                try { resolve(JSON.parse(retryBody)) } catch { resolve(retryBody) }
+              })
+            })
+            retryReq.on('error', reject)
+            retryReq.on('timeout', () => { retryReq.destroy(); reject(new Error('timeout')) })
+            if (method === 'POST' && data) retryReq.write(data)
+            retryReq.end()
+            return
+          }
+          try { resolve(JSON.parse(body)) } catch { resolve(body) }
+        })
+      })
+      req.on('error', reject)
+      req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+      if (method === 'POST' && data) req.write(data)
+      req.end()
+    }
+    doRequest()
+  })
+}
+
+// ── 缓存 ─────────────────────────────────────────────────────
+let cache: { data: any[]; ts: number } | null = null
+const CACHE_TTL = 30_000 // 30 秒
+
+function getCached() {
+  if (cache && Date.now() - cache.ts < CACHE_TTL) return cache.data
+  return null
+}
+
+// ── 读取配置 ─────────────────────────────────────────────────
+function getConfig() {
+  const rows = db.prepare("SELECT key, value FROM system_config WHERE key LIKE 'atcom_%'").all() as { key: string; value: string }[]
+  const map: Record<string, string> = {}
+  rows.forEach(r => { map[r.key] = r.value })
+  return {
+    ip: map['atcom_pbx_ip'] || '192.168.35.250',
+    user: map['atcom_pbx_user'] || 'admin',
+    pass: map['atcom_pbx_pass'] || 'admin',
+  }
+}
+
+// ── HTTP 请求工具 ─────────────────────────────────────────────
+function httpGet(host: string, path: string, headers: Record<string, string> = {}, timeout = 10000): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host, port: 80, path, method: 'GET', headers: { 'User-Agent': 'OpsHub-Phones/1.0', ...headers }, timeout }, (res) => {
+      let body = ''
+      res.on('data', c => { body += c })
+      res.on('end', () => {
+        const h: Record<string, string> = {}
+        Object.entries(res.headers).forEach(([k, v]) => { if (v) h[k] = Array.isArray(v) ? v[0] : v })
+        resolve({ status: res.statusCode || 0, headers: h, body })
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+    req.end()
+  })
+}
+
+function httpPost(host: string, path: string, body: string, headers: Record<string, string> = {}, timeout = 10000): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host, port: 80, path, method: 'POST', headers: { 'User-Agent': 'OpsHub-Phones/1.0', 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body).toString(), ...headers }, timeout }, (res) => {
+      let data = ''
+      res.on('data', c => { data += c })
+      res.on('end', () => {
+        const h: Record<string, string> = {}
+        Object.entries(res.headers).forEach(([k, v]) => { if (v) h[k] = Array.isArray(v) ? v[0] : v })
+        resolve({ status: res.statusCode || 0, headers: h, body: data })
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+    req.write(body)
+    req.end()
+  })
+}
+
+// ── 设备发现逻辑 ─────────────────────────────────────────────
+
+interface PhoneDevice {
+  id: string
+  cfgId: string
+  extension: string
+  ip: string
+  address: string
+  status: string
+  delay: string
+  registered: string
+  online: boolean
+  secret: string
+  display_name: string
+}
+
+async function discoverPhones(): Promise<PhoneDevice[]> {
+  const cfg = getConfig()
+
+  // Step 1: 登录
+  const loginResp = await httpPost(cfg.ip, '/cgi-bin/luci',
+    `luci_username=${cfg.user}&luci_password=${cfg.pass}`, {}, 5000)
+
+  const setCookie = loginResp.headers['set-cookie'] || loginResp.headers['Set-Cookie'] || ''
+  let sysauth = ''
+  for (const part of setCookie.split(';')) {
+    const t = part.trim()
+    if (t.startsWith('sysauth=')) { sysauth = t.split('=')[1]; break }
+  }
+  let stok = ''
+  const loc = loginResp.headers['location'] || loginResp.headers['Location'] || ''
+  let m = loc.match(/stok=([a-f0-9]+)/)
+  if (m) stok = m[1]
+  if (!stok) { m = loginResp.body.match(/stok=([a-f0-9]+)/); if (m) stok = m[1] }
+  if (!sysauth || !stok) throw new Error('IPPBX200 登录失败')
+
+  // Step 2: 获取分机配置
+  const extResp = await httpGet(cfg.ip,
+    `/cgi-bin/luci/;stok=${stok}/admin/extension/sip/get`,
+    { Cookie: `sysauth=${sysauth}` })
+  const extData = JSON.parse(extResp.body)
+  const extensions: any[] = extData.data || extData || []
+
+  // Step 3: 获取分机状态
+  const statusResp = await httpGet(cfg.ip,
+    `/cgi-bin/luci/;stok=${stok}/admin/status/sipext/get`,
+    { Cookie: `sysauth=${sysauth}` })
+  const statusData = JSON.parse(statusResp.body)
+  const statusEntries: any[] = statusData.data || statusData || []
+  const allIds = statusEntries.map(e => e.id).filter(Boolean)
+  if (!allIds.length) throw new Error('未获取到分机 ID')
+
+  // Step 4: 刷新实时状态
+  const idsStr = allIds.join(',')
+  const refreshResp = await httpGet(cfg.ip,
+    `/cgi-bin/luci/;stok=${stok}/admin/status/sipext/update?ids=${idsStr}`,
+    { Cookie: `sysauth=${sysauth}` }, 30000)
+  let realtime: any[]
+  try {
+    const parsed = JSON.parse(refreshResp.body)
+    realtime = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    throw new Error('刷新状态返回数据解析失败')
+  }
+
+  // 合并
+  const extMap: Record<string, any> = {}
+  extensions.forEach(e => { if (e.id) extMap[e.id] = e })
+
+  const devices: PhoneDevice[] = realtime.map(entry => {
+    const ext = extMap[entry.id] || {}
+    const address = entry.address || 'n/a'
+    const m2 = address.match(/@([\d.]+):/)
+    const ip = m2 ? m2[1] : ''
+    const isOnline = entry.registered === 'Avail' || (ip && address !== 'n/a')
+    return {
+      id: entry.id,
+      cfgId: entry.id,
+      extension: entry.devicenumber || ext.devicenumber || '?',
+      ip,
+      address,
+      status: entry.status || 'n/a',
+      delay: entry.delay || 'n/a',
+      registered: entry.registered || 'n/a',
+      online: isOnline,
+      secret: ext.secret || '',
+      display_name: ext.display_name || '',
+    }
+  })
+
+  // 保存在线话机的 IP 到历史记录
+  const upsertIp = db.prepare(`INSERT INTO phone_ip_history (phone_id, extension, ip, mac, last_seen)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(phone_id) DO UPDATE SET ip=excluded.ip, mac=excluded.mac, last_seen=datetime('now'), extension=excluded.extension`)
+  const batch = db.transaction(() => {
+    for (const d of devices) {
+      if (d.online && d.ip) upsertIp.run(d.id, d.extension, d.ip, '')
+    }
+  })
+  batch()
+
+  return devices
+}
+
+// ── API 路由 ─────────────────────────────────────────────────
+
+// GET /api/v1/phones — 获取所有话机列表
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const cached = getCached()
+    const devices = cached || await discoverPhones()
+    if (!cached) cache = { data: devices, ts: Date.now() }
+
+    // 合并上次 IP
+    const ipMap: Record<string, string> = {}
+    const ipRows = db.prepare('SELECT phone_id, ip, last_seen FROM phone_ip_history').all() as any[]
+    ipRows.forEach(r => { ipMap[r.phone_id] = r.ip })
+    const enriched = devices.map((d: any) => ({ ...d, lastIp: ipMap[d.id] || '' }))
+
+    res.json({
+      code: 200,
+      data: enriched,
+      total: enriched.length,
+      online: enriched.filter((d: any) => d.online).length,
+      offline: enriched.filter((d: any) => !d.online).length,
+      cached: !!cached,
+    })
+  } catch (err: any) {
+    const msg = err.message || '设备发现失败'
+    const userMsg = msg === 'timeout' ? '连接 PBX 设备超时' :
+                    msg.includes('登录失败') ? 'PBX 登录失败，请检查用户名和密码' :
+                    msg.includes('ECONNREFUSED') ? '无法连接 PBX 设备，请检查 IP 地址' :
+                    msg
+    res.status(502).json({ code: 502, message: userMsg })
+  }
+})
+
+// GET /api/v1/phones/refresh — 强制刷新（清除缓存）
+router.get('/refresh', async (_req: Request, res: Response) => {
+  try {
+    cache = null
+    const devices = await discoverPhones()
+    cache = { data: devices, ts: Date.now() }
+    res.json({
+      code: 200,
+      data: devices,
+      total: devices.length,
+      online: devices.filter(d => d.online).length,
+      offline: devices.filter(d => !d.online).length,
+      cached: false,
+    })
+  } catch (err: any) {
+    const msg = err.message || '设备发现失败'
+    const userMsg = msg === 'timeout' ? '连接 PBX 设备超时' :
+                    msg.includes('登录失败') ? 'PBX 登录失败，请检查用户名和密码' :
+                    msg.includes('ECONNREFUSED') ? '无法连接 PBX 设备，请检查 IP 地址' :
+                    msg
+    res.status(502).json({ code: 502, message: userMsg })
+  }
+})
+
+// GET /api/v1/phones/:id/details — 获取单台话机详情
+router.get('/:id/details', async (req: Request, res: Response) => {
+  const devices = cache?.data || []
+  const phone = devices.find((d: any) => d.id === req.params.id)
+  if (!phone) return res.status(404).json({ code: 404, message: '话机不存在' })
+  if (!phone.online) return res.status(400).json({ code: 400, message: '话机离线，无法获取详情' })
+
+  try {
+    // 通过 ATCOM API 获取话机详情
+    const [status, account] = await Promise.all([
+      atcomGet(phone.ip, 'status_get').catch(() => null),
+      atcomGet(phone.ip, 'user_get_account_basic').catch(() => null),
+    ])
+    res.json({ code: 200, data: { phone, status, account } })
+  } catch (err: any) {
+    res.status(502).json({ code: 502, message: err.message || '获取详情失败' })
+  }
+})
+
+// PUT /api/v1/phones/:id/account — 修改账号配置并同步到话机
+router.put('/:id/account', async (req: Request, res: Response) => {
+  const devices = cache?.data || []
+  const phone = devices.find((d: any) => d.id === req.params.id)
+  if (!phone) return res.status(404).json({ code: 404, message: '话机不存在' })
+  if (!phone.online) return res.status(400).json({ code: 400, message: '话机离线，无法修改配置' })
+
+  const d = req.body
+  // 构建 ATCOM API 参数
+  const params: string[] = []
+  const fieldMap: Record<string, string> = {
+    sipServer: 'SIPServerHost', sipServerPort: 'SIPServerPort',
+    userName: 'SIPAccount', password: 'SIPPassword',
+    displayName: 'DisplayName', registerName: 'RegisterName',
+    transport: 'Transport', natTraversal: 'NATTraversal',
+    voiceMail: 'VoiceMailNumber',
+    backupSipServer: 'BackupSIPServerHost', backupSipPort: 'BackupSIPServerPort',
+    outboundProxy: 'OutboundProxyServerHost', outboundProxyPort: 'OutboundProxyServerPort',
+  }
+  for (const [key, atcomKey] of Object.entries(fieldMap)) {
+    if (d[key] !== undefined) params.push(`${atcomKey}=${encodeURIComponent(d[key])}`)
+  }
+  if (params.length === 0) return res.status(400).json({ code: 400, message: '无配置项' })
+
+  try {
+    const result = await atcomPost(phone.ip, 'user_set_account_basic', params.join('&'))
+    logOp('话机配置', '修改', `${phone.extension} 账号配置`, params.join('&'))
+    res.json({ code: 200, data: result, message: '配置已同步到话机' })
+  } catch (err: any) {
+    res.status(502).json({ code: 502, message: err.message || '同步失败' })
+  }
+})
+
+// POST /api/v1/phones/:id/reboot — 重启话机
+router.post('/:id/reboot', async (req: Request, res: Response) => {
+  const devices = cache?.data || []
+  const phone = devices.find((d: any) => d.id === req.params.id)
+  if (!phone) return res.status(404).json({ code: 404, message: '话机不存在' })
+  if (!phone.online) return res.status(400).json({ code: 400, message: '话机离线' })
+
+  try {
+    await atcomPost(phone.ip, 'reboot', '')
+    logOp('话机管理', '重启', phone.extension)
+    res.json({ code: 200, message: '重启指令已发送' })
+  } catch (err: any) {
+    res.status(502).json({ code: 502, message: err.message || '重启失败' })
+  }
+})
+
+// ATCOM 话机 API 封装（带 Digest Auth）
+function atcomGet(ip: string, command: string, username = 'admin', password = 'admin'): Promise<any> {
+  return atcomRequest(ip, command, 'GET', '', username, password)
+}
+
+function atcomPost(ip: string, command: string, data: string, username = 'admin', password = 'admin'): Promise<any> {
+  return atcomRequest(ip, command, 'POST', data, username, password)
+}
+
+// ========== 电话簿 ==========
+
+function logOp(module: string, action: string, target: string, detail: string = '') {
+  db.prepare('INSERT INTO operation_logs (module, action, target, detail) VALUES (?, ?, ?, ?)').run(module, action, target, detail)
+}
+
+// GET /phonebook — 联系人列表
+router.get('/phonebook', (req: Request, res: Response) => {
+  const search = req.search || req.query.search as string
+  const type = req.query.type as string
+  let where = 'WHERE 1=1'
+  const params: any[] = []
+  if (search) { where += ' AND (name LIKE ? OR number LIKE ? OR department LIKE ?)'; const kw = `%${search}%`; params.push(kw, kw, kw) }
+  if (type) { where += ' AND type = ?'; params.push(type) }
+  const rows = db.prepare(`SELECT * FROM phonebook_contacts ${where} ORDER BY sort_order ASC, id ASC`).all(...params)
+  res.json({ code: 200, data: rows })
+})
+
+// POST /phonebook — 新增联系人
+router.post('/phonebook', (req: Request, res: Response) => {
+  const d = req.body
+  if (!d.name || !d.number) return res.status(400).json({ code: 400, message: '姓名和号码必填' })
+  try {
+    const r = db.prepare('INSERT INTO phonebook_contacts (name,number,department,position,type,notes) VALUES (?,?,?,?,?,?)')
+      .run(d.name, d.number, d.department||'', d.position||'', d.type||'external', d.notes||'')
+    logOp('电话簿', '新增', d.name)
+    const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(r.lastInsertRowid)
+    res.json({ code: 200, data: row })
+  } catch (e: any) {
+    if (e.message?.includes('UNIQUE')) return res.status(409).json({ code: 409, message: '联系人已存在' })
+    res.status(500).json({ code: 500, message: e.message })
+  }
+})
+
+// PUT /phonebook/:id — 修改联系人
+router.put('/phonebook/:id', (req: Request, res: Response) => {
+  const d = req.body
+  const fields: string[] = [], values: any[] = []
+  for (const key of ['name','number','department','position','type','notes']) {
+    if (d[key] !== undefined) { fields.push(`${key} = ?`); values.push(d[key]) }
+  }
+  if (!fields.length) return res.status(400).json({ code: 400, message: '无更新字段' })
+  fields.push("updated_at = datetime('now')")
+  values.push(req.params.id)
+  db.prepare(`UPDATE phonebook_contacts SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+  logOp('电话簿', '修改', d.name || `ID:${req.params.id}`)
+  const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(req.params.id)
+  res.json({ code: 200, data: row })
+})
+
+// DELETE /phonebook/:id — 删除联系人
+router.delete('/phonebook/:id', (req: Request, res: Response) => {
+  const existing = db.prepare('SELECT name FROM phonebook_contacts WHERE id = ?').get(req.params.id) as any
+  db.prepare('DELETE FROM phonebook_contacts WHERE id = ?').run(req.params.id)
+  logOp('电话簿', '删除', existing?.name || `ID:${req.params.id}`)
+  res.json({ code: 200, message: '删除成功' })
+})
+
+// POST /phonebook/batch-delete
+router.post('/phonebook/batch-delete', (req: Request, res: Response) => {
+  const { ids } = req.body
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+  const ph = ids.map(() => '?').join(',')
+  db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...ids)
+  logOp('电话簿', '批量删除', `${ids.length} 条`)
+  res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+})
+
+// POST /phonebook/import — 批量导入
+router.post('/phonebook/import', (req: Request, res: Response) => {
+  const { rows } = req.body
+  if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ code: 400, message: '无数据' })
+  const insert = db.prepare('INSERT OR IGNORE INTO phonebook_contacts (name, number, department, position, type, notes) VALUES (?, ?, ?, ?, ?, ?)')
+  let imported = 0
+  const errors: string[] = []
+  const batch = db.transaction(() => {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      if (!r.name || !r.number) { errors.push(`第${i+1}行: 姓名或号码为空`); continue }
+      try { insert.run(r.name, r.number, r.department||'', r.position||'', r.type||'external', r.notes||''); imported++ }
+      catch (e: any) { errors.push(`第${i+1}行: ${e.message}`) }
+    }
+  })
+  batch()
+  logOp('电话簿', '导入', `${imported} 条`)
+  res.json({ code: 200, data: { imported, errors } })
+})
+
+// POST /phonebook/sync-from-pbx — 从 PBX 同步内部联系人
+router.post('/phonebook/sync-from-pbx', async (_req: Request, res: Response) => {
+  try {
+    const devices = cache?.data || await discoverPhones()
+    if (!cache) cache = { data: devices, ts: Date.now() }
+    // 获取分机配置（包含 display_name）
+    const cfg = getConfig()
+    const loginResp = await httpPost(cfg.ip, '/cgi-bin/luci', `luci_username=${cfg.user}&luci_password=${cfg.pass}`, {}, 5000)
+    const setCookie = loginResp.headers['set-cookie'] || ''
+    let sysauth = '', stok = ''
+    for (const part of setCookie.split(';')) { const t = part.trim(); if (t.startsWith('sysauth=')) sysauth = t.split('=')[1] }
+    const loc = loginResp.headers['location'] || ''
+    let m = loc.match(/stok=([a-f0-9]+)/)
+    if (m) stok = m[1]
+    if (!stok) { m = loginResp.body.match(/stok=([a-f0-9]+)/); if (m) stok = m[1] }
+    if (!sysauth || !stok) throw new Error('PBX 登录失败')
+
+    const extResp = await httpGet(cfg.ip, `/cgi-bin/luci/;stok=${stok}/admin/extension/sip/get`, { Cookie: `sysauth=${sysauth}` })
+    const extData = JSON.parse(extResp.body)
+    const extensions: any[] = extData.data || []
+
+    const upsert = db.prepare(`INSERT INTO phonebook_contacts (name, number, department, type) VALUES (?, ?, ?, 'internal')
+      ON CONFLICT(name, number) DO UPDATE SET department=excluded.department, type='internal', updated_at=datetime('now')`)
+    let synced = 0
+    const batch = db.transaction(() => {
+      for (const ext of extensions) {
+        if (!ext.devicenumber) continue
+        upsert.run(ext.display_name || ext.devicenumber, ext.devicenumber, ext.department || '')
+        synced++
+      }
+    })
+    batch()
+    logOp('电话簿', 'PBX同步', `${synced} 个分机`)
+    res.json({ code: 200, data: { synced } })
+  } catch (err: any) {
+    res.status(502).json({ code: 502, message: err.message || '同步失败' })
+  }
+})
+
+// GET /phonebook.xml — XML 电话簿（话机拉取用）
+router.get('/phonebook.xml', (_req: Request, res: Response) => {
+  const contacts = db.prepare('SELECT name, number, department FROM phonebook_contacts ORDER BY sort_order ASC, id ASC').all() as any[]
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<IPPhoneDirectory>
+${contacts.map(c => `  <DirectoryEntry>
+    <Name>${(c.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</Name>
+    <Telephone>${c.number||''}</Telephone>
+  </DirectoryEntry>`).join('\n')}
+</IPPhoneDirectory>`
+  res.set('Content-Type', 'application/xml; charset=utf-8')
+  res.send(xml)
+})
+
+// POST /phonebook/deploy — 推送电话簿到选中话机
+router.post('/phonebook/deploy', async (req: Request, res: Response) => {
+  const { phoneIds, mode } = req.body // mode: 'remote' | 'local' | 'both'
+  if (!Array.isArray(phoneIds) || !phoneIds.length) return res.status(400).json({ code: 400, message: '请选择话机' })
+
+  const devices = cache?.data || []
+  const targetPhones = devices.filter((d: any) => phoneIds.includes(d.id) && d.online)
+  if (!targetPhones.length) return res.status(400).json({ code: 400, message: '选中的话机均不在线' })
+
+  // 获取本机 IP 构建 XML URL
+  const serverIp = _req.headers.host?.split(':')[0] || 'localhost'
+  const serverPort = _req.headers.host?.split(':')[1] || '3001'
+  const xmlUrl = `http://${serverIp}:${serverPort}/api/v1/phones/phonebook.xml`
+
+  const results: any[] = []
+  for (const phone of targetPhones) {
+    try {
+      if (mode === 'remote' || mode === 'both') {
+        // 设置远程电话簿 URL
+        await atcomPost(phone.ip, `user_set_xml_remote_phonebook`, `RemotePhoneBookAddress1=${encodeURIComponent(xmlUrl)}&RemotePhoneBookName1=公司电话簿`)
+      }
+      if (mode === 'local' || mode === 'both') {
+        // 推送本地联系人
+        const contacts = db.prepare('SELECT name, number FROM phonebook_contacts ORDER BY sort_order ASC, id ASC').all() as any[]
+        const contactStr = contacts.map((c, i) => `ContactName_${i}=${encodeURIComponent(c.name)}&ContactNumber_${i}=${encodeURIComponent(c.number)}`).join('&')
+        await atcomPost(phone.ip, `user_set_contacts`, contactStr)
+      }
+      results.push({ id: phone.id, extension: phone.extension, status: 'success' })
+    } catch (e: any) {
+      results.push({ id: phone.id, extension: phone.extension, status: 'failed', error: e.message })
+    }
+  }
+  logOp('电话簿', '推送', `${targetPhones.length} 台话机`, JSON.stringify(results))
+  res.json({ code: 200, data: { total: targetPhones.length, success: results.filter(r => r.status === 'success').length, failed: results.filter(r => r.status === 'failed').length, results } })
+})
+
+export default router

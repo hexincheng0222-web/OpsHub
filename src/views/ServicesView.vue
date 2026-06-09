@@ -24,7 +24,7 @@
     <!-- 搜索/筛选栏 -->
     <div class="filter-bar">
       <el-input
-        v-model="search"
+        v-model="searchInput"
         placeholder="搜索服务名称、描述或地址..."
         clearable
         class="search-input"
@@ -90,7 +90,7 @@
     <!-- 筛选无结果时显示空状态 -->
     <div v-else-if="filteredServices.length === 0 && servicesStore.services.length > 0" class="empty-container">
       <el-empty description="未找到匹配的服务">
-        <el-button type="primary" @click="search = ''; filterCategory = ''; filterStatus = ''">
+        <el-button type="primary" @click="searchInput = ''; filterCategory = ''; filterStatus = ''">
           清除筛选
         </el-button>
       </el-empty>
@@ -188,73 +188,6 @@
       </template>
     </el-dialog>
 
-    <!-- 详情弹窗 -->
-    <el-dialog
-      v-model="detailVisible"
-      :title="selectedService?.name || '服务详情'"
-      width="480px"
-      class="detail-dialog"
-    >
-      <div v-if="selectedService" class="detail-content">
-        <div class="detail-header">
-          <div class="detail-icon" :class="'status-' + selectedService.status">
-            <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
-          </div>
-          <div class="detail-title">
-            <h3>{{ selectedService.name }}</h3>
-            <div class="detail-tags">
-              <el-tag size="small">{{ selectedService.category }}</el-tag>
-              <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
-                {{ statusLabel(selectedService.status) }}
-              </el-tag>
-            </div>
-          </div>
-        </div>
-
-        <el-divider />
-
-        <div class="detail-section">
-          <div class="detail-label">服务地址</div>
-          <div class="detail-url">
-            <el-icon><Link /></el-icon>
-            <span>{{ selectedService.url }}</span>
-          </div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-label">描述</div>
-          <div class="detail-value">{{ selectedService.description || '暂无描述' }}</div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-label">备注</div>
-          <div class="detail-notes">{{ selectedService.notes || '暂无备注' }}</div>
-        </div>
-      </div>
-      <template #footer>
-        <div class="detail-footer">
-          <div class="detail-actions-left">
-            <el-button @click="openEditDialog(selectedService!)">
-              <el-icon><Edit /></el-icon> 编辑
-            </el-button>
-            <el-popconfirm
-              :title="`确定删除「${selectedService?.name}」吗？`"
-              @confirm="deleteAndClose"
-            >
-              <template #reference>
-                <el-button type="danger">
-                  <el-icon><Delete /></el-icon> 删除
-                </el-button>
-              </template>
-            </el-popconfirm>
-          </div>
-          <el-button type="primary" @click="openService(selectedService!.url)">
-            <el-icon><Position /></el-icon> 访问服务
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
-
     <!-- 右侧详情抽屉 -->
     <Transition name="drawer-slide">
       <div v-if="drawerVisible" class="drawer-overlay" @click.self="drawerVisible = false">
@@ -321,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useServicesStore } from '../stores/services'
 import type { Service } from '../mock/services'
 import { fetchDict } from '../api/admin'
@@ -352,6 +285,12 @@ const loading = ref(true)
 const saving = ref(false)
 
 const search = ref('')
+const searchInput = ref('')
+let svcSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchInput, (v) => {
+  if (svcSearchTimer) clearTimeout(svcSearchTimer)
+  svcSearchTimer = setTimeout(() => { search.value = v }, 300)
+})
 const filterCategory = ref('')
 const filterStatus = ref('')
 
@@ -375,7 +314,6 @@ const filteredServices = computed(() => {
 const filteredCount = computed(() => filteredServices.value.length)
 
 const dialogVisible = ref(false)
-const detailVisible = ref(false)
 const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
 const editingService = ref<Service | null>(null)
@@ -428,7 +366,6 @@ function openAddDialog() {
 }
 
 function openEditDialog(row: Service) {
-  detailVisible.value = false
   drawerVisible.value = false
   editingService.value = row
   form.name = row.name
@@ -464,19 +401,6 @@ async function deleteFromDrawer() {
       ElMessage.error(e.message || '删除失败')
     }
     drawerVisible.value = false
-    selectedService.value = null
-  }
-}
-
-async function deleteAndClose() {
-  if (selectedService.value) {
-    try {
-      await servicesStore.deleteService(selectedService.value.id)
-      ElMessage.success('删除成功')
-    } catch (e: any) {
-      ElMessage.error(e.message || '删除失败')
-    }
-    detailVisible.value = false
     selectedService.value = null
   }
 }

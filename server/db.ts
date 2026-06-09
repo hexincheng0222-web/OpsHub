@@ -303,6 +303,37 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_operation_logs_module ON operation_logs (module);
   CREATE INDEX IF NOT EXISTS idx_operation_logs_created ON operation_logs (created_at);
+
+  CREATE TABLE IF NOT EXISTS phonebook_contacts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    number     TEXT NOT NULL,
+    department TEXT NOT NULL DEFAULT '',
+    position   TEXT NOT NULL DEFAULT '',
+    type       TEXT NOT NULL DEFAULT 'internal',
+    notes      TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_phonebook UNIQUE (name, number)
+  );
+
+  CREATE TABLE IF NOT EXISTS phone_ip_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_id   TEXT NOT NULL,
+    extension  TEXT NOT NULL DEFAULT '',
+    ip         TEXT NOT NULL DEFAULT '',
+    mac        TEXT NOT NULL DEFAULT '',
+    last_seen  TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_phone_id UNIQUE (phone_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS system_config (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `)
 
 // 如果表为空，插入 mock 数据
@@ -542,6 +573,22 @@ const batchUpdateTK = db.transaction(() => {
 })
 batchUpdateTK()
 
+// 迁移：computer_procurement 清理不需要的列
+const cpColumns = db.prepare("PRAGMA table_info(computer_procurement)").all() as { name: string }[]
+if (cpColumns.length > 0) {
+  const dropCols = ['payment','channel','budget_dept','cost_center','new_user','high_consumable']
+  for (const col of dropCols) {
+    if (cpColumns.some(c => c.name === col)) {
+      try {
+        db.exec(`ALTER TABLE computer_procurement DROP COLUMN ${col}`)
+        console.log(`[db] 已删除 computer_procurement.${col} 列`)
+      } catch (e: any) {
+        console.log(`[db] 跳过删除 ${col}: ${e.message}`)
+      }
+    }
+  }
+}
+
 // 字典数据初始化
 const floorCount = db.prepare('SELECT COUNT(*) as cnt FROM device_floors').get() as { cnt: number }
 if (floorCount.cnt === 0) {
@@ -587,7 +634,7 @@ if (floorCount.cnt === 0) {
 
     // 打印机品牌
     const insertBrand = db.prepare('INSERT INTO printer_brands (name, sort_order) VALUES (?, ?)')
-    const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Xerox']
+    const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Samsung', 'Toshiba', 'Xerox']
     brands.forEach((b, i) => insertBrand.run(b, i))
 
     // 打印机型号（获取品牌 ID）
@@ -980,8 +1027,8 @@ const pfCount = db.prepare('SELECT COUNT(*) as cnt FROM printer_floors').get() a
 if (pfCount.cnt === 0) {
   const insertPF = db.prepare('INSERT INTO printer_floors (name, sort_order) VALUES (?, ?)')
   const pfData: [string, number][] = [
-    ['-2F', 0], ['-1F', 1], ['1F', 2], ['2F', 3], ['3F', 4], ['4F', 5], ['5F', 6],
-    ['南宜', 7], ['秘园', 8], ['威斯顿', 9],
+    ['负二楼', 0], ['负一楼', 1], ['负0.5', 2], ['一楼', 3], ['二楼', 4], ['三楼', 5],
+    ['四楼', 6], ['五楼', 7], ['南宜', 8], ['秘园', 9], ['威斯顿', 10],
   ]
   const seedPF = db.transaction(() => { pfData.forEach(f => insertPF.run(...f)) })
   seedPF()
@@ -995,19 +1042,84 @@ if (printerCount.cnt === 0) {
     'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
   )
   const printers: [string, string, string, string, string, string, string][] = [
-    ['-2F', '地下二层仓库', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
-    ['-1F', '地下一层配电间旁', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '彩色激光', '缺墨'],
-    ['1F', '一楼大厅服务台', 'Epson', 'L6190', 'Epson 002 原装墨水', '墨仓式', '正常'],
-    ['2F', '二楼前台接待处', 'Brother', 'DCP-L2550DW', 'Brother TN-2420', '备用机', '正常'],
-    ['3F', '三楼东区茶水间', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
-    ['3F', '三楼IT运维办公室', 'HP', 'LaserJet Pro M203dw', 'HP 30A (CF230A)', '', '正常'],
-    ['4F', '四楼市场部打印区', 'HP', 'Color LaserJet Pro M454dw', 'HP 414A 四色套装', '报修中', '故障'],
-    ['5F', '五楼财务部办公室', 'HP', 'LaserJet MFP M437n', 'HP 56A (CF256A)', '', '正常'],
-    ['-2F', '地下二层配电房', 'Xerox', 'WorkCentre 6515', 'Xerox 106R03780', '', '正常'],
-    ['3F', '三楼西区走廊', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '彩色激光', '缺墨'],
-    ['南宜', '南宜行政楼大堂', 'HP', 'LaserJet Pro M404dn', 'HP 58A (CF258A)', '', '正常'],
-    ['秘园', '秘园研发中心二楼', 'Canon', 'iR-ADV C3530', 'Canon NPG-67', '', '正常'],
-    ['威斯顿', '威斯顿综合楼前台', 'Brother', 'DCP-L2550DW', 'Brother TN-2420', '', '正常'],
+    ['负二楼', '后勤部', 'HP', 'M1132 MFP', '388A', '放在负二楼信息科闲置', '正常'],
+    ['负二楼', '库房', 'Epson', 'LQ-300K+Ⅱ', '', '', '正常'],
+    ['负二楼', '库房', 'Epson', 'LQ-300K+Ⅱ', '', '', '正常'],
+    ['负二楼', '库房', 'Epson', 'LQ-630KⅡ', '', '', '正常'],
+    ['负二楼', '库房', 'HP', 'M26NW', '', '', '正常'],
+    ['负二楼', '库房', 'HP', 'M154a', 'cf510/cf511/cf512/cf513', '', '正常'],
+    ['负二楼', '档案室', 'HP', 'M154a', 'cf510/cf511/cf512/cf513', '', '正常'],
+    ['负二楼', '公共区', 'Toshiba', 'e.STUDIO2020AC', '', '', '正常'],
+    ['负二楼', '人力', 'HP', 'M3388sdw', '2220A', '', '正常'],
+    ['负一楼', '客诉办', 'HP', '1020plus', '2612A', '', '正常'],
+    ['负一楼', '牙科医生办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['负一楼', '形体前台', 'HP', '3004DW', 'CF1460', '', '正常'],
+    ['负一楼', '纹绣', 'Brother', 'HL-B2050DN', 'B020粉', '未知待定', '正常'],
+    ['负一楼', 'CT间', 'Brother', 'HL-B2050DN', 'B020粉', '', '正常'],
+    ['负一楼', '牙科前台', 'Brother', 'HL-B2050DN', 'B020粉', '', '正常'],
+    ['负一楼', '医务办', 'HP', 'M281fdw', 'cf500/cf501/cf502/cf503', '', '正常'],
+    ['负一楼', '咨询经理办公室(原朱总办公室)', 'HP', 'M126a', '388A', '未知待定', '正常'],
+    ['负一楼', '微创前台', 'HP', 'M128 FN', '388A', '', '正常'],
+    ['负一楼', '微创药房', 'HP', 'P1007', '388A', '', '正常'],
+    ['负0.5', '通道办公区（原食堂）', 'HP', 'M281DNW', 'cf500/cf501/cf502/cf503', '', '正常'],
+    ['一楼', '监控室', 'HP', '3004DW', 'CF1460', '', '正常'],
+    ['一楼', '会籍', 'HP', '102W', 'W1680AC', '无线', '正常'],
+    ['一楼', '一楼大厅（向东）', 'HP', 'HP NS 1020W', '', '无线', '正常'],
+    ['一楼', '综合办公室', 'HP', 'M128 FN', '388A', '', '正常'],
+    ['一楼', '收费室', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '收费室', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '收费室', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '收费室', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '药房', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '心电图室', 'HP', 'P1007', '388A', '', '正常'],
+    ['一楼', '咨询一', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询二', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询三', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询五', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询六', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询七', 'Epson', 'L3255', '瓶装墨水（004）', '', '正常'],
+    ['一楼', '咨询八', 'Samsung', 'ml2161', '101', '', '正常'],
+    ['一楼', '咨询九', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询十', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询十一', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '咨询十二', 'Samsung', 'ml2161', '101', '', '正常'],
+    ['一楼', '检验科', 'HP', 'P1106', '388A', '', '正常'],
+    ['一楼', '检验科', 'Epson', 'L5198', '瓶装墨水（004）', '', '正常'],
+    ['二楼', '医生诊室一', 'Samsung', 'M2021W', '101', '', '正常'],
+    ['二楼', '医生诊室二', 'HP', '1020plus', '2612A', '', '正常'],
+    ['二楼', '医生诊室三', 'Brother', 'HL-B2050DN', 'B022粉', '', '正常'],
+    ['二楼', '综合办公室', 'HP', '1020plus', '2612A', '', '正常'],
+    ['二楼', '综合办公室', 'Brother', 'HL-B2050DN', 'B022粉', '', '正常'],
+    ['二楼', '综合办公室', 'Samsung', 'm2020', '101', '', '正常'],
+    ['二楼', 'visia', 'HP', 'm154a', 'cf510/cf511/cf512/cf513', '未知待定', '正常'],
+    ['二楼', '皮肤科护士站', 'HP', '403D', '288e', '', '正常'],
+    ['二楼', '皮肤科护士站', 'HP', '403D', '288e', '', '正常'],
+    ['二楼', '照相室(微创)', 'HP', 'm154a', 'cf510/cf511/cf512/cf513', '', '正常'],
+    ['二楼', '抗衰前台', 'HP', 'M254DW', 'cf500/cf501/cf502/cf503', '', '正常'],
+    ['三楼', '医生办公室', 'HP', 'PRO 403D', '228E/228a', '', '正常'],
+    ['三楼', '医生办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['三楼', '医生办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['三楼', '医生值班室', 'HP', 'P1106', '388A', '未知待定', '正常'],
+    ['三楼', '医生值班室旁边（刘芯宇）', 'Epson', 'L5198', '瓶装墨水（004）', '未知待定', '正常'],
+    ['三楼', '护士站', 'HP', 'P1106', '388A', '', '正常'],
+    ['三楼', '护士站', 'HP', 'MFP M180n', 'cf510/cf511/cf512/cf513', '', '正常'],
+    ['三楼', '护士站', 'Brother', 'TD-2020', '腕带打印机', '未用', '正常'],
+    ['三楼', '前台门诊', 'Epson', 'L5198', '瓶装墨水（004）', '', '正常'],
+    ['三楼', '前台门诊', 'Brother', 'TD-2020', '腕带打印机', '未用', '正常'],
+    ['四楼', '医生办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['四楼', '医生办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['四楼', '手术前台', 'HP', 'M254DW', 'cf500/cf501/cf502/cf503', '', '正常'],
+    ['四楼', '手术过道', 'HP', 'M254DW', 'cf500/cf501/cf502/cf503', '', '正常'],
+    ['四楼', '手术室护士长办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['四楼', '麻醉科', 'Brother', 'DCP-7180DN', 'TN-2325', '', '正常'],
+    ['四楼', '鼻部办公室', 'HP', 'P1106', '388A', '', '正常'],
+    ['五楼', '微创前台', 'Brother', 'HL-B2050DN', 'B020粉', '', '正常'],
+    ['五楼', '董事长办公室', 'Brother', 'HL-B2050DN', 'B020粉', '未知待定', '正常'],
+    ['五楼', '微创办公室', 'HP', 'M403D', '228E', '', '正常'],
+    ['南宜', '饮水机旁边', 'Toshiba', 'e.STUDIO2110AC', '', '', '正常'],
+    ['秘园', '二楼', 'HP', 'M154nw', 'cf510/cf511/cf512/cf513', '无线', '正常'],
+    ['威斯顿', '16楼', 'Epson', 'L360', '瓶装墨水', '', '正常'],
+    ['威斯顿', '16楼', 'HP', 'M254DW', 'cf500/cf501/cf502/cf503', '', '正常'],
   ]
   const seedPrinters = db.transaction(() => { printers.forEach(p => insertPrinter.run(...p)) })
   seedPrinters()
@@ -1084,7 +1196,7 @@ if (deptCount.cnt === 0) {
   seedProcDicts()
 }
 
-// 采购数据初始化
+// 采购数据初始化（种子数据，仅在表为空时插入；真实数据通过 scripts/import-procurement.mjs 导入）
 const cpCount = db.prepare('SELECT COUNT(*) as cnt FROM computer_procurement').get() as { cnt: number }
 if (cpCount.cnt === 0) {
   const insertCP = db.prepare(
@@ -1117,6 +1229,16 @@ if (ppCount.cnt === 0) {
   const seedPP = db.transaction(() => { ppData.forEach(r => insertPP.run(...r)) })
   seedPP()
   console.log(`[db] 已初始化 ${ppData.length} 条手机采购数据`)
+}
+
+// ATCOM 话机管理默认配置
+const configCount = db.prepare("SELECT COUNT(*) as cnt FROM system_config").get() as { cnt: number }
+if (configCount.cnt === 0) {
+  const insertCfg = db.prepare("INSERT OR IGNORE INTO system_config (key, value, description) VALUES (?, ?, ?)")
+  insertCfg.run('atcom_pbx_ip', '192.168.35.250', 'IPPBX200 PBX IP 地址')
+  insertCfg.run('atcom_pbx_user', 'admin', 'IPPBX200 登录用户名')
+  insertCfg.run('atcom_pbx_pass', 'admin', 'IPPBX200 登录密码')
+  console.log('[db] 已初始化 ATCOM 话机管理默认配置')
 }
 
 export default db

@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchLogs, clearLogs } from '../../api/admin'
 import { Search } from '@element-plus/icons-vue'
+import { formatTime } from '../../utils/format'
 
 const logs = ref<any[]>([])
 const loading = ref(false)
@@ -67,11 +68,6 @@ async function handleClear() {
   } catch (e: any) {
     if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
   }
-}
-
-function formatTime(t: string) {
-  if (!t) return ''
-  return t.replace('T', ' ').slice(0, 19)
 }
 
 function getActionType(action: string): string {

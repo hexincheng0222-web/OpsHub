@@ -31,21 +31,27 @@ export const useOperationsStore = defineStore('operations', () => {
 
   // ---- 文件夹 ----
   async function addFolder(name: string) {
-    const folder = await api.createFolder(name)
-    folders.value.push(folder)
-    return folder
+    try {
+      const folder = await api.createFolder(name)
+      folders.value.push(folder)
+      return folder
+    } catch (e) { console.error('[operations] 新建文件夹失败:', e); throw e }
   }
 
   async function deleteFolder(id: string) {
-    await api.deleteFolder(id)
-    folders.value = folders.value.filter(f => f.id !== id)
-    manuals.value = manuals.value.filter(m => m.folderId !== id)
+    try {
+      await api.deleteFolder(id)
+      folders.value = folders.value.filter(f => f.id !== id)
+      manuals.value = manuals.value.filter(m => m.folderId !== id)
+    } catch (e) { console.error('[operations] 删除文件夹失败:', e); throw e }
   }
 
   async function renameFolder(id: string, name: string) {
-    await api.updateFolder(id, name)
-    const f = folders.value.find(f => f.id === id)
-    if (f) f.name = name
+    try {
+      await api.updateFolder(id, name)
+      const f = folders.value.find(f => f.id === id)
+      if (f) f.name = name
+    } catch (e) { console.error('[operations] 重命名失败:', e); throw e }
   }
 
   // ---- 文档 ----
@@ -56,24 +62,26 @@ export const useOperationsStore = defineStore('operations', () => {
   function getDoc(id: number) { return manuals.value.find(m => m.id === id) }
 
   async function addDoc(doc: { title: string; content: string; folderId: string }) {
-    const created = await api.createDoc(doc)
-    manuals.value.unshift(created)
-    return created
+    try {
+      const created = await api.createDoc(doc)
+      manuals.value.unshift(created)
+      return created
+    } catch (e) { console.error('[operations] 新建文档失败:', e); throw e }
   }
 
   async function updateDoc(id: number, data: Partial<ManualDoc>) {
-    const updated = await api.updateDoc(id, {
-      title: data.title,
-      content: data.content,
-      folderId: data.folderId,
-    })
-    const idx = manuals.value.findIndex(m => m.id === id)
-    if (idx !== -1) manuals.value[idx] = updated
+    try {
+      const updated = await api.updateDoc(id, { title: data.title, content: data.content, folderId: data.folderId })
+      const idx = manuals.value.findIndex(m => m.id === id)
+      if (idx !== -1) manuals.value[idx] = updated
+    } catch (e) { console.error('[operations] 更新文档失败:', e); throw e }
   }
 
   async function deleteDoc(id: number) {
-    await api.deleteDoc(id)
-    manuals.value = manuals.value.filter(m => m.id !== id)
+    try {
+      await api.deleteDoc(id)
+      manuals.value = manuals.value.filter(m => m.id !== id)
+    } catch (e) { console.error('[operations] 删除文档失败:', e); throw e }
   }
 
   // ---- stats (for HomeView) ----

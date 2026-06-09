@@ -57,3 +57,16 @@ export async function fetchOverview() {
   const { data } = await request(`${BASE}/overview/stats`)
   return data
 }
+
+// 系统配置
+export async function fetchConfig() {
+  const { data } = await request(`${BASE}/config/list`)
+  return data
+}
+
+export async function saveConfig(configs: Array<{ key: string; value: string }>) {
+  return request(`${BASE}/config`, {
+    method: 'PUT',
+    body: JSON.stringify({ configs }),
+  })
+}

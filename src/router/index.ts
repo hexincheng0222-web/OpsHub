@@ -46,6 +46,18 @@ const router = createRouter({
       meta: { title: '手机采购' }
     },
     {
+      path: '/phones',
+      name: 'Phones',
+      component: () => import('../views/PhonesView.vue'),
+      meta: { title: 'ATCOM话机管理' }
+    },
+    {
+      path: '/phonebook',
+      name: 'Phonebook',
+      component: () => import('../views/PhonebookView.vue'),
+      meta: { title: '电话簿管理' }
+    },
+    {
       path: '/printers',
       name: 'Printers',
       component: () => import('../views/PrintersView.vue'),
@@ -74,7 +86,14 @@ const router = createRouter({
         { path: 'procurement/phone-models', name: 'AdminPhoneModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'phone-models', title: '手机型号' } },
         { path: 'procurement/computer-purchase-models', name: 'AdminComputerPurchaseModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'computer-purchase-models', title: '电脑采购型号' } },
         { path: 'procurement/computer-device-models', name: 'AdminComputerDeviceModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'computer-device-models', title: '电脑设备型号' } },
+        { path: 'atcom-config', name: 'AdminAtcomConfig', component: () => import('../views/admin/AdminAtcomConfig.vue'), meta: { title: 'ATCOM话机配置' } },
       ]
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/NotFound.vue'),
+      meta: { title: '页面不存在' }
     }
   ]
 })

@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { fetchOverview } from '../../api/admin'
 import { Monitor, Connection, Printer, FolderOpened, Document, DataBoard, Cellphone } from '@element-plus/icons-vue'
+import { formatTime } from '../../utils/format'
 
 const stats = ref<any>({})
 const loading = ref(true)
@@ -34,11 +35,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-function formatTime(t: string) {
-  if (!t) return ''
-  return t.replace('T', ' ').slice(0, 19)
-}
 </script>
 
 <template>
