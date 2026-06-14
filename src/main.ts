@@ -13,14 +13,14 @@ import './styles/global.css'
 const app = createApp(App)
 
 // 全局错误处理
-app.config.errorHandler = (err, instance, info) => {
+app.config.errorHandler = (err, _instance, info) => {
   console.error('[Vue Error]', err, info)
   ElMessage.error('页面发生错误，请刷新重试')
 }
-app.onUnhandledrejection = (event) => {
+window.addEventListener('unhandledrejection', (event) => {
   console.error('[Unhandled Rejection]', event.reason)
   event.preventDefault()
-}
+})
 
 // 注册所有 Element Plus 图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

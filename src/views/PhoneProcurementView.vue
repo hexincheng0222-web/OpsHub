@@ -145,7 +145,7 @@
         </div>
       </template>
       <template #footer>
-        <el-button type="danger" plain @click="handleDelete(selectedRow)">删除</el-button>
+        <el-button type="danger" plain @click="selectedRow && handleDelete(selectedRow)">删除</el-button>
         <div style="flex:1" />
         <el-button @click="drawerVisible = false">关闭</el-button>
         <el-button type="primary" @click="openEditDialog(selectedRow)">编辑</el-button>

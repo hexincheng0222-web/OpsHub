@@ -192,7 +192,6 @@ import type { ManualDoc, ManualFolder } from '../mock/operations'
 const router = useRouter()
 const store = useOperationsStore()
 const loading = ref(true)
-const sbListRef = ref<HTMLElement>()
 
 // Marked config — custom heading renderer for header IDs
 const renderer = new marked.Renderer()

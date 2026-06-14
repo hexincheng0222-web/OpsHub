@@ -336,7 +336,6 @@ const floorGroups = computed((): FloorGroup[] => {
 })
 
 const selectedIds = ref(new Set<number>())
-function toggleOne(id: number) { const n = new Set(selectedIds.value); n.has(id) ? n.delete(id) : n.add(id); selectedIds.value = n }
 function toggleRow(row: TableRow) { const all = row.ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) row.ids.forEach(id => n.delete(id)); else row.ids.forEach(id => n.add(id)); selectedIds.value = n }
 function toggleGroupAll(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
 function groupAllSelected(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); return ids.length > 0 && ids.every(id => selectedIds.value.has(id)) }

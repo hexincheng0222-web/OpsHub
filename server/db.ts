@@ -6,7 +6,10 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const DB_PATH = path.resolve(__dirname, '../data/opshub.db')
+// 优先使用环境变量，回退到默认路径
+const DB_PATH = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.resolve(__dirname, '../data/opshub.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 const db = new Database(DB_PATH)
