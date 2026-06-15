@@ -1,8 +1,9 @@
-// PM2 配置文件 —— 宝塔 Node 项目管理器直接使用
+// PM2 配置文件
+// 使用方法: npx pm2 start ecosystem.config.cjs
 module.exports = {
   apps: [
     {
-      name: 'opshub-server',
+      name: 'opshub',
       script: 'tsx',
       args: 'server/index.ts',
       cwd: __dirname,
@@ -13,6 +14,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
+        DB_PATH: './data/opshub.db',
       },
     },
   ],

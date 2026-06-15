@@ -1,31 +1,14 @@
 // src/api/services.ts
 import type { Service } from '../mock/services'
+import { request } from '../utils/http'
 
 const BASE = '/api/v1/services'
-
-interface ApiResponse<T> {
-  code: number
-  data: T
-  message?: string
-}
 
 interface PaginatedList {
   list: Service[]
   total: number
   page: number
   pageSize: number
-}
-
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  const json: ApiResponse<T> = await res.json()
-  if (json.code >= 400) {
-    throw new Error(json.message || `HTTP ${json.code}`)
-  }
-  return json.data
 }
 
 // 1. 获取服务列表

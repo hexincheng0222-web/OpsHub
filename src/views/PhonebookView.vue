@@ -108,14 +108,14 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, ArrowDown } from '@element-plus/icons-vue'
-
-const BASE = '/api/v1/phones'
+import * as phonebookApi from '../api/phonebook'
+import type { PhonebookContact } from '../api/phonebook'
 
 const loading = ref(false)
-const contacts = ref<any[]>([])
+const contacts = ref<PhonebookContact[]>([])
 const searchInput = ref('')
 const search = ref('')
-let searchTimer: any = null
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchInput, v => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { search.value = v }, 300) })
 const filterType = ref('')
 const page = ref(1)
@@ -138,8 +138,9 @@ const pagedData = computed(() => { const s = (page.value - 1) * pageSize; return
 async function loadContacts() {
   loading.value = true
   try {
-    const res = await fetch(`${BASE}/phonebook`).then(r => r.json())
-    if (res.code === 200) contacts.value = res.data
+    contacts.value = await phonebookApi.fetchPhonebook()
+  } catch (e: any) {
+    ElMessage.error(e.message || '加载电话簿失败')
   } finally { loading.value = false }
 }
 
@@ -150,11 +151,11 @@ const dialogVisible = ref(false)
 const editId = ref<number | null>(null)
 const formRef = ref()
 const saving = ref(false)
-const form = reactive({ name: '', number: '', department: '', position: '', type: 'external', notes: '' })
+const form = reactive({ name: '', number: '', department: '', position: '', type: 'external' as 'internal' | 'external', notes: '' })
 const rules = { name: [{ required: true, message: '请输入姓名', trigger: 'blur' }], number: [{ required: true, message: '请输入号码', trigger: 'blur' }] }
 
-function openAdd() { editId.value = null; Object.assign(form, { name: '', number: '', department: '', position: '', type: 'external', notes: '' }); dialogVisible.value = true }
-function openEdit(row: any) { editId.value = row.id; Object.assign(form, row); dialogVisible.value = true }
+function openAdd() { editId.value = null; Object.assign(form, { name: '', number: '', department: '', position: '', type: 'external' as const, notes: '' }); dialogVisible.value = true }
+function openEdit(row: PhonebookContact) { editId.value = row.id; Object.assign(form, row); dialogVisible.value = true }
 
 async function handleSave() {
   if (!formRef.value) return
@@ -162,10 +163,10 @@ async function handleSave() {
   saving.value = true
   try {
     if (editId.value) {
-      await fetch(`${BASE}/phonebook/${editId.value}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      await phonebookApi.updateContact(editId.value, { ...form })
       ElMessage.success('修改成功')
     } else {
-      await fetch(`${BASE}/phonebook`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      await phonebookApi.createContact({ ...form })
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false
@@ -174,21 +175,21 @@ async function handleSave() {
   finally { saving.value = false }
 }
 
-async function handleDelete(row: any) {
+async function handleDelete(row: PhonebookContact) {
   await ElMessageBox.confirm(`确定删除联系人「${row.name}」？`, '删除确认', { type: 'warning' })
-  await fetch(`${BASE}/phonebook/${row.id}`, { method: 'DELETE' })
+  await phonebookApi.deleteContact(row.id)
   ElMessage.success('已删除')
   loadContacts()
 }
 
-function onSelectionChange(rows: any[]) { selectedIds.value = rows.map(r => r.id) }
+function onSelectionChange(rows: PhonebookContact[]) { selectedIds.value = rows.map(r => r.id) }
 
 async function handleAction(cmd: string) {
   if (cmd === 'import') (document.querySelector('input[type=file]') as HTMLInputElement)?.click()
   else if (cmd === 'deploy') openDeploy()
   else if (cmd === 'batchDelete') {
     await ElMessageBox.confirm(`确定删除 ${selectedIds.value.length} 条联系人？`, '批量删除', { type: 'warning' })
-    await fetch(`${BASE}/phonebook/batch-delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: selectedIds.value }) })
+    await phonebookApi.batchDeleteContacts(selectedIds.value)
     ElMessage.success('已删除')
     loadContacts()
   }
@@ -199,9 +200,9 @@ const syncing = ref(false)
 async function syncFromPbx() {
   syncing.value = true
   try {
-    const res = await fetch(`${BASE}/phonebook/sync-from-pbx`, { method: 'POST' }).then(r => r.json())
-    if (res.code === 200) { ElMessage.success(`同步完成，${res.data.synced} 个分机`); loadContacts() }
-    else ElMessage.error(res.message)
+    const result = await phonebookApi.syncFromPbx()
+    ElMessage.success(`同步完成，${result.synced} 个分机`)
+    loadContacts()
   } catch (e: any) { ElMessage.error(e.message || '同步失败') }
   finally { syncing.value = false }
 }
@@ -218,8 +219,7 @@ async function openDeploy() {
   deployPhones.value = []
   selectAll.value = false
   try {
-    const res = await fetch(`${BASE}`).then(r => r.json())
-    if (res.code === 200) phones.value = (res.data || []).filter((d: any) => d.online)
+    phones.value = await phonebookApi.fetchOnlinePhones()
   } catch { phones.value = [] }
   deployVisible.value = true
 }
@@ -228,9 +228,9 @@ function toggleSelectAll(v: boolean) { deployPhones.value = v ? phones.value.map
 async function doDeploy() {
   deploying.value = true
   try {
-    const res = await fetch(`${BASE}/phonebook/deploy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phoneIds: deployPhones.value, mode: deployMode.value }) }).then(r => r.json())
-    if (res.code === 200) { ElMessage.success(`推送完成：成功 ${res.data.success}，失败 ${res.data.failed}`); deployVisible.value = false }
-    else ElMessage.error(res.message)
+    const result = await phonebookApi.deployPhonebook(deployPhones.value, deployMode.value)
+    ElMessage.success(`推送完成：成功 ${result.success}，失败 ${result.failed}`)
+    deployVisible.value = false
   } catch (e: any) { ElMessage.error(e.message || '推送失败') }
   finally { deploying.value = false }
 }
@@ -239,15 +239,19 @@ async function doDeploy() {
 async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
-  const XLSX = await import('xlsx')
-  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
-  const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 }) as any[][]
-  if (data.length < 2) { ElMessage.warning('文件无数据'); return }
-  const rows = data.slice(1).filter(r => r[0] && r[1]).map(r => ({ name: String(r[0]).trim(), number: String(r[1]).trim(), department: String(r[2] || '').trim(), position: String(r[3] || '').trim(), type: 'external', notes: String(r[4] || '').trim() }))
-  if (!rows.length) { ElMessage.warning('无有效数据'); return }
-  const res = await fetch(`${BASE}/phonebook/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) }).then(r => r.json())
-  if (res.code === 200) { ElMessage.success(`导入 ${res.data.imported} 条`); loadContacts() }
-  else ElMessage.error(res.message)
+  try {
+    const XLSX = await import('xlsx')
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 }) as any[][]
+    if (data.length < 2) { ElMessage.warning('文件无数据'); return }
+    const rows = data.slice(1).filter(r => r[0] && r[1]).map(r => ({ name: String(r[0]).trim(), number: String(r[1]).trim(), department: String(r[2] || '').trim(), position: String(r[3] || '').trim(), type: 'external' as const, notes: String(r[4] || '').trim() }))
+    if (!rows.length) { ElMessage.warning('无有效数据'); return }
+    const result = await phonebookApi.importContacts(rows)
+    ElMessage.success(`导入 ${result.imported} 条`)
+    loadContacts()
+  } catch (e: any) {
+    ElMessage.error(e.message || '导入失败')
+  }
   ;(e.target as HTMLInputElement).value = ''
 }
 </script>

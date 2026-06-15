@@ -1,4 +1,5 @@
 // src/api/phones.ts
+
 const BASE = '/api/v1/phones'
 
 export interface PhoneDevice {
@@ -6,6 +7,7 @@ export interface PhoneDevice {
   cfgId: string
   extension: string
   ip: string
+  lastIp?: string
   address: string
   status: string
   delay: string
@@ -30,7 +32,10 @@ export async function fetchPhones(): Promise<PhonesResponse> {
   const res = await fetch(BASE, {
     headers: { 'Content-Type': 'application/json' },
   })
-  return await res.json()
+  if (!res.ok) throw new Error(`HTTP ${res.status}: 获取话机列表失败`)
+  const json: PhonesResponse = await res.json()
+  if (json.code >= 400) throw new Error(json.message || `错误码 ${json.code}`)
+  return json
 }
 
 // 强制刷新（清除后端缓存，重新从 IPPBX 拉取）
@@ -38,5 +43,8 @@ export async function refreshPhones(): Promise<PhonesResponse> {
   const res = await fetch(`${BASE}/refresh`, {
     headers: { 'Content-Type': 'application/json' },
   })
-  return await res.json()
+  if (!res.ok) throw new Error(`HTTP ${res.status}: 刷新话机列表失败`)
+  const json: PhonesResponse = await res.json()
+  if (json.code >= 400) throw new Error(json.message || `错误码 ${json.code}`)
+  return json
 }

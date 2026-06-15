@@ -1,24 +1,9 @@
 // src/api/devices.ts
 import type { Device } from '../mock/devices'
+import { request } from '../utils/http'
 
 const BASE_RACKS = '/api/v1/racks'
 const BASE_DEVICES = '/api/v1/devices'
-
-interface ApiResponse<T> {
-  code: number
-  data: T
-  message?: string
-}
-
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  const json: ApiResponse<T> = await res.json()
-  if (json.code >= 400) throw new Error(json.message || `HTTP ${json.code}`)
-  return json.data
-}
 
 // 1. 获取所有机柜
 export async function fetchRacks(floor?: string): Promise<{ racks: any[]; stats: any }> {

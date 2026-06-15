@@ -78,6 +78,7 @@ router.get('/categories', (_req: Request, res: Response) => {
 // 3. 获取单个服务
 router.get('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const row = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!row) {
     return res.status(404).json({ code: 404, message: '服务不存在' })
@@ -120,6 +121,7 @@ router.post('/', (req: Request, res: Response) => {
 // 4. 全量更新
 router.put('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!existing) {
     return res.status(404).json({ code: 404, message: '服务不存在' })
@@ -148,6 +150,7 @@ router.put('/:id', (req: Request, res: Response) => {
 // 5. 部分更新
 router.patch('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!existing) {
     return res.status(404).json({ code: 404, message: '服务不存在' })
@@ -195,6 +198,7 @@ router.patch('/:id', (req: Request, res: Response) => {
 // 6. 删除服务
 router.delete('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const result = db.prepare('DELETE FROM services WHERE id = ?').run(id)
   if (result.changes === 0) {
     return res.status(404).json({ code: 404, message: '服务不存在' })
@@ -248,6 +252,7 @@ router.post('/check-all', async (_req: Request, res: Response) => {
 // 8. 单个检测连通性
 router.post('/:id/check', async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id) as any
   if (!svc) {
     return res.status(404).json({ code: 404, message: '服务不存在' })

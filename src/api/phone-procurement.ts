@@ -1,13 +1,7 @@
 import type { PhoneProcurement } from '../stores/procurement'
+import { request } from '../utils/http'
 
 const BASE = '/api/v1/phone-procurement'
-
-async function request<T>(url: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts })
-  const json = await res.json()
-  if (json.code >= 400) throw new Error(json.message || `HTTP ${json.code}`)
-  return json.data
-}
 
 function fromApi(r: any): PhoneProcurement {
   return {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as computerApi from '../api/computer-procurement'
 import * as phoneApi from '../api/phone-procurement'
+import { ElMessage } from 'element-plus'
 
 export interface ComputerProcurement {
   id: number
@@ -47,10 +48,18 @@ export interface PhoneProcurement {
 export const useComputerProcurementStore = defineStore('computerProcurement', () => {
   const computers = ref<ComputerProcurement[]>([])
   const total = computed(() => computers.value.length)
+  const loading = ref(false)
 
   async function loadComputers(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
-    const { list } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
-    computers.value = list
+    loading.value = true
+    try {
+      const { list } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
+      computers.value = list
+    } catch (e: any) {
+      ElMessage.error(e.message || '加载电脑采购数据失败')
+    } finally {
+      loading.value = false
+    }
   }
 
   async function addComputer(c: Omit<ComputerProcurement, 'id'>) {
@@ -81,17 +90,25 @@ export const useComputerProcurementStore = defineStore('computerProcurement', ()
     return result
   }
 
-  return { computers, total, loadComputers, addComputer, updateComputer, deleteComputer, batchDelete, batchImport }
+  return { computers, total, loading, loadComputers, addComputer, updateComputer, deleteComputer, batchDelete, batchImport }
 })
 
 // ===== 手机采购 Store =====
 export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
   const phones = ref<PhoneProcurement[]>([])
   const total = computed(() => phones.value.length)
+  const loading = ref(false)
 
   async function loadPhones(params?: { page?: number; pageSize?: number; search?: string; department?: string; purchaseType?: string }) {
-    const { list } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
-    phones.value = list
+    loading.value = true
+    try {
+      const { list } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
+      phones.value = list
+    } catch (e: any) {
+      ElMessage.error(e.message || '加载手机采购数据失败')
+    } finally {
+      loading.value = false
+    }
   }
 
   async function addPhone(p: Omit<PhoneProcurement, 'id'>) {
@@ -122,5 +139,5 @@ export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
     return result
   }
 
-  return { phones, total, loadPhones, addPhone, updatePhone, deletePhone, batchDelete, batchImport }
+  return { phones, total, loading, loadPhones, addPhone, updatePhone, deletePhone, batchDelete, batchImport }
 })

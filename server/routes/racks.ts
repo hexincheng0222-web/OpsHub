@@ -27,35 +27,37 @@ router.get('/stats', (_req: Request, res: Response) => {
   const normalDevices = devices.filter(d => d.status === '正常').length
   const offlineDevices = devices.filter(d => d.status === '停用').length
 
+  // 一次性查询所有楼层的已用 U 位数
+  const floorUsedU = db.prepare(`
+    SELECT r.floor, COUNT(*) as cnt FROM rack_slots rs
+    JOIN racks r ON r.id = rs.rack_id
+    WHERE rs.device_id IS NOT NULL
+    GROUP BY r.floor
+  `).all() as any[]
+  const floorUsedMap: Record<string, number> = {}
+  for (const row of floorUsedU) floorUsedMap[row.floor] = row.cnt
+
+  // 一次性查询所有类型的设备数
+  const typeRows = db.prepare(`
+    SELECT d.type, COUNT(DISTINCT d.id) as cnt FROM devices d
+    JOIN rack_slots rs ON rs.device_id = d.id
+    GROUP BY d.type
+  `).all() as any[]
+  const byType: Record<string, number> = { server: 0, switch: 0, storage: 0, router: 0, firewall: 0, ups: 0, pdu: 0 }
+  for (const row of typeRows) byType[row.type] = row.cnt
+
   // 按楼层统计
   const byFloor: Record<string, any> = {}
   for (const f of getFloors()) {
     const floorRacks = racks.filter(r => r.floor === f)
     const totalU = floorRacks.reduce((sum, r) => sum + r.total_u, 0)
-    const usedSlots = db.prepare(`
-      SELECT COUNT(*) as cnt FROM rack_slots rs
-      JOIN racks r ON r.id = rs.rack_id
-      WHERE r.floor = ? AND rs.device_id IS NOT NULL
-    `).get(f) as any
-    const usedU = usedSlots.cnt
+    const usedU = floorUsedMap[f] || 0
     byFloor[f] = {
       racks: floorRacks.length,
       totalU,
       usedU,
       usage: totalU > 0 ? Math.round((usedU / totalU) * 100) : 0,
     }
-  }
-
-  // 按类型统计
-  const byType: Record<string, number> = {}
-  const types = ['server', 'switch', 'storage', 'router', 'firewall', 'ups', 'pdu']
-  for (const t of types) {
-    const cnt = db.prepare(`
-      SELECT COUNT(DISTINCT d.id) as cnt FROM devices d
-      JOIN rack_slots rs ON rs.device_id = d.id
-      WHERE d.type = ?
-    `).get(t) as any
-    byType[t] = cnt.cnt
   }
 
   const totalU = racks.reduce((sum, r) => sum + r.total_u, 0)
@@ -89,33 +91,48 @@ router.get('/', (req: Request, res: Response) => {
 
   const racks = db.prepare(racksQuery).all(...params) as any[]
 
-  const rackList = racks.map(rack => {
-    const deviceCount = db.prepare(
-      'SELECT COUNT(DISTINCT device_id) as cnt FROM rack_slots WHERE rack_id = ? AND device_id IS NOT NULL'
-    ).get(rack.id) as any
-    const usedU = db.prepare(
-      'SELECT COUNT(*) as cnt FROM rack_slots WHERE rack_id = ? AND device_id IS NOT NULL'
-    ).get(rack.id) as any
+  // 一次性查询所有机柜的设备数和已用 U 位
+  const slotStats = db.prepare(`
+    SELECT rack_id,
+           COUNT(DISTINCT device_id) as deviceCount,
+           COUNT(*) as usedU
+    FROM rack_slots
+    WHERE device_id IS NOT NULL
+    GROUP BY rack_id
+  `).all() as any[]
+  const slotStatsMap: Record<string, { deviceCount: number; usedU: number }> = {}
+  for (const row of slotStats) slotStatsMap[row.rack_id] = { deviceCount: row.deviceCount, usedU: row.usedU }
 
+  const rackList = racks.map(rack => {
+    const stats = slotStatsMap[rack.id] || { deviceCount: 0, usedU: 0 }
     return {
       id: rack.id,
       name: rack.name,
       floor: rack.floor,
       totalU: rack.total_u,
-      deviceCount: deviceCount.cnt,
-      usedU: usedU.cnt,
+      deviceCount: stats.deviceCount,
+      usedU: stats.usedU,
     }
   })
 
-  // 统计
-  const allDevices = db.prepare(`
-    SELECT DISTINCT d.* FROM devices d JOIN rack_slots rs ON rs.device_id = d.id
+  // 统计：一次性查询设备状态分布
+  const statusCounts = db.prepare(`
+    SELECT d.status, COUNT(DISTINCT d.id) as cnt FROM devices d
+    JOIN rack_slots rs ON rs.device_id = d.id
+    GROUP BY d.status
   `).all() as any[]
 
+  let normalDevices = 0
+  let totalDevices = 0
+  for (const row of statusCounts) {
+    totalDevices += row.cnt
+    if (row.status === '正常') normalDevices = row.cnt
+  }
+
   const stats = {
-    totalDevices: allDevices.length,
-    normalDevices: allDevices.filter(d => d.status === '正常').length,
-    offlineDevices: allDevices.filter(d => d.status === '停用').length,
+    totalDevices,
+    normalDevices,
+    offlineDevices: totalDevices - normalDevices,
     totalRacks: racks.length,
     overallUsage: 0,
   }
@@ -215,68 +232,88 @@ router.post('/', (req: Request, res: Response) => {
 
 // ============ 3. 更新机柜 ============
 router.put('/:id', (req: Request, res: Response) => {
-  const id = req.params.id
-  const existing = db.prepare('SELECT * FROM racks WHERE id = ?').get(id)
-  if (!existing) return res.status(404).json({ code: 404, message: '机柜不存在' })
+  try {
+    const id = req.params.id
+    const existing = db.prepare('SELECT * FROM racks WHERE id = ?').get(id)
+    if (!existing) return res.status(404).json({ code: 404, message: '机柜不存在' })
 
-  const { name, floor } = req.body
-  if (!name) return res.status(400).json({ code: 400, message: 'name 为必填项' })
+    const { name, floor } = req.body
+    if (!name) return res.status(400).json({ code: 400, message: 'name 为必填项' })
 
-  db.prepare("UPDATE racks SET name = ?, floor = ?, updated_at = datetime('now') WHERE id = ?").run(name, floor || (existing as any).floor, id)
+    db.prepare("UPDATE racks SET name = ?, floor = ?, updated_at = datetime('now') WHERE id = ?").run(name, floor || (existing as any).floor, id)
 
-  const updated = db.prepare('SELECT * FROM racks WHERE id = ?').get(id)
-  res.json({ code: 200, data: updated })
+    const updated = db.prepare('SELECT * FROM racks WHERE id = ?').get(id)
+    res.json({ code: 200, data: updated })
+  } catch (err: any) {
+    console.error('[server] 更新机柜失败:', err.message)
+    res.status(500).json({ code: 500, message: '更新机柜失败' })
+  }
 })
 
 // ============ 4. 删除机柜 ============
 router.delete('/:id', (req: Request, res: Response) => {
-  const id = req.params.id
-  const result = db.prepare('DELETE FROM racks WHERE id = ?').run(id)
-  if (result.changes === 0) return res.status(404).json({ code: 404, message: '机柜不存在' })
-  res.status(204).send()
+  try {
+    const id = req.params.id
+    const result = db.prepare('DELETE FROM racks WHERE id = ?').run(id)
+    if (result.changes === 0) return res.status(404).json({ code: 404, message: '机柜不存在' })
+    res.status(204).send()
+  } catch (err: any) {
+    console.error('[server] 删除机柜失败:', err.message)
+    res.status(500).json({ code: 500, message: '删除机柜失败' })
+  }
 })
 
 // ============ 6. 添加设备到机柜 ============
 router.post('/:rackId/devices', (req: Request, res: Response) => {
-  const rackId = req.params.rackId
-  const rack = db.prepare('SELECT * FROM racks WHERE id = ?').get(rackId) as any
-  if (!rack) return res.status(404).json({ code: 404, message: '机柜不存在' })
+  try {
+    const rackId = req.params.rackId
+    const rack = db.prepare('SELECT * FROM racks WHERE id = ?').get(rackId) as any
+    if (!rack) return res.status(404).json({ code: 404, message: '机柜不存在' })
 
-  const { name, type, model, u = 1, uOffset, ports = 0, status = '正常', ip} = req.body
+    const { name, type, model, u = 1, uOffset, ports = 0, status = '正常', ip} = req.body
 
-  if (!name || !type || !model || uOffset === undefined) {
-    return res.status(400).json({ code: 400, message: 'name、type、model、uOffset 为必填项' })
+    if (!name || !type || !model || uOffset === undefined) {
+      return res.status(400).json({ code: 400, message: 'name、type、model、uOffset 为必填项' })
+    }
+
+    // 检查 U 位是否可用
+    const occupied = db.prepare(`
+      SELECT u_offset, u_size FROM rack_slots
+      WHERE rack_id = ? AND device_id IS NOT NULL
+      AND u_offset < ? AND u_offset + u_size > ?
+    `).all(rackId, uOffset + u, uOffset) as any[]
+
+    if (occupied.length > 0) {
+      return res.status(409).json({ code: 409, message: 'U 位被占用，无法放置' })
+    }
+
+    // 使用事务保证设备创建和 slot 操作的原子性
+    const addDevice = db.transaction(() => {
+      const devResult = db.prepare(`
+        INSERT INTO devices (name, type, model, u, ports, status, ip)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(name, type, model, u, ports, status, ip || null)
+
+      const deviceId = devResult.lastInsertRowid
+
+      // 删除目标位置的空 slot
+      db.prepare('DELETE FROM rack_slots WHERE rack_id = ? AND device_id IS NULL AND u_offset >= ? AND u_offset < ?')
+        .run(rackId, uOffset, uOffset + u)
+
+      // 插入设备 slot
+      db.prepare('INSERT INTO rack_slots (rack_id, device_id, u_offset, u_size) VALUES (?, ?, ?, ?)')
+        .run(rackId, deviceId, uOffset, u)
+
+      return deviceId
+    })
+
+    const deviceId = addDevice()
+    const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId)
+    res.status(201).json({ code: 201, data: device })
+  } catch (err: any) {
+    console.error('[server] 添加设备到机柜失败:', err.message)
+    res.status(500).json({ code: 500, message: '添加设备失败' })
   }
-
-  // 检查 U 位是否可用
-  const occupied = db.prepare(`
-    SELECT u_offset, u_size FROM rack_slots
-    WHERE rack_id = ? AND device_id IS NOT NULL
-    AND u_offset < ? AND u_offset + u_size > ?
-  `).all(rackId, uOffset + u, uOffset) as any[]
-
-  if (occupied.length > 0) {
-    return res.status(409).json({ code: 409, message: 'U 位被占用，无法放置' })
-  }
-
-  // 创建设备
-  const devResult = db.prepare(`
-    INSERT INTO devices (name, type, model, u, ports, status, ip)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(name, type, model, u, ports, status, ip || null)
-
-  const deviceId = devResult.lastInsertRowid
-
-  // 删除目标位置的空 slot
-  db.prepare('DELETE FROM rack_slots WHERE rack_id = ? AND device_id IS NULL AND u_offset >= ? AND u_offset < ?')
-    .run(rackId, uOffset, uOffset + u)
-
-  // 插入设备 slot
-  db.prepare('INSERT INTO rack_slots (rack_id, device_id, u_offset, u_size) VALUES (?, ?, ?, ?)')
-    .run(rackId, deviceId, uOffset, u)
-
-  const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId)
-  res.status(201).json({ code: 201, data: device })
 })
 
 export default router
