@@ -4,7 +4,7 @@ module.exports = {
   apps: [
     {
       name: 'opshub',
-      script: 'tsx',
+      script: 'node_modules/.bin/tsx',
       args: 'server/index.ts',
       cwd: __dirname,
       instances: 1,
