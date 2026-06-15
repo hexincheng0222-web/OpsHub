@@ -283,7 +283,7 @@ function insertTab() {
 .ed-input-author:focus { border-color: var(--ops-accent-blue); }
 .ed-error {
   padding: 4px 16px;
-  color: #f87171; font-size: 12px;
+  color: var(--ops-accent-red); font-size: 12px;
   font-weight: 600; flex-shrink: 0;
   border-bottom: 1px solid var(--ops-border-card);
   background: rgba(220,50,50,0.08);
@@ -343,14 +343,14 @@ function insertTab() {
   background: var(--ops-bg-card-hover);
   padding: 2px 6px; border-radius: 4px;
   font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 13px; color: #e3b341;
+  font-size: 13px; color: var(--ops-accent-yellow);
 }
 .markdown-body :deep(pre) {
-  background: #0d1117; border: 1px solid #21262d;
+  background: var(--ops-bg-code); border: 1px solid var(--ops-border-code);
   border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0;
 }
 .markdown-body :deep(pre code) {
-  background: none; padding: 0; color: #c9d1d9; font-size: 13px;
+  background: none; padding: 0; color: var(--ops-text-code); font-size: 13px;
 }
 .markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; }
 .markdown-body :deep(th) {

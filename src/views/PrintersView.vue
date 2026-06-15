@@ -408,7 +408,7 @@ async function savePrinter() {
 .floor-tab:hover { border-color: var(--ops-accent-blue); color: var(--ops-text-primary); }
 .floor-tab.active { background: rgba(88,166,255,0.12); border-color: var(--ops-accent-blue); color: var(--ops-accent-blue); font-weight: 600; }
 .floor-tab-count { font-size: 10px; background: rgba(88,166,255,0.1); color: var(--ops-accent-blue); padding: 1px 6px; border-radius: 10px; font-weight: 600; }
-.sel-del-btn { background: rgba(220,50,50,0.1); color: #f87171; border: 1px solid rgba(220,50,50,0.2); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
+.sel-del-btn { background: rgba(220,50,50,0.1); color: var(--ops-accent-red); border: 1px solid rgba(220,50,50,0.2); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
 .sel-del-btn:hover { background: rgba(220,50,50,0.2); }
 .sel-clr-btn { background: none; color: var(--ops-text-tertiary); border: 1px solid var(--ops-border-card); padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
 .sel-clr-btn:hover { color: var(--ops-text-primary); }
@@ -481,9 +481,9 @@ async function savePrinter() {
 .brand-tag { font-weight: 600; font-size: 12px; }
 
 .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-.st-正常 { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
-.st-缺墨 { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.5); }
-.st-故障 { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+.st-正常 { background: var(--ops-accent-green); box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+.st-缺墨 { background: var(--ops-accent-yellow); box-shadow: 0 0 6px rgba(251,191,36,0.5); }
+.st-故障 { background: var(--ops-accent-red); box-shadow: 0 0 6px rgba(248,113,113,0.5); }
 .status-text { font-size: 11px; color: var(--ops-text-tertiary); margin-left: 2px; vertical-align: middle; }
 
 .row-btn { background: none; border: 1px solid transparent; color: var(--ops-text-tertiary); cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; font-family: inherit; }

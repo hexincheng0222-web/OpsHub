@@ -13,11 +13,16 @@
   --ops-accent-purple: #a371f7;
   --ops-accent-orange: #d29922;
   --ops-accent-gray: #484f58;
+  --ops-accent-red: #f85149;
   --ops-status-online: #3fb950;
   --ops-status-offline: #484f58;
   --ops-status-maintenance: #d29922;
   --ops-shadow-card: 0 4px 16px rgba(0,0,0,0.3);
-  
+
+  /* 代码块 */
+  --ops-bg-code: #0d1117;
+  --ops-border-code: #21262d;
+  --ops-text-code: #c9d1d9;  
   /* Element Plus 深色主题变量 */
   --el-bg-color: #0a0e14;
   --el-bg-color-overlay: #12161e;
@@ -114,11 +119,16 @@
   --ops-accent-purple: #8250df;
   --ops-accent-orange: #9a6700;
   --ops-accent-gray: #57606a;
+  --ops-accent-red: #cf222e;
   --ops-status-online: #1a7f37;
   --ops-status-offline: #57606a;
   --ops-status-maintenance: #9a6700;
   --ops-shadow-card: 0 4px 16px rgba(0,0,0,0.08);
-  
+
+  /* 代码块 */
+  --ops-bg-code: #f6f8fa;
+  --ops-border-code: #d0d7de;
+  --ops-text-code: #24292f;  
   /* Element Plus 浅色主题变量 */
   --el-bg-color: #f6f8fa;
   --el-bg-color-overlay: #ffffff;

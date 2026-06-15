@@ -78,7 +78,7 @@
 
     <!-- 推送弹窗 -->
     <el-dialog v-model="deployVisible" title="推送电话簿到话机" width="600px" destroy-on-close>
-      <div v-if="phones.length === 0" style="text-align:center;padding:20px;color:#999">暂无在线话机</div>
+      <div v-if="phones.length === 0" style="text-align:center;padding:20px;color:var(--ops-text-tertiary)">暂无在线话机</div>
       <div v-else>
         <el-checkbox v-model="selectAll" @change="toggleSelectAll" style="margin-bottom:12px">全选在线话机 ({{ phones.length }})</el-checkbox>
         <el-checkbox-group v-model="deployPhones">
@@ -257,12 +257,12 @@ async function handleImport(e: Event) {
 </script>
 
 <style scoped>
-.phonebook-page { padding: 16px 20px; }
+.phonebook-page { padding: 16px 20px; min-height: 100vh; background: var(--ops-bg-page); }
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .top-bar h3 { margin: 0; flex: 1; font-size: 16px; font-weight: 600; }
-.top-count { font-size: 12px; color: #999; font-weight: 400; }
+.top-count { font-size: 12px; color: var(--ops-text-tertiary); font-weight: 400; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
-.back-btn { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; border: 1px solid #e9ecef; background: #fff; color: #495057; cursor: pointer; font-size: 12px; }
-.back-btn:hover { border-color: #80b4ff; color: #4a9eff; }
+.back-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px 6px 10px; background: var(--ops-bg-card-hover); border: 1px solid var(--ops-border-card); border-radius: 20px; color: var(--ops-text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.2s ease; }
+.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); }
 .pagination { display: flex; justify-content: center; margin-top: 12px; }
 </style>

@@ -452,7 +452,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 
 <style scoped>
 /* --- Page Layout --- */
-.devices-page { max-width: 1500px; margin: 0 auto; padding: 24px; min-height: 100vh; background: var(--dv-page-bg); }
+.devices-page { padding: 24px; min-height: 100vh; background: var(--dv-page-bg); }
 .page-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding: 14px 0; border-bottom: 1px solid var(--dv-header-border); }
 .back-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -494,7 +494,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
 .filter-count { font-size: 11px; color: var(--dv-light-dim); white-space: nowrap; }
 
 /* --- Rack Area --- */
-.rack-area { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; align-items: flex-start; margin-bottom: 24px; }
+.rack-area { display: flex; flex-wrap: wrap; gap: 40px; justify-content: flex-start; align-items: flex-start; margin-bottom: 24px; }
 
 /* --- Stats --- */
 .stats-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--dv-header-border); }

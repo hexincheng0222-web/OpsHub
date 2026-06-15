@@ -10,6 +10,25 @@ import router from './router'
 import App from './App.vue'
 import './styles/global.css'
 
+// ===== 主题提前初始化（在 Vue 挂载前同步执行，避免闪烁） =====
+;(function initThemeEarly() {
+  const saved = localStorage.getItem('theme')
+  const isDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+  const html = document.documentElement
+  const body = document.body
+  if (isDark) {
+    html.classList.remove('light-theme')
+    body.classList.remove('light-theme')
+    html.classList.add('dark')
+    body.classList.add('dark')
+  } else {
+    html.classList.add('light-theme')
+    body.classList.add('light-theme')
+    html.classList.remove('dark')
+    body.classList.remove('dark')
+  }
+})()
+
 const app = createApp(App)
 
 // 全局错误处理

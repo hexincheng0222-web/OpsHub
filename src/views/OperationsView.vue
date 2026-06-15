@@ -704,7 +704,7 @@ function onGlobalKey(e: KeyboardEvent) {
   transition: all 0.2s ease; white-space: nowrap; font-weight: 500;
 }
 .act-btn:hover { border-color: var(--ops-accent-blue); color: var(--ops-accent-blue); background: rgba(88,166,255,0.06); }
-.act-btn-danger:hover { border-color: #f87171; color: #f87171; background: rgba(220,50,50,0.06); }
+.act-btn-danger:hover { border-color: var(--ops-accent-red); color: var(--ops-accent-red); background: rgba(220,50,50,0.06); }
 
 /* Sub-header meta bar */
 .ops-doc-subhead {
@@ -726,7 +726,6 @@ function onGlobalKey(e: KeyboardEvent) {
 }
 .ops-doc-body {
   flex: 1; overflow-y: auto; padding: 32px 48px;
-  max-width: 100ch;
   scroll-behavior: smooth;
 }
 
@@ -780,7 +779,7 @@ function onGlobalKey(e: KeyboardEvent) {
   border-radius: 4px; cursor: pointer; transition: background 0.1s;
 }
 .ctx-item:hover { background: var(--ops-bg-card-hover); }
-.ctx-item-danger { color: #f87171; }
+.ctx-item-danger { color: var(--ops-accent-red); }
 .ctx-item-danger:hover { background: rgba(220,50,50,0.12); }
 
 /* ===== Markdown rendered content ===== */
@@ -798,14 +797,14 @@ function onGlobalKey(e: KeyboardEvent) {
   background: var(--ops-bg-card-hover);
   padding: 2px 6px; border-radius: 4px;
   font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 13px; color: #e3b341;
+  font-size: 13px; color: var(--ops-accent-yellow);
 }
 .markdown-body :deep(pre) {
-  background: #0d1117; border: 1px solid #21262d;
+  background: var(--ops-bg-code); border: 1px solid var(--ops-border-code);
   border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0;
 }
 .markdown-body :deep(pre code) {
-  background: none; padding: 0; color: #c9d1d9; font-size: 13px;
+  background: none; padding: 0; color: var(--ops-text-code); font-size: 13px;
 }
 .markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; }
 .markdown-body :deep(th) {
@@ -859,5 +858,5 @@ function onGlobalKey(e: KeyboardEvent) {
 .mo-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .mo-btn-cancel { background: var(--ops-bg-card-hover); color: var(--ops-text-secondary); border: 1px solid var(--ops-border-card); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
 .mo-btn-confirm { background: rgba(88,166,255,0.15); color: var(--ops-accent-blue); border: 1px solid rgba(88,166,255,0.3); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; }
-.mo-btn-danger { background: rgba(220,50,50,0.15); color: #f87171; border: 1px solid rgba(220,50,50,0.3); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; }
+.mo-btn-danger { background: rgba(220,50,50,0.15); color: var(--ops-accent-red); border: 1px solid rgba(220,50,50,0.3); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; }
 </style>

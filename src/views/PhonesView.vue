@@ -3,7 +3,8 @@
     <!-- 顶部栏 -->
     <div class="top-bar">
       <button class="back-btn" @click="$router.push('/')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>返回</span>
       </button>
       <h3>话机管理</h3>
       <div class="top-right">
@@ -30,7 +31,7 @@
     <!-- 表格 -->
     <div class="table-box">
       <el-table :data="filteredDevices" stripe size="default" v-loading="loading && !devices.length" style="width:100%"
-        :header-cell-style="{ background:'#f8f9fa', color:'#495057', fontWeight:'500', fontSize:'13px' }"
+        :header-cell-style="{ background:'var(--ops-bg-card-hover)', color:'var(--ops-text-secondary)', fontWeight:'500', fontSize:'13px' }"
         :cell-style="{ fontSize:'13px' }">
         <el-table-column label="分机号" width="100" fixed>
           <template #default="{ row }"><span class="ext">{{ row.extension }}</span></template>
@@ -40,8 +41,8 @@
         </el-table-column>
         <el-table-column label="上次IP" width="140">
           <template #default="{ row }">
-            <span v-if="!row.ip && row.lastIp" class="mono" style="color:#d97706">{{ row.lastIp }}</span>
-            <span v-else-if="row.lastIp && row.lastIp !== row.ip" class="mono" style="color:#888;font-size:11px">{{ row.lastIp }}</span>
+            <span v-if="!row.ip && row.lastIp" class="mono" style="color:var(--ops-accent-yellow)">{{ row.lastIp }}</span>
+            <span v-else-if="row.lastIp && row.lastIp !== row.ip" class="mono" style="color:var(--ops-text-tertiary);font-size:11px">{{ row.lastIp }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
@@ -134,7 +135,7 @@
           </template>
         </div>
       </template>
-      <div v-else style="text-align:center;padding:40px;color:#999">无法获取详情</div>
+      <div v-else style="text-align:center;padding:40px;color:var(--ops-text-tertiary)">无法获取详情</div>
       <template #footer>
         <div style="display:flex;gap:8px">
           <el-button type="danger" plain size="small" @click="rebootPhone" :disabled="!selectedPhone?.online">重启话机</el-button>
@@ -286,7 +287,9 @@ onMounted(() => { loadDevices() })
 <style scoped>
 .phones-page {
   padding: 16px 20px;
-  color: #333;
+  min-height: 100vh;
+  background: var(--ops-bg-page);
+  color: var(--ops-text-primary);
 }
 
 /* 顶部栏 */
@@ -310,17 +313,18 @@ onMounted(() => { loadDevices() })
 .search-input { width: 170px; }
 
 .back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #6b7280;
-  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px 6px 10px;
+  background: var(--ops-bg-card-hover);
+  border: 1px solid var(--ops-border-card);
+  border-radius: 20px;
+  color: var(--ops-text-secondary);
+  cursor: pointer; font-size: 12px; font-family: inherit;
+  transition: all 0.2s ease;
 }
-.back-btn:hover { border-color: #93c5fd; color: #3b82f6; }
+.back-btn svg { transition: transform 0.2s ease; }
+.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); }
+.back-btn:hover svg { transform: translateX(-2px); }
 
 /* 统计条 */
 .stats-bar {
@@ -328,7 +332,7 @@ onMounted(() => { loadDevices() })
   gap: 20px;
   margin-bottom: 12px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--ops-text-tertiary);
 }
 .stats-bar b {
   font-size: 16px;
@@ -337,8 +341,8 @@ onMounted(() => { loadDevices() })
 
 /* 表格容器 */
 .table-box {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--ops-bg-card);
+  border: 1px solid var(--ops-border-card);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -351,23 +355,23 @@ onMounted(() => { loadDevices() })
   margin-right: 5px;
   vertical-align: middle;
 }
-.dot.green { background: #22c55e; }
-.dot.gray { background: #d1d5db; }
+.dot.green { background: var(--ops-accent-green); }
+.dot.gray { background: var(--ops-text-tertiary); }
 
 /* 文字 */
-.ext { font-weight: 600; color: #3b82f6; }
+.ext { font-weight: 600; color: var(--ops-accent-blue); }
 .mono { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
 .small { font-size: 11px; }
-.green { color: #16a34a; }
-.gray { color: #9ca3af; }
-.yellow { color: #d97706; }
-.muted { color: #d1d5db; }
+.green { color: var(--ops-accent-green); }
+.gray { color: var(--ops-text-tertiary); }
+.yellow { color: var(--ops-accent-yellow); }
+.muted { color: var(--ops-text-tertiary); }
 
 /* 空状态 */
 .empty {
   text-align: center;
   padding: 48px 24px;
-  color: #9ca3af;
+  color: var(--ops-text-tertiary);
 }
 .empty p { margin: 8px 0 0; font-size: 13px; }
 
@@ -375,14 +379,14 @@ onMounted(() => { loadDevices() })
 .detail-section {
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--ops-border-card);
 }
 .detail-section:last-child { border-bottom: none; }
 .detail-title {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 12px;
-  color: #333;
+  color: var(--ops-text-primary);
 }
 .detail-row {
   display: flex;
@@ -392,12 +396,12 @@ onMounted(() => { loadDevices() })
   font-size: 13px;
 }
 .detail-label {
-  color: #888;
+  color: var(--ops-text-tertiary);
   flex-shrink: 0;
   margin-right: 12px;
 }
 .detail-value {
-  color: #333;
+  color: var(--ops-text-primary);
   text-align: right;
   word-break: break-all;
 }
@@ -413,7 +417,7 @@ onMounted(() => { loadDevices() })
   width: 80px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #666;
+  color: var(--ops-text-secondary);
   text-align: right;
 }
 </style>

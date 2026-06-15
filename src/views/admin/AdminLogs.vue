@@ -178,9 +178,9 @@ function getActionType(action: string): string {
   font-size: 12px;
   font-weight: 500;
 }
-.cell-action.success { color: #3fb950; }
-.cell-action.warning { color: #d29922; }
-.cell-action.danger { color: #f85149; }
+.cell-action.success { color: var(--ops-accent-green); }
+.cell-action.warning { color: var(--ops-accent-yellow); }
+.cell-action.danger { color: var(--ops-accent-red); }
 .cell-action.info { color: var(--ops-text-tertiary); }
 
 .cell-time {

@@ -459,6 +459,7 @@ function statusLabel(status: string) {
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
+  background: var(--ops-bg-page);
 }
 
 .back-btn {
