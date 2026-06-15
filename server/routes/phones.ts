@@ -427,7 +427,7 @@ router.post('/phonebook', (req: Request, res: Response) => {
       .run(d.name, d.number, d.department||'', d.position||'', d.type||'external', d.notes||'')
     logOp('电话簿', '新增', d.name)
     const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(r.lastInsertRowid)
-    res.json({ code: 200, data: row })
+    res.status(201).json({ code: 201, data: row })
   } catch (e: any) {
     if (e.message?.includes('UNIQUE')) return res.status(409).json({ code: 409, message: '联系人已存在' })
     res.status(500).json({ code: 500, message: e.message })
@@ -462,7 +462,7 @@ router.delete('/phonebook/:id', (req: Request, res: Response) => {
     if (!existing) return res.status(404).json({ code: 404, message: '联系人不存在' })
     db.prepare('DELETE FROM phonebook_contacts WHERE id = ?').run(req.params.id)
     logOp('电话簿', '删除', existing.name || `ID:${req.params.id}`)
-    res.json({ code: 200, message: '删除成功' })
+    res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除联系人失败:', err.message)
     res.status(500).json({ code: 500, message: '删除联系人失败' })

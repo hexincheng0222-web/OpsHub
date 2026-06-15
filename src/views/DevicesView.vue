@@ -22,7 +22,7 @@ onMounted(() => {
   store.loadRacks()
   store.loadFloors()
   store.loadDeviceTypes()
-  fetchDict('device-models').then(data => { deviceModels.value = data }).catch(() => {})
+  fetchDict('device-models').then(data => { deviceModels.value = data }).catch((e: any) => console.warn('加载设备型号失败:', e.message))
 })
 
 // 根据型号名查找详细信息

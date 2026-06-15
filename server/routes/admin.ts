@@ -182,7 +182,7 @@ router.post('/:table', (req: Request, res: Response) => {
     const result = db.prepare(`INSERT INTO ${config.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(result.lastInsertRowid)
     logOperation(config.module, '新增', String(req.body.name || ''), JSON.stringify(req.body))
-    res.json({ code: 200, data: row })
+    res.status(201).json({ code: 201, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
       return res.status(409).json({ code: 409, message: '名称已存在' })
@@ -229,7 +229,7 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
   try {
     db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
     logOperation(config.module, '删除', existing.name)
-    res.json({ code: 200, message: '删除成功' })
+    res.status(204).send()
   } catch (err: any) {
     if (err.message?.includes('FOREIGN KEY')) {
       return res.status(409).json({ code: 409, message: '该记录被其他数据引用，无法删除' })

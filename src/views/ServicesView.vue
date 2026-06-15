@@ -272,8 +272,8 @@ onMounted(async () => {
   servicesStore.checkAllServices()
   loading.value = false
   // 加载字典
-  fetchDict('service-hosts').then(data => { hosts.value = data }).catch(() => {})
-  fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch(() => {})
+  fetchDict('service-hosts').then(data => { hosts.value = data }).catch((e: any) => console.warn('加载主机列表失败:', e.message))
+  fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch((e: any) => console.warn('加载服务分类失败:', e.message))
 })
 
 // 统计每个主机的服务数

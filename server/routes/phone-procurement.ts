@@ -118,7 +118,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 
     db.prepare('DELETE FROM phone_procurement WHERE id = ?').run(req.params.id)
     logOperation('手机采购', '删除', existing.model || existing.asset_number || `ID:${req.params.id}`)
-    res.json({ code: 200, message: '删除成功' })
+    res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除手机采购失败:', err.message)
     res.status(500).json({ code: 500, message: '删除失败' })

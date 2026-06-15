@@ -126,7 +126,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
     if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
     db.prepare('DELETE FROM printers WHERE id = ?').run(req.params.id)
-    res.json({ code: 200, message: '删除成功' })
+    res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除打印机失败:', err.message)
     res.status(500).json({ code: 500, message: '删除打印机失败' })

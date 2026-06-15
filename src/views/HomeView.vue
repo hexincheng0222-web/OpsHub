@@ -139,7 +139,7 @@ onMounted(() => {
         phoneTotal.value = res.total
         phoneOnline.value = res.online
       }
-    }).catch(() => {}),
+    }).catch((e: any) => console.warn('首页加载话机数据失败:', e.message)),
   ])
 })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
