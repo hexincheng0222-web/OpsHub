@@ -151,18 +151,22 @@ async function save() {
   saveError.value = ''
   if (!form.title.trim()) { saveError.value = '请输入标题'; return }
   if (!form.folderId) { saveError.value = '请选择文件夹'; return }
-  if (isEdit.value) {
-    await store.updateDoc(Number(route.params.id), { ...form })
-  } else {
-    await store.addDoc({
-      title: form.title,
-      content: form.content,
-      folderId: form.folderId,
-    })
+  try {
+    if (isEdit.value) {
+      await store.updateDoc(Number(route.params.id), { ...form })
+    } else {
+      await store.addDoc({
+        title: form.title,
+        content: form.content,
+        folderId: form.folderId,
+      })
+    }
+    dirty = false
+    sessionStorage.removeItem(DRAFT_KEY)
+    router.push('/operations')
+  } catch (e: any) {
+    saveError.value = e.message || '保存失败'
   }
-  dirty = false
-  sessionStorage.removeItem(DRAFT_KEY)
-  router.push('/operations')
 }
 
 // Image paste → base64

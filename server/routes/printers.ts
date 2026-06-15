@@ -73,59 +73,79 @@ router.get('/:id', (req: Request, res: Response) => {
 
 // POST /api/v1/printers  — 新增
 router.post('/', (req: Request, res: Response) => {
-  const { floor, location, manufacturer, model, tonerModel, notes, status } = req.body
-  const result = db.prepare(
-    'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(floor || '', location || '', manufacturer || '', model || '', tonerModel || '', notes || '', status || '正常')
+  try {
+    const { floor, location, manufacturer, model, tonerModel, notes, status } = req.body
+    const result = db.prepare(
+      'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(floor || '', location || '', manufacturer || '', model || '', tonerModel || '', notes || '', status || '正常')
 
-  const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(result.lastInsertRowid)
-  res.status(201).json({ code: 201, data: toApi(row) })
+    const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(result.lastInsertRowid)
+    res.status(201).json({ code: 201, data: toApi(row) })
+  } catch (err: any) {
+    console.error('[server] 新增打印机失败:', err.message)
+    res.status(500).json({ code: 500, message: '新增打印机失败' })
+  }
 })
 
 // PUT /api/v1/printers/:id  — 更新
 router.put('/:id', (req: Request, res: Response) => {
-  const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
-  if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
+  try {
+    const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
+    if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
 
-  const fields: string[] = []
-  const values: any[] = []
-  const mapping: Record<string, string> = {
-    floor: 'floor', location: 'location', manufacturer: 'manufacturer',
-    model: 'model', tonerModel: 'toner_model', notes: 'notes', status: 'status',
-  }
-
-  for (const [key, col] of Object.entries(mapping)) {
-    if (req.body[key] !== undefined) {
-      fields.push(col + ' = ?')
-      values.push(req.body[key])
+    const fields: string[] = []
+    const values: any[] = []
+    const mapping: Record<string, string> = {
+      floor: 'floor', location: 'location', manufacturer: 'manufacturer',
+      model: 'model', tonerModel: 'toner_model', notes: 'notes', status: 'status',
     }
+
+    for (const [key, col] of Object.entries(mapping)) {
+      if (req.body[key] !== undefined) {
+        fields.push(col + ' = ?')
+        values.push(req.body[key])
+      }
+    }
+    if (fields.length === 0) return res.status(400).json({ code: 400, message: '至少提供一个更新字段' })
+
+    fields.push("updated_at = datetime('now')")
+    values.push(req.params.id)
+
+    db.prepare('UPDATE printers SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
+    const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(req.params.id)
+    res.json({ code: 200, data: toApi(row) })
+  } catch (err: any) {
+    console.error('[server] 更新打印机失败:', err.message)
+    res.status(500).json({ code: 500, message: '更新打印机失败' })
   }
-  if (fields.length === 0) return res.status(400).json({ code: 400, message: '至少提供一个更新字段' })
-
-  fields.push("updated_at = datetime('now')")
-  values.push(req.params.id)
-
-  db.prepare('UPDATE printers SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
-  const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(req.params.id)
-  res.json({ code: 200, data: toApi(row) })
 })
 
 // DELETE /api/v1/printers/:id  — 删除单台
 router.delete('/:id', (req: Request, res: Response) => {
-  const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
-  if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
-  db.prepare('DELETE FROM printers WHERE id = ?').run(req.params.id)
-  res.json({ code: 200, message: '删除成功' })
+  try {
+    const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
+    if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
+    db.prepare('DELETE FROM printers WHERE id = ?').run(req.params.id)
+    res.json({ code: 200, message: '删除成功' })
+  } catch (err: any) {
+    console.error('[server] 删除打印机失败:', err.message)
+    res.status(500).json({ code: 500, message: '删除打印机失败' })
+  }
 })
 
 // POST /api/v1/printers/batch-delete  — 批量删除
 router.post('/batch-delete', (req: Request, res: Response) => {
-  const { ids } = req.body
-  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: 'ids 必填' })
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: 'ids 必填' })
 
-  const placeholders = ids.map(() => '?').join(',')
-  db.prepare(`DELETE FROM printers WHERE id IN (${placeholders})`).run(...ids)
-  res.json({ code: 200, message: `已删除 ${ids.length} 台` })
+    const placeholders = ids.map(() => '?').join(',')
+    db.prepare(`DELETE FROM printers WHERE id IN (${placeholders})`).run(...ids)
+    res.json({ code: 200, message: `已删除 ${ids.length} 台` })
+  } catch (err: any) {
+    console.error('[server] 批量删除打印机失败:', err.message)
+    res.status(500).json({ code: 500, message: '批量删除失败' })
+  }
 })
 
 // POST /api/v1/printers/import  — CSV 导入

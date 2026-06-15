@@ -51,8 +51,11 @@ router.get('/', (req: Request, res: Response) => {
     params.push(status)
   }
   if (req.query.hostId) {
-    where += ' AND host_id = ?'
-    params.push(parseInt(req.query.hostId as string))
+    const hostId = parseInt(req.query.hostId as string)
+    if (!isNaN(hostId)) {
+      where += ' AND host_id = ?'
+      params.push(hostId)
+    }
   }
 
   const total = (db.prepare('SELECT COUNT(*) as cnt FROM services ' + where).get(...params) as any).cnt

@@ -216,7 +216,9 @@ async function saveAccount() {
 }
 
 async function rebootPhone() {
-  await ElMessageBox.confirm(`确定重启话机 ${selectedPhone.value.extension}？`, '重启确认', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确定重启话机 ${selectedPhone.value.extension}？`, '重启确认', { type: 'warning' })
+  } catch { return }
   try {
     const res = await fetch(`/api/v1/phones/${selectedPhone.value.id}/reboot`, { method: 'POST' }).then(r => r.json())
     if (res.code === 200) ElMessage.success('重启指令已发送')

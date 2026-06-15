@@ -436,36 +436,52 @@ router.post('/phonebook', (req: Request, res: Response) => {
 
 // PUT /phonebook/:id — 修改联系人
 router.put('/phonebook/:id', (req: Request, res: Response) => {
-  const d = req.body
-  const fields: string[] = [], values: any[] = []
-  for (const key of ['name','number','department','position','type','notes']) {
-    if (d[key] !== undefined) { fields.push(`${key} = ?`); values.push(d[key]) }
+  try {
+    const d = req.body
+    const fields: string[] = [], values: any[] = []
+    for (const key of ['name','number','department','position','type','notes']) {
+      if (d[key] !== undefined) { fields.push(`${key} = ?`); values.push(d[key]) }
+    }
+    if (!fields.length) return res.status(400).json({ code: 400, message: '无更新字段' })
+    fields.push("updated_at = datetime('now')")
+    values.push(req.params.id)
+    db.prepare(`UPDATE phonebook_contacts SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+    logOp('电话簿', '修改', d.name || `ID:${req.params.id}`)
+    const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(req.params.id)
+    res.json({ code: 200, data: row })
+  } catch (err: any) {
+    console.error('[server] 修改联系人失败:', err.message)
+    res.status(500).json({ code: 500, message: '修改联系人失败' })
   }
-  if (!fields.length) return res.status(400).json({ code: 400, message: '无更新字段' })
-  fields.push("updated_at = datetime('now')")
-  values.push(req.params.id)
-  db.prepare(`UPDATE phonebook_contacts SET ${fields.join(', ')} WHERE id = ?`).run(...values)
-  logOp('电话簿', '修改', d.name || `ID:${req.params.id}`)
-  const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(req.params.id)
-  res.json({ code: 200, data: row })
 })
 
 // DELETE /phonebook/:id — 删除联系人
 router.delete('/phonebook/:id', (req: Request, res: Response) => {
-  const existing = db.prepare('SELECT name FROM phonebook_contacts WHERE id = ?').get(req.params.id) as any
-  db.prepare('DELETE FROM phonebook_contacts WHERE id = ?').run(req.params.id)
-  logOp('电话簿', '删除', existing?.name || `ID:${req.params.id}`)
-  res.json({ code: 200, message: '删除成功' })
+  try {
+    const existing = db.prepare('SELECT name FROM phonebook_contacts WHERE id = ?').get(req.params.id) as any
+    if (!existing) return res.status(404).json({ code: 404, message: '联系人不存在' })
+    db.prepare('DELETE FROM phonebook_contacts WHERE id = ?').run(req.params.id)
+    logOp('电话簿', '删除', existing.name || `ID:${req.params.id}`)
+    res.json({ code: 200, message: '删除成功' })
+  } catch (err: any) {
+    console.error('[server] 删除联系人失败:', err.message)
+    res.status(500).json({ code: 500, message: '删除联系人失败' })
+  }
 })
 
 // POST /phonebook/batch-delete
 router.post('/phonebook/batch-delete', (req: Request, res: Response) => {
-  const { ids } = req.body
-  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-  const ph = ids.map(() => '?').join(',')
-  db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...ids)
-  logOp('电话簿', '批量删除', `${ids.length} 条`)
-  res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+    const ph = ids.map(() => '?').join(',')
+    db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...ids)
+    logOp('电话簿', '批量删除', `${ids.length} 条`)
+    res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+  } catch (err: any) {
+    console.error('[server] 批量删除联系人失败:', err.message)
+    res.status(500).json({ code: 500, message: '批量删除失败' })
+  }
 })
 
 // POST /phonebook/import — 批量导入

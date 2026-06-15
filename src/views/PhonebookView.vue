@@ -176,10 +176,14 @@ async function handleSave() {
 }
 
 async function handleDelete(row: PhonebookContact) {
-  await ElMessageBox.confirm(`确定删除联系人「${row.name}」？`, '删除确认', { type: 'warning' })
-  await phonebookApi.deleteContact(row.id)
-  ElMessage.success('已删除')
-  loadContacts()
+  try {
+    await ElMessageBox.confirm(`确定删除联系人「${row.name}」？`, '删除确认', { type: 'warning' })
+  } catch { return }
+  try {
+    await phonebookApi.deleteContact(row.id)
+    ElMessage.success('已删除')
+    loadContacts()
+  } catch (e: any) { ElMessage.error(e.message || '删除失败') }
 }
 
 function onSelectionChange(rows: PhonebookContact[]) { selectedIds.value = rows.map(r => r.id) }
@@ -188,10 +192,14 @@ async function handleAction(cmd: string) {
   if (cmd === 'import') (document.querySelector('input[type=file]') as HTMLInputElement)?.click()
   else if (cmd === 'deploy') openDeploy()
   else if (cmd === 'batchDelete') {
-    await ElMessageBox.confirm(`确定删除 ${selectedIds.value.length} 条联系人？`, '批量删除', { type: 'warning' })
-    await phonebookApi.batchDeleteContacts(selectedIds.value)
-    ElMessage.success('已删除')
-    loadContacts()
+    try {
+      await ElMessageBox.confirm(`确定删除 ${selectedIds.value.length} 条联系人？`, '批量删除', { type: 'warning' })
+    } catch { return }
+    try {
+      await phonebookApi.batchDeleteContacts(selectedIds.value)
+      ElMessage.success('已删除')
+      loadContacts()
+    } catch (e: any) { ElMessage.error(e.message || '批量删除失败') }
   }
 }
 

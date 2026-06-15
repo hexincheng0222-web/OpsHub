@@ -62,62 +62,84 @@ router.get('/:id', (req: Request, res: Response) => {
 
 // POST /
 router.post('/', (req: Request, res: Response) => {
-  const d = req.body
-  const assetNumber = d.assetNumber || generateAssetNumber()
-  const result = db.prepare(
-    `INSERT INTO phone_procurement (asset_number,part_no,serial_no,imei,arrival_date,pickup_date,brand,model,asset_link,department,handler,recipient,dingtalk_creator,purchase_type,dingtalk_flow,original_owner,notes)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-  ).run(assetNumber, d.partNo||'', d.serialNo||'', d.imei||'', d.arrivalDate||'', d.pickupDate||'',
-    d.brand||'', d.model||'', d.assetLink||'', d.department||'', d.handler||'', d.recipient||'',
-    d.dingtalkCreator||'', d.purchaseType||'新购', d.dingtalkFlow||'', d.originalOwner||'', d.notes||'')
-  const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(result.lastInsertRowid)
-  logOperation('手机采购', '新增', d.model || assetNumber)
-  res.status(201).json({ code: 201, data: toApi(row) })
+  try {
+    const d = req.body
+    const assetNumber = d.assetNumber || generateAssetNumber()
+    const result = db.prepare(
+      `INSERT INTO phone_procurement (asset_number,part_no,serial_no,imei,arrival_date,pickup_date,brand,model,asset_link,department,handler,recipient,dingtalk_creator,purchase_type,dingtalk_flow,original_owner,notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(assetNumber, d.partNo||'', d.serialNo||'', d.imei||'', d.arrivalDate||'', d.pickupDate||'',
+      d.brand||'', d.model||'', d.assetLink||'', d.department||'', d.handler||'', d.recipient||'',
+      d.dingtalkCreator||'', d.purchaseType||'新购', d.dingtalkFlow||'', d.originalOwner||'', d.notes||'')
+    const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(result.lastInsertRowid)
+    logOperation('手机采购', '新增', d.model || assetNumber)
+    res.status(201).json({ code: 201, data: toApi(row) })
+  } catch (err: any) {
+    console.error('[server] 新增手机采购失败:', err.message)
+    res.status(500).json({ code: 500, message: '新增失败' })
+  }
 })
 
 // PUT /:id
 router.put('/:id', (req: Request, res: Response) => {
-  const existing = db.prepare('SELECT id FROM phone_procurement WHERE id = ?').get(req.params.id)
-  if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
+  try {
+    const existing = db.prepare('SELECT id FROM phone_procurement WHERE id = ?').get(req.params.id)
+    if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
-  const mapping: Record<string, string> = {
-    assetNumber:'asset_number', partNo:'part_no', serialNo:'serial_no', imei:'imei',
-    arrivalDate:'arrival_date', pickupDate:'pickup_date', brand:'brand', model:'model',
-    assetLink:'asset_link', department:'department', handler:'handler', recipient:'recipient',
-    dingtalkCreator:'dingtalk_creator', purchaseType:'purchase_type', dingtalkFlow:'dingtalk_flow',
-    originalOwner:'original_owner', notes:'notes',
+    const mapping: Record<string, string> = {
+      assetNumber:'asset_number', partNo:'part_no', serialNo:'serial_no', imei:'imei',
+      arrivalDate:'arrival_date', pickupDate:'pickup_date', brand:'brand', model:'model',
+      assetLink:'asset_link', department:'department', handler:'handler', recipient:'recipient',
+      dingtalkCreator:'dingtalk_creator', purchaseType:'purchase_type', dingtalkFlow:'dingtalk_flow',
+      originalOwner:'original_owner', notes:'notes',
+    }
+    const fields: string[] = [], values: any[] = []
+    for (const [key, col] of Object.entries(mapping)) {
+      if (req.body[key] !== undefined) { fields.push(col + ' = ?'); values.push(req.body[key]) }
+    }
+    if (fields.length === 0) return res.status(400).json({ code: 400, message: '至少提供一个更新字段' })
+    fields.push("updated_at = datetime('now')")
+    values.push(req.params.id)
+    db.prepare('UPDATE phone_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
+    const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(req.params.id)
+    logOperation('手机采购', '修改', (row as any).model || `ID:${req.params.id}`)
+    res.json({ code: 200, data: toApi(row) })
+  } catch (err: any) {
+    console.error('[server] 更新手机采购失败:', err.message)
+    res.status(500).json({ code: 500, message: '更新失败' })
   }
-  const fields: string[] = [], values: any[] = []
-  for (const [key, col] of Object.entries(mapping)) {
-    if (req.body[key] !== undefined) { fields.push(col + ' = ?'); values.push(req.body[key]) }
-  }
-  if (fields.length === 0) return res.status(400).json({ code: 400, message: '至少提供一个更新字段' })
-  fields.push("updated_at = datetime('now')")
-  values.push(req.params.id)
-  db.prepare('UPDATE phone_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
-  const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(req.params.id)
-  logOperation('手机采购', '修改', (row as any).model || `ID:${req.params.id}`)
-  res.json({ code: 200, data: toApi(row) })
 })
 
 // DELETE /:id
 router.delete('/:id', (req: Request, res: Response) => {
-  const existing = db.prepare('SELECT model, asset_number FROM phone_procurement WHERE id = ?').get(req.params.id) as any
-  db.prepare('DELETE FROM phone_procurement WHERE id = ?').run(req.params.id)
-  logOperation('手机采购', '删除', existing?.model || existing?.asset_number || `ID:${req.params.id}`)
-  res.json({ code: 200, message: '删除成功' })
+  try {
+    const existing = db.prepare('SELECT model, asset_number FROM phone_procurement WHERE id = ?').get(req.params.id) as any
+    if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
+
+    db.prepare('DELETE FROM phone_procurement WHERE id = ?').run(req.params.id)
+    logOperation('手机采购', '删除', existing.model || existing.asset_number || `ID:${req.params.id}`)
+    res.json({ code: 200, message: '删除成功' })
+  } catch (err: any) {
+    console.error('[server] 删除手机采购失败:', err.message)
+    res.status(500).json({ code: 500, message: '删除失败' })
+  }
 })
 
 // POST /batch-delete
 router.post('/batch-delete', (req: Request, res: Response) => {
-  const { ids } = req.body
-  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-  const validIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
-  if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
-  const ph = validIds.map(() => '?').join(',')
-  db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph})`).run(...validIds)
-  logOperation('手机采购', '批量删除', `${validIds.length} 条记录`)
-  res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+    const validIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
+    if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
+    const ph = validIds.map(() => '?').join(',')
+    db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph})`).run(...validIds)
+    logOperation('手机采购', '批量删除', `${validIds.length} 条记录`)
+    res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
+  } catch (err: any) {
+    console.error('[server] 批量删除失败:', err.message)
+    res.status(500).json({ code: 500, message: '批量删除失败' })
+  }
 })
 
 // POST /import

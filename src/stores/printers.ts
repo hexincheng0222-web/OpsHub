@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Printer } from '../mock/printers'
 import * as api from '../api/printers'
+import { ElMessage } from 'element-plus'
 
 export const usePrintersStore = defineStore('printers', () => {
   const printers = ref<Printer[]>([])
@@ -16,8 +17,9 @@ export const usePrintersStore = defineStore('printers', () => {
     try {
       const { list } = await api.fetchPrinters()
       printers.value = list
-    } catch (e) {
+    } catch (e: any) {
       console.error('[printers] 加载失败:', e)
+      ElMessage.error(e.message || '加载打印机数据失败')
     } finally {
       loading.value = false
     }

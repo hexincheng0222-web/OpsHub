@@ -251,8 +251,12 @@ async function updateDeviceStatus(status: Device['status']) {
 // --- Drag and drop ---
 const { onMouseDown } = useDragDrop(
   () => store.racks,
-  (_sourceRackId, targetRackId, targetOffset, deviceId) => {
-    store.moveDeviceOnServer(deviceId, targetRackId, targetOffset)
+  async (_sourceRackId, targetRackId, targetOffset, deviceId) => {
+    try {
+      await store.moveDeviceOnServer(deviceId, targetRackId, targetOffset)
+    } catch (e: any) {
+      ElMessage.error(e.message || '移动设备失败')
+    }
   }
 )
 

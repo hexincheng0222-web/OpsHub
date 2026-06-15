@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { fetchOverview } from '../../api/admin'
 import { Monitor, Connection, Printer, FolderOpened, Document, DataBoard, Cellphone } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { formatTime } from '../../utils/format'
 
 const stats = ref<any>({})
@@ -29,8 +30,9 @@ const statCards = computed(() => [
 onMounted(async () => {
   try {
     stats.value = await fetchOverview()
-  } catch (e) {
+  } catch (e: any) {
     console.error('加载概览失败:', e)
+    ElMessage.error(e.message || '加载概览数据失败')
   } finally {
     loading.value = false
   }
