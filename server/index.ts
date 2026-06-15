@@ -1,8 +1,6 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import servicesRouter from './routes/services'
 import racksRouter from './routes/racks'
 import devicesRouter from './routes/devices'
@@ -42,23 +40,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   res.status(500).json({ code: 500, message: '服务器内部错误' })
 })
 
-// ===== 前端静态文件托管 =====
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const distPath = path.resolve(__dirname, '..', 'dist')
-
-// 静态文件（js/css/图片等，Vite 构建产物自带 hash，可长期缓存）
-app.use(express.static(distPath, {
-  maxAge: '30d',
-  immutable: true,
-  index: false, // 不自动返回 index.html，由下面的 fallback 处理
-}))
-
-// SPA fallback：非 /api 请求全部返回 index.html
-app.get('/{*splat}', (_req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'))
-})
-
 // 启动
 app.listen(PORT, () => {
-  console.log(`[server] OpsHub running at http://localhost:${PORT}`)
+  console.log(`[server] OpsHub API running at http://localhost:${PORT}`)
 })
