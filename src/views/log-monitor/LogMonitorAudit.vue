@@ -1,5 +1,9 @@
 <template>
   <div class="log-monitor-audit">
+    <!-- 返回按钮 -->
+    <div class="page-header">
+      <BackButton to="/log-monitor" label="返回仪表盘" />
+    </div>
     <!-- 筛选栏 -->
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" size="default">
@@ -96,6 +100,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, View } from '@element-plus/icons-vue'
 import { getAuditList } from '../../api/log-monitor'
+import BackButton from '../../components/BackButton.vue'
 
 const filter = ref({ device: '', abnormal: '', start_date: '', end_date: '' })
 const records = ref<any[]>([])
@@ -148,6 +153,8 @@ onMounted(loadData)
 </script>
 
 <style scoped>
+.log-monitor-audit { padding: 0; }
+.page-header { margin-bottom: 16px; }
 .filter-card { margin-bottom: 16px; }
 .pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
 .detail-section { margin-bottom: 20px; }

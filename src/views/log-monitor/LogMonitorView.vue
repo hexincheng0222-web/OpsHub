@@ -1,5 +1,8 @@
 <template>
   <div class="log-monitor-dashboard">
+    <div class="page-header">
+      <BackButton to="/" label="返回首页" />
+    </div>
     <!-- 状态卡片 -->
     <el-row :gutter="16" class="status-cards">
       <el-col :span="6">
@@ -149,6 +152,7 @@ import {
   getConfig, getAuditList, runOnce, startScheduler,
   stopScheduler, getSchedulerStatus, getHealth,
 } from '../../api/log-monitor'
+import BackButton from '../../components/BackButton.vue'
 
 const config = ref<any>({})
 const status = ref<{ running: boolean; lastRun: string | null }>({ running: false, lastRun: null })
@@ -214,6 +218,7 @@ onMounted(() => {
 
 <style scoped>
 .log-monitor-dashboard { padding: 0; }
+.page-header { margin-bottom: 16px; }
 .status-cards { margin-bottom: 16px; }
 .status-card :deep(.el-card__body) { padding: 16px; }
 .card-content { display: flex; align-items: center; gap: 12px; }

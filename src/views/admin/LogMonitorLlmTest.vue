@@ -1,5 +1,8 @@
 <template>
   <div class="llm-test-page">
+    <div class="page-header">
+      <BackButton to="/admin/log-monitor" label="返回监控配置" />
+    </div>
     <el-card shadow="never">
       <template #header>
         <span>LLM 连通测试</span>
@@ -50,6 +53,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { VideoPlay } from '@element-plus/icons-vue'
 import { getConfig, testLLM } from '../../api/log-monitor'
+import BackButton from '../../components/BackButton.vue'
 
 const config = ref<any>({})
 const result = ref<any>(null)
@@ -79,6 +83,8 @@ onMounted(loadConfig)
 </script>
 
 <style scoped>
+.llm-test-page { padding: 0; }
+.page-header { margin-bottom: 16px; }
 .config-info { margin-bottom: 20px; }
 .test-btn { margin-bottom: 20px; text-align: center; }
 .test-result { margin-top: 16px; }

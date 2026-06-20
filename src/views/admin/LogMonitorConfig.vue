@@ -1,5 +1,8 @@
 <template>
   <div class="log-monitor-config">
+    <div class="page-header">
+      <BackButton to="/admin" label="返回系统管理" />
+    </div>
     <el-form ref="formRef" :model="form" label-width="130px" v-loading="loading">
       <!-- 日志服务器 -->
       <el-divider content-position="left">日志服务器</el-divider>
@@ -89,6 +92,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import { getConfig, updateConfig } from '../../api/log-monitor'
+import BackButton from '../../components/BackButton.vue'
 
 const form = ref<any>({
   log_server: {},
@@ -134,5 +138,7 @@ onMounted(loadConfig)
 </script>
 
 <style scoped>
+.log-monitor-config { padding: 0; }
+.page-header { margin-bottom: 16px; }
 .device-row { display: flex; align-items: center; }
 </style>
