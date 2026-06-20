@@ -2,7 +2,7 @@
   <div class="log-monitor-audit">
     <!-- 返回按钮 -->
     <div class="page-header">
-      <BackButton to="/log-monitor" label="返回仪表盘" />
+      <BackButton to="/log-monitor" />
     </div>
     <!-- 筛选栏 -->
     <el-card shadow="never" class="filter-card">

@@ -1,7 +1,7 @@
 <template>
   <div class="log-monitor-dashboard">
     <div class="page-header">
-      <BackButton to="/" label="返回首页" />
+      <BackButton to="/" />
     </div>
     <!-- 状态卡片 -->
     <el-row :gutter="16" class="status-cards">
@@ -50,7 +50,7 @@
             <el-icon :size="32" class="icon-info"><Clock /></el-icon>
             <div>
               <div class="card-label">上次执行</div>
-              <div class="card-value" style="font-size: 13px">
+              <div class="card-value">
                 {{ status.lastRun ? status.lastRun.replace('T', ' ').slice(0, 16) : '未执行' }}
               </div>
             </div>
@@ -223,7 +223,7 @@ onMounted(() => {
 .status-card :deep(.el-card__body) { padding: 16px; }
 .card-content { display: flex; align-items: center; gap: 12px; }
 .card-label { font-size: 12px; color: var(--el-text-color-secondary); }
-.card-value { font-size: 18px; font-weight: 600; margin-top: 4px; }
+.card-value { font-size: 18px; font-weight: 600; margin-top: 4px; white-space: nowrap; }
 .icon-success { color: var(--el-color-success); }
 .icon-warning { color: var(--el-color-warning); }
 .icon-danger { color: var(--el-color-danger); }

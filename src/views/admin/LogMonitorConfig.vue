@@ -1,7 +1,7 @@
 <template>
   <div class="log-monitor-config">
     <div class="page-header">
-      <BackButton to="/admin" label="返回系统管理" />
+      <BackButton to="/admin" />
     </div>
     <el-form ref="formRef" :model="form" label-width="130px" v-loading="loading">
       <!-- 日志服务器 -->

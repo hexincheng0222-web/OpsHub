@@ -1,7 +1,7 @@
 <template>
   <div class="llm-test-page">
     <div class="page-header">
-      <BackButton to="/admin/log-monitor" label="返回监控配置" />
+      <BackButton to="/admin/log-monitor" />
     </div>
     <el-card shadow="never">
       <template #header>
