@@ -196,8 +196,10 @@ export async function analyzeLogs(logs: LogEntry[], systemPrompt: string): Promi
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
       const data = await res.json()
-      const content: string = data.choices?.[0]?.message?.content || ''
-      const parsed = parseLLMJson(content)
+      const message = data.choices?.[0]?.message || {}
+      // 兼容推理模型（content 为空时取 reasoning）
+      const rawContent: string = message.content || message.reasoning || ''
+      const parsed = parseLLMJson(rawContent)
       console.log(`[logMonitor] LLM ok: abnormal=${parsed.has_abnormal}, ${ms}ms`)
       return { ...parsed, _llm_ms: ms }
     } catch (e: any) {
@@ -231,7 +233,7 @@ function parseLLMJson(text: string): { summary: string; has_abnormal: boolean } 
 
 export function saveAudit(device: DeviceConfig, logs: LogEntry[], result: LLMResult): number {
   const row = db.prepare(
-    'INSERT INTO log_audit (device_id, device_name, log_count, raw_logs, llm_summary, has_abnormal, llm_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now"))'
+    'INSERT INTO log_audit (device_id, device_name, log_count, raw_logs, llm_summary, has_abnormal, llm_ms) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(
     device.device_id,
     device.name,

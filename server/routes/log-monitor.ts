@@ -41,7 +41,8 @@ router.get('/audit', (req: Request, res: Response) => {
   if (startDate) { where += ' AND created_at >= ?'; params.push(startDate) }
   if (endDate) { where += ' AND created_at <= ?'; params.push(endDate) }
 
-  const total = db.prepare(`SELECT COUNT(*) as cnt FROM log_audit ${where}`).get(...params) as { cnt: number }
+  const row = db.prepare(`SELECT COUNT(*) as cnt FROM log_audit ${where}`).get(...params) as { cnt: number }
+  const total = row.cnt
   const rows = db.prepare(
     `SELECT id, device_id, device_name, log_count, llm_summary, has_abnormal, llm_ms, created_at
      FROM log_audit ${where} ORDER BY id DESC LIMIT ? OFFSET ?`
@@ -115,7 +116,8 @@ router.post('/llm-test', async (req: Request, res: Response) => {
     const ms = Date.now() - t0
     if (!r.ok) return res.json({ code: 0, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
     const data = await r.json()
-    const content = data.choices?.[0]?.message?.content || ''
+    const message = data.choices?.[0]?.message || {}
+    const content: string = message.content || message.reasoning || ''
     res.json({ code: 0, data: { success: true, latency_ms: ms, response: content } })
   } catch (e: any) {
     res.json({ code: 0, data: { success: false, latency_ms: 0, error: e.message } })
