@@ -1244,4 +1244,64 @@ if (configCount.cnt === 0) {
   console.log('[db] 已初始化 ATCOM 话机管理默认配置')
 }
 
+// ========== 日志监控配置表 ==========
+db.exec(`
+  CREATE TABLE IF NOT EXISTS log_monitor_config (
+    key       TEXT PRIMARY KEY,
+    value     TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS log_audit (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id   TEXT    NOT NULL,
+    device_name TEXT    NOT NULL,
+    log_count   INTEGER NOT NULL,
+    raw_logs    TEXT    NOT NULL,
+    llm_summary TEXT    NOT NULL,
+    has_abnormal INTEGER NOT NULL DEFAULT 0,
+    llm_ms      INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_log_audit_device   ON log_audit(device_id);
+  CREATE INDEX IF NOT EXISTS idx_log_audit_abnormal ON log_audit(has_abnormal);
+  CREATE INDEX IF NOT EXISTS idx_log_audit_created  ON log_audit(created_at);
+`)
+
+// 初始化日志监控默认配置
+const lmConfigCount = db.prepare('SELECT COUNT(*) as cnt FROM log_monitor_config').get() as { cnt: number }
+if (lmConfigCount.cnt === 0) {
+  const insertConfig = db.prepare('INSERT OR IGNORE INTO log_monitor_config (key, value) VALUES (?, ?)')
+  const defaults: [string, string][] = [
+    ['log_server', JSON.stringify({
+      base_url: 'http://127.0.0.1:8080',
+      path: '/api/v1/logs?device_id={device_id}&start_time={start_time}&end_time={end_time}',
+      page_size: 200,
+      timeout: 30,
+    })],
+    ['devices', JSON.stringify([
+      { device_id: 'core-switch-01', name: '核心交换机 01' },
+      { device_id: 'firewall-01', name: '防火墙 01' },
+    ])],
+    ['llm', JSON.stringify({
+      base_url: 'http://10.3.0.200:17002/v1',
+      model: 'Qwen3.5-9B-AWQ',
+      api_key: 'ml-ShHoXcDGYdOZlH14hv0_GBTlsbsHwliMlYHsIIwiTNc',
+      temperature: 0.1,
+      max_tokens: 1024,
+      timeout: 120,
+      retries: 3,
+      system_prompt: '你是一位资深网络运维工程师，擅长分析网络设备日志。\n请你阅读以下日志，完成两件事，并以 JSON 返回：\n1. summary: 用 2~3 句话概括本批次日志反映的设备状况；\n2. has_abnormal: 是否存在异常（true/false）。\n异常包括但不限于：链路 down、错误包飙升、认证失败、设备重启、温度/CPU/内存越限、关键告警等。\n返回格式示例：\n{"summary": "...", "has_abnormal": false}\n只返回 JSON，不要任何解释。',
+    })],
+    ['scheduler', JSON.stringify({ interval: 300, window: 300 })],
+    ['scheduler_running', 'false'],
+  ]
+  const seedDefaults = db.transaction(() => {
+    for (const [key, value] of defaults) insertConfig.run(key, value)
+  })
+  seedDefaults()
+  console.log('[db] 已初始化日志监控默认配置')
+}
+
 export default db
