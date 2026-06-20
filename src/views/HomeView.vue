@@ -87,6 +87,15 @@
           <span class="stat-sub" v-else>待接入</span>
         </div>
       </div>
+      <div class="big-card card-red" @click="$router.push('/log-monitor')">
+        <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
+        <div class="card-icon-wrap"><el-icon :size="32"><DataAnalysis /></el-icon></div>
+        <div class="card-body"><h3>日志监控</h3><p>网络设备日志 LLM 分析与异常检测</p></div>
+        <div class="card-stat">
+          <span class="stat-num">{{ lmDeviceCount }}</span>
+          <span class="stat-label">台设备</span>
+        </div>
+      </div>
     </div>
     <div class="theme-toggle" @click="themeStore.toggleTheme()">
       <el-icon :size="22">
@@ -104,9 +113,10 @@ import { useOperationsStore } from '../stores/operations'
 import { useDevicesStore } from '../stores/devices'
 import { usePrintersStore } from '../stores/printers'
 import { useComputerProcurementStore, usePhoneProcurementStore } from '../stores/procurement'
-import { Monitor, Cellphone, Phone } from '@element-plus/icons-vue'
+import { Monitor, Cellphone, Phone, DataAnalysis } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
 import { fetchPhones } from '../api/phones'
+import { getConfig } from '../api/log-monitor'
 const servicesStore = useServicesStore()
 const opsStore = useOperationsStore()
 const devicesStore = useDevicesStore()
@@ -116,6 +126,7 @@ const phoneStore = usePhoneProcurementStore()
 const themeStore = useThemeStore()
 const phoneTotal = ref(0)
 const phoneOnline = ref(0)
+const lmDeviceCount = ref(0)
 
 function trackMouse(e: MouseEvent) {
   const card = (e.target as HTMLElement).closest('.big-card') as HTMLElement | null
@@ -140,6 +151,7 @@ onMounted(() => {
         phoneOnline.value = res.online
       }
     }).catch((e: any) => console.warn('首页加载话机数据失败:', e.message)),
+    getConfig().then(cfg => { lmDeviceCount.value = cfg.devices?.length || 0 }).catch(() => {}),
   ])
 })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
@@ -252,6 +264,13 @@ function particleStyle(i: number) {
 .light-theme .card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
 .light-theme .card-gold .stat-num{color:#9a6700}
 .light-theme .card-gold .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
+.card-red .card-glow{background:linear-gradient(135deg,rgba(248,81,73,.30),transparent 45%,rgba(248,81,73,.06))}
+.card-red:hover{border-color:rgba(248,81,73,.35);box-shadow:0 0 60px rgba(248,81,73,.08),0 0 120px rgba(248,81,73,.04),0 8px 32px rgba(0,0,0,.5)}
+.card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(248,81,73,.18),rgba(248,81,73,.06));color:#f85149;box-shadow:0 0 20px rgba(248,81,73,.10)}
+.card-red:hover .card-icon-wrap{box-shadow:0 0 30px rgba(248,81,73,.25)}
+.card-red .stat-num{color:#f85149}
+.light-theme .card-red .stat-num{color:#cf222e}
+.light-theme .card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(207,34,46,.12),rgba(207,34,46,.04));color:#cf222e;box-shadow:0 0 20px rgba(207,34,46,.08)}
 .stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
 .stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .theme-toggle{position:fixed;bottom:32px;right:32px;width:52px;height:52px;border-radius:50%;background:rgba(13,17,23,.80);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .35s cubic-bezier(.25,.1,.25,1);z-index:1000;color:#8b949e}

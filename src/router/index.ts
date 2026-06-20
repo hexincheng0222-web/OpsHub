@@ -87,7 +87,21 @@ const router = createRouter({
         { path: 'procurement/computer-purchase-models', name: 'AdminComputerPurchaseModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'computer-purchase-models', title: '电脑采购型号' } },
         { path: 'procurement/computer-device-models', name: 'AdminComputerDeviceModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'computer-device-models', title: '电脑设备型号' } },
         { path: 'atcom-config', name: 'AdminAtcomConfig', component: () => import('../views/admin/AdminAtcomConfig.vue'), meta: { title: 'ATCOM话机配置' } },
+        { path: 'log-monitor', name: 'AdminLogMonitor', component: () => import('../views/admin/LogMonitorConfig.vue'), meta: { title: '日志监控配置' } },
+        { path: 'log-monitor/llm-test', name: 'AdminLogMonitorLlmTest', component: () => import('../views/admin/LogMonitorLlmTest.vue'), meta: { title: 'LLM 连通测试' } },
       ]
+    },
+    {
+      path: '/log-monitor',
+      name: 'LogMonitor',
+      component: () => import('../views/log-monitor/LogMonitorView.vue'),
+      meta: { title: '日志监控', icon: 'DataAnalysis' },
+    },
+    {
+      path: '/log-monitor/audit',
+      name: 'LogMonitorAudit',
+      component: () => import('../views/log-monitor/LogMonitorAudit.vue'),
+      meta: { title: '审计记录', icon: 'Document' },
     },
     {
       path: '/:pathMatch(.*)*',

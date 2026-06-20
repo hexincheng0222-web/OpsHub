@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   DataBoard, Document, Monitor, Printer,
-  FolderOpened, HomeFilled, ShoppingBag, Phone
+  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -76,6 +76,15 @@ const menuItems: MenuItem[] = [
     icon: Phone,
     children: [
       { key: 'atcom-config', label: '连接配置', route: '/admin/atcom-config' },
+    ],
+  },
+  {
+    key: 'log-monitor',
+    label: '日志监控',
+    icon: DataAnalysis,
+    children: [
+      { key: 'log-monitor', label: '监控配置', route: '/admin/log-monitor' },
+      { key: 'log-monitor/llm-test', label: 'LLM 测试', route: '/admin/log-monitor/llm-test' },
     ],
   },
 ]
