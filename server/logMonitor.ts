@@ -419,7 +419,7 @@ async function fetchLokiLogs(deviceIp: string, timeRange: string): Promise<Dashb
 
   try {
     const url = `${LOKI_URL}/loki/api/v1/query_range?${params}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
     if (!res.ok) return []
     const data = await res.json() as any
     const results: DashboardLog[] = []
@@ -438,32 +438,53 @@ async function fetchLokiLogs(deviceIp: string, timeRange: string): Promise<Dashb
   }
 }
 
+function extractSummary(text: string): string {
+  if (!text) return ''
+  // 1. 尝试从 Final Polish/Draft 中提取中文摘要
+  const finalMatch = text.match(/Final\s*(?:Polish|Draft|Summary)[:\s]*[*\s]*([^\n*]{10,300})/i)
+  if (finalMatch) return finalMatch[1].trim()
+  // 2. 尝试找最后一条 Draft
+  const draftMatches = [...text.matchAll(/Draft\s*\d*[:\s]*[*\s]*([^\n*]{10,300})/gi)]
+  if (draftMatches.length) return draftMatches[draftMatches.length - 1][1].trim()
+  // 3. 尝试提取 JSON summary（排除示例中的 "..."）
+  try {
+    const jsonMatch = text.match(/"summary"\s*:\s*"([^."][^"]{5,})"/)
+    if (jsonMatch) return jsonMatch[1]
+  } catch {}
+  // 4. 回退：取最后 3 行
+  const lines = text.split('\n').filter(l => l.trim() && !l.includes('---') && l.length > 10)
+  return lines.slice(-2).join(' ').replace(/[*#]/g, '').trim().slice(0, 200) || text.slice(0, 200)
+}
+
 export async function getDashboardData(timeRange: string): Promise<DashboardData> {
   const config = loadConfig()
-  const devices: DashboardDevice[] = []
 
-  for (const device of config.devices) {
-    // 从 Loki 拉取日志
-    const logs = await fetchLokiLogs(device.device_id, timeRange)
+  // 并行查询所有设备
+  const devicePromises = config.devices.map(async (device) => {
+    const [logs, auditRow] = await Promise.all([
+      fetchLokiLogs(device.device_id, timeRange),
+      Promise.resolve(
+        db.prepare(
+          'SELECT llm_summary, has_abnormal, llm_ms, created_at FROM log_audit WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+        ).get(device.device_id) as { llm_summary: string; has_abnormal: number; llm_ms: number; created_at: string } | undefined
+      ),
+    ])
 
-    // 从 DB 查询最新 AI 分析
-    const auditRow = db.prepare(
-      'SELECT llm_summary, has_abnormal, llm_ms, created_at FROM log_audit WHERE device_id = ? ORDER BY id DESC LIMIT 1'
-    ).get(device.device_id) as { llm_summary: string; has_abnormal: number; llm_ms: number; created_at: string } | undefined
-
-    devices.push({
+    return {
       device_id: device.device_id,
       device_name: device.name,
       log_count: logs.length,
       logs,
       analysis: auditRow ? {
-        summary: auditRow.llm_summary,
+        summary: extractSummary(auditRow.llm_summary),
         has_abnormal: Boolean(auditRow.has_abnormal),
         llm_ms: auditRow.llm_ms,
         created_at: auditRow.created_at,
       } : null,
-    })
-  }
+    } as DashboardDevice
+  })
+
+  const devices = await Promise.all(devicePromises)
 
   // 最后一次分析时间
   const lastAudit = db.prepare(
