@@ -99,3 +99,33 @@ export function testLLM() {
 export function getHealth() {
   return request<HealthStatus>(`${BASE}/health`)
 }
+
+// Dashboard 数据
+export interface DashboardLog {
+  ts: string
+  level: string
+  msg: string
+}
+
+export interface DashboardDevice {
+  device_id: string
+  device_name: string
+  log_count: number
+  logs: DashboardLog[]
+  analysis: {
+    summary: string
+    has_abnormal: boolean
+    llm_ms: number
+    created_at: string
+  } | null
+}
+
+export interface DashboardData {
+  devices: DashboardDevice[]
+  scheduler_running: boolean
+  last_analysis_time: string | null
+}
+
+export function getDashboard(timeRange: string = '1h') {
+  return request<DashboardData>(`${BASE}/dashboard?time_range=${timeRange}`)
+}
