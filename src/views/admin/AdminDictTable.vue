@@ -463,7 +463,7 @@ function getTypeName(typeKey: string): string {
 
 <style scoped>
 .dict-page {
-  max-width: 1000px;
+  width: 100%;
 }
 
 .page-header {
