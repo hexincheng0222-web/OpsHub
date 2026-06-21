@@ -135,7 +135,7 @@ function getActionType(action: string): string {
 
 <style scoped>
 .logs-page {
-  max-width: 1000px;
+  width: 100%;
 }
 
 .page-header {

@@ -73,7 +73,7 @@ onMounted(async () => {
 
 <style scoped>
 .overview {
-  max-width: 960px;
+  width: 100%;
 }
 
 .stat-grid {
