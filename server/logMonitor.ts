@@ -351,3 +351,128 @@ const savedConfig = loadConfig()
 if (savedConfig.scheduler_running) {
   startScheduler()
 }
+
+// ========== Dashboard 数据 ==========
+
+const LOKI_URL = 'http://10.3.0.143:3100'
+
+interface DashboardLog {
+  ts: string
+  level: string
+  msg: string
+}
+
+interface DashboardDevice {
+  device_id: string
+  device_name: string
+  log_count: number
+  logs: DashboardLog[]
+  analysis: {
+    summary: string
+    has_abnormal: boolean
+    llm_ms: number
+    created_at: string
+  } | null
+}
+
+interface DashboardData {
+  devices: DashboardDevice[]
+  scheduler_running: boolean
+  last_analysis_time: string | null
+}
+
+function parseLogLevel(line: string): string {
+  if (line.includes('/5/') || line.includes('DOWN') || line.includes('ERROR') || line.includes('failed') || line.includes('failure'))
+    return 'ERROR'
+  if (line.includes('/4/') || line.includes('WARNING') || line.includes('WARN') || line.includes('threshold') || line.includes('exceeded'))
+    return 'WARNING'
+  return 'INFO'
+}
+
+function parseLogTimestamp(line: string): string {
+  // 华为 syslog: "2026-06-20T16:02:42+08:00 S5720 ..."
+  const m = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/)
+  return m ? m[1].replace('T', ' ').slice(11, 19) : ''
+}
+
+async function fetchLokiLogs(deviceIp: string, timeRange: string): Promise<DashboardLog[]> {
+  const now = new Date()
+  const rangeMap: Record<string, number> = {
+    '5m': 5 * 60 * 1000,
+    '15m': 15 * 60 * 1000,
+    '1h': 60 * 60 * 1000,
+    '6h': 6 * 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+  }
+  const ms = rangeMap[timeRange] || rangeMap['1h']
+  const start = new Date(now.getTime() - ms)
+
+  const query = `{job="rsyslog", host="logserver", filename=~".*${deviceIp}.*"}`
+  const params = new URLSearchParams({
+    query,
+    limit: '100',
+    direction: 'backward',
+    start: String(Math.floor(start.getTime() / 1e6) * 1e6) + '000000',
+    end: String(Math.floor(now.getTime() / 1e6) * 1e6) + '000000',
+  })
+
+  try {
+    const url = `${LOKI_URL}/loki/api/v1/query_range?${params}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return []
+    const data = await res.json() as any
+    const results: DashboardLog[] = []
+    for (const stream of (data.data?.result || [])) {
+      for (const [tsNano, line] of (stream.values || [])) {
+        results.push({
+          ts: parseLogTimestamp(line),
+          level: parseLogLevel(line),
+          msg: line.slice(0, 200),
+        })
+      }
+    }
+    return results
+  } catch {
+    return []
+  }
+}
+
+export async function getDashboardData(timeRange: string): Promise<DashboardData> {
+  const config = loadConfig()
+  const devices: DashboardDevice[] = []
+
+  for (const device of config.devices) {
+    // 从 Loki 拉取日志
+    const logs = await fetchLokiLogs(device.device_id, timeRange)
+
+    // 从 DB 查询最新 AI 分析
+    const auditRow = db.prepare(
+      'SELECT llm_summary, has_abnormal, llm_ms, created_at FROM log_audit WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+    ).get(device.device_id) as { llm_summary: string; has_abnormal: number; llm_ms: number; created_at: string } | undefined
+
+    devices.push({
+      device_id: device.device_id,
+      device_name: device.name,
+      log_count: logs.length,
+      logs,
+      analysis: auditRow ? {
+        summary: auditRow.llm_summary,
+        has_abnormal: Boolean(auditRow.has_abnormal),
+        llm_ms: auditRow.llm_ms,
+        created_at: auditRow.created_at,
+      } : null,
+    })
+  }
+
+  // 最后一次分析时间
+  const lastAudit = db.prepare(
+    'SELECT created_at FROM log_audit ORDER BY id DESC LIMIT 1'
+  ).get() as { created_at: string } | undefined
+
+  return {
+    devices,
+    scheduler_running: config.scheduler_running,
+    last_analysis_time: lastAudit?.created_at || null,
+  }
+}

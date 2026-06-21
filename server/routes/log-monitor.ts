@@ -3,7 +3,7 @@ import db from '../db'
 import {
   loadConfig, saveConfigPartial, fetchLogs, analyzeLogs,
   saveAudit, cleanupAudit, healthCheck, startScheduler,
-  stopScheduler, getSchedulerStatus,
+  stopScheduler, getSchedulerStatus, getDashboardData,
 } from '../logMonitor'
 
 const router = Router()
@@ -124,7 +124,14 @@ router.post('/llm-test', async (req: Request, res: Response) => {
   }
 })
 
-// 8. 健康检查
+// 8. Dashboard 数据
+router.get('/dashboard', async (req: Request, res: Response) => {
+  const timeRange = (req.query.time_range as string) || '1h'
+  const data = await getDashboardData(timeRange)
+  res.json({ code: 0, data })
+})
+
+// 9. 健康检查
 router.get('/health', async (_req: Request, res: Response) => {
   const status = await healthCheck()
   res.json({ code: 0, data: status })
