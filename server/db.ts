@@ -1281,8 +1281,15 @@ if (lmConfigCount.cnt === 0) {
       timeout: 30,
     })],
     ['devices', JSON.stringify([
-      { device_id: 'core-switch-01', name: '核心交换机 01' },
-      { device_id: 'firewall-01', name: '防火墙 01' },
+      { device_id: '192.168.100.201', name: 'S5720-1F-POE-1' },
+      { device_id: '192.168.100.254', name: 'S5720-HX-jifang-WLAN' },
+      { device_id: '192.168.100.202', name: '华为交换机 202' },
+      { device_id: '192.168.100.203', name: '华为交换机 203' },
+      { device_id: '192.168.100.204', name: '华为交换机 204' },
+      { device_id: '192.168.100.205', name: '华为交换机 205' },
+      { device_id: '192.168.100.206', name: '华为交换机 206' },
+      { device_id: '192.168.100.207', name: '华为交换机 207' },
+      { device_id: '192.168.100.208', name: '华为交换机 208' },
     ])],
     ['llm', JSON.stringify({
       base_url: 'http://10.3.0.200:17002/v1',
