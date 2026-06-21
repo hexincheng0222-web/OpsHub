@@ -1244,6 +1244,13 @@ if (configCount.cnt === 0) {
   console.log('[db] 已初始化 ATCOM 话机管理默认配置')
 }
 
+// 迁移：service_hosts 表添加 device_id 列
+const shColumns = db.prepare("PRAGMA table_info(service_hosts)").all() as { name: string }[]
+if (shColumns.length > 0 && !shColumns.some(c => c.name === 'device_id')) {
+  db.exec('ALTER TABLE service_hosts ADD COLUMN device_id INTEGER REFERENCES devices(id) ON DELETE SET NULL')
+  console.log('[db] 已添加 service_hosts.device_id 列')
+}
+
 // ========== 日志监控配置表 ==========
 db.exec(`
   CREATE TABLE IF NOT EXISTS log_monitor_config (

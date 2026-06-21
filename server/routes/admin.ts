@@ -65,8 +65,8 @@ const tables: Record<string, TableConfig> = {
   },
   'service-hosts': {
     table: 'service_hosts',
-    columns: ['name', 'ip', 'os', 'description', 'sort_order'],
-    listColumns: 'id, name, ip, os, description, sort_order, created_at, updated_at',
+    columns: ['name', 'ip', 'os', 'description', 'sort_order', 'device_id'],
+    listColumns: 'id, name, ip, os, description, sort_order, device_id, created_at, updated_at',
     module: '服务主机',
   },
   'procurement-departments': {

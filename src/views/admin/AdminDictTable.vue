@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchDict, createDict, updateDict, deleteDict } from '../../api/admin'
+import { fetchDevices } from '../../api/devices'
 import { Search } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -91,6 +92,7 @@ const tableConfigs: Record<string, { title: string; columns: ColumnConfig[] }> =
   'service-hosts': {
     title: '服务主机',
     columns: [
+      { prop: 'device_id', label: '关联设备', type: 'select', options: [] },
       { prop: 'name', label: '主机名称', type: 'text', required: true },
       { prop: 'ip', label: 'IP 地址', type: 'text' },
       { prop: 'os', label: '操作系统', type: 'text' },
@@ -154,6 +156,7 @@ const isEdit = ref(false)
 const formData = ref<Record<string, any>>({})
 const formRef = ref()
 const brandOptions = ref<{ label: string; value: number }[]>([])
+const deviceOptions = ref<{ label: string; value: number; ip: string; os: string }[]>([])
 const searchText = ref('')
 const selectedBrand = ref<number | null>(null)
 
@@ -234,6 +237,22 @@ async function loadData() {
       const pmCol = config.value.columns.find(c => c.prop === 'purchase_model_id')
       if (pmCol) pmCol.options = models.map((m: any) => ({ label: m.name, value: m.id }))
     }
+    if (dictKey.value === 'service-hosts') {
+      const devices = await fetchDevices('server')
+      deviceOptions.value = devices.map((d: any) => ({
+        label: `${d.name} (${d.ip || '无IP'})`,
+        value: d.id,
+        ip: d.ip || '',
+        os: d.model || '',
+      }))
+      const deviceCol = config.value.columns.find(c => c.prop === 'device_id')
+      if (deviceCol) {
+        deviceCol.options = [
+          { label: '不关联设备', value: null },
+          ...deviceOptions.value,
+        ]
+      }
+    }
   } catch (e: any) {
     ElMessage.error(e.message || '加载失败')
   } finally {
@@ -246,6 +265,17 @@ watch(dictKey, () => {
   selectedBrand.value = null
   searchText.value = ''
   loadData()
+})
+
+// 设备绑定：选择设备后自动填充 IP 和 OS
+watch(() => formData.value.device_id, (deviceId) => {
+  if (dictKey.value !== 'service-hosts' || !deviceId) return
+  const device = deviceOptions.value.find(d => d.value === deviceId)
+  if (device) {
+    if (!formData.value.ip) formData.value.ip = device.ip
+    if (!formData.value.os) formData.value.os = device.os
+    if (!formData.value.name) formData.value.name = device.label.split(' (')[0]
+  }
 })
 
 function handleAdd() {
@@ -315,6 +345,12 @@ function getTypeName(typeKey: string): string {
   const opt = typeCol?.options?.find(o => o.value === typeKey)
   return opt ? opt.label : typeKey
 }
+
+function getDeviceName(deviceId: number | null): string {
+  if (!deviceId) return '未关联'
+  const opt = deviceOptions.value.find(o => o.value === deviceId)
+  return opt ? opt.label : `设备#${deviceId}`
+}
 </script>
 
 <template>
@@ -370,6 +406,16 @@ function getTypeName(typeKey: string): string {
         >
           <template #default="{ row }">
             <span class="cell-text">{{ getTypeName(row.type_key) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column
+          v-else-if="col.prop === 'device_id'"
+          label="关联设备"
+          :width="180"
+        >
+          <template #default="{ row }">
+            <span class="cell-text">{{ getDeviceName(row.device_id) }}</span>
           </template>
         </el-table-column>
 

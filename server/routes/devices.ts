@@ -3,6 +3,20 @@ import db from '../db'
 
 const router = Router()
 
+// ============ 1. 获取设备列表 ============
+router.get('/', (req: Request, res: Response) => {
+  const type = req.query.type as string
+  let sql = 'SELECT id, name, type, model, ip, status FROM devices'
+  const params: any[] = []
+  if (type) {
+    sql += ' WHERE type = ?'
+    params.push(type)
+  }
+  sql += ' ORDER BY name ASC'
+  const rows = db.prepare(sql).all(...params)
+  res.json({ code: 0, data: rows })
+})
+
 // ============ 7. 更新设备 ============
 router.put('/:id', (req: Request, res: Response) => {
   try {

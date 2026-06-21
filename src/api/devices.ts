@@ -74,3 +74,9 @@ export async function fetchFloors(): Promise<string[]> {
   const data = await request<{ floors: string[] }>(`${BASE_RACKS}/floors`)
   return data.floors
 }
+
+// 12. 获取设备列表（可按类型筛选）
+export async function fetchDevices(type?: string): Promise<any[]> {
+  const qs = type ? `?type=${type}` : ''
+  return request(`${BASE_DEVICES}${qs}`)
+}
