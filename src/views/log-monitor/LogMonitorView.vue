@@ -94,13 +94,13 @@
                 <span class="log-msg">{{ log.msg }}</span>
               </div>
             </div>
-            <div v-else class="no-data">暂无日志数据</div>
+            <div v-else class="no-data-box">暂无日志数据</div>
           </div>
 
           <!-- AI 分析 -->
           <div class="card-section">
             <div class="section-title">AI 分析</div>
-            <div v-if="device.analysis" class="analysis-box">
+            <div v-if="device.analysis" class="analysis-content">
               <div
                 class="analysis-badge"
                 :class="device.analysis.has_abnormal ? 'badge-abnormal' : 'badge-normal'"
@@ -109,7 +109,7 @@
               </div>
               <div class="analysis-summary">{{ truncateSummary(device.analysis.summary) }}</div>
             </div>
-            <div v-else class="no-data">暂无分析数据</div>
+            <div v-else class="no-data-box">暂无分析数据</div>
           </div>
 
           <!-- 卡片底部 -->
@@ -445,7 +445,11 @@ onUnmounted(() => {
 .log-error .log-level { color: var(--el-color-danger); }
 
 /* AI 分析 */
-.analysis-box {
+.analysis-content {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid var(--el-border-color-lighter, rgba(255,255,255,0.1));
+  border-radius: 8px;
+  padding: 10px 12px;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -477,11 +481,14 @@ onUnmounted(() => {
 }
 
 /* 无数据 */
-.no-data {
+.no-data-box {
   font-size: 12px;
   color: var(--el-text-color-placeholder);
   text-align: center;
-  padding: 12px 0;
+  padding: 16px 12px;
+  background: rgba(0,0,0,0.1);
+  border: 1px dashed var(--el-border-color-lighter, rgba(255,255,255,0.1));
+  border-radius: 8px;
 }
 
 /* 卡片底部 */
