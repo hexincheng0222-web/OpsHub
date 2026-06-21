@@ -66,8 +66,7 @@ const menuItems: MenuItem[] = [
       { key: 'procurement/handlers', label: '经手人管理', route: '/admin/procurement/handlers' },
       { key: 'procurement/phone-brands', label: '手机品牌', route: '/admin/procurement/phone-brands' },
       { key: 'procurement/phone-models', label: '手机型号', route: '/admin/procurement/phone-models' },
-      { key: 'procurement/computer-purchase-models', label: '电脑采购型号', route: '/admin/procurement/computer-purchase-models' },
-      { key: 'procurement/computer-device-models', label: '电脑设备型号', route: '/admin/procurement/computer-device-models' },
+      { key: 'procurement/computer-models', label: '电脑型号', route: '/admin/procurement/computer-models' },
     ],
   },
   {

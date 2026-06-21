@@ -129,18 +129,10 @@ const tableConfigs: Record<string, { title: string; columns: ColumnConfig[] }> =
       { prop: 'sort_order', label: '排序', type: 'number' },
     ],
   },
-  'computer-purchase-models': {
-    title: '电脑采购型号',
+  'computer-models': {
+    title: '电脑型号',
     columns: [
-      { prop: 'name', label: '采购型号', type: 'text', required: true },
-      { prop: 'sort_order', label: '排序', type: 'number' },
-    ],
-  },
-  'computer-device-models': {
-    title: '电脑设备型号',
-    columns: [
-      { prop: 'purchase_model_id', label: '所属采购型号', type: 'select', required: true, options: [] },
-      { prop: 'name', label: '设备型号', type: 'text', required: true },
+      { prop: 'name', label: '型号名称', type: 'text', required: true },
       { prop: 'sort_order', label: '排序', type: 'number' },
     ],
   },
@@ -246,11 +238,6 @@ async function loadData() {
       brandOptions.value = brands.map((b: any) => ({ label: b.name, value: b.id }))
       const brandCol = config.value.columns.find(c => c.prop === 'brand_id')
       if (brandCol) brandCol.options = brandOptions.value
-    }
-    if (dictKey.value === 'computer-device-models') {
-      const models = await fetchDict('computer-purchase-models')
-      const pmCol = config.value.columns.find(c => c.prop === 'purchase_model_id')
-      if (pmCol) pmCol.options = models.map((m: any) => ({ label: m.name, value: m.id }))
     }
     if (dictKey.value === 'service-hosts') {
       const devices = await fetchDevices('server')

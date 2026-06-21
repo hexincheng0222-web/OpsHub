@@ -255,22 +255,12 @@ db.exec(`
     CONSTRAINT uq_phone_models UNIQUE (brand_id, name)
   );
 
-  CREATE TABLE IF NOT EXISTS computer_purchase_models (
+  CREATE TABLE IF NOT EXISTS computer_models (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS computer_device_models (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    purchase_model_id INTEGER NOT NULL REFERENCES computer_purchase_models(id) ON DELETE CASCADE,
-    name            TEXT NOT NULL,
-    sort_order      INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    CONSTRAINT uq_computer_device_models UNIQUE (purchase_model_id, name)
   );
 
   CREATE TABLE IF NOT EXISTS phone_procurement (
@@ -1167,32 +1157,10 @@ if (deptCount.cnt === 0) {
       models.forEach((m, i) => insertPhoneModel.run(bid, m, i))
     }
 
-    // 电脑采购型号
-    const insertCPM = db.prepare('INSERT INTO computer_purchase_models (name, sort_order) VALUES (?, ?)')
+    // 电脑型号
+    const insertCPM = db.prepare('INSERT INTO computer_models (name, sort_order) VALUES (?, ?)')
     const cpmNames = ['MacBook Pro 16"', 'MacBook Pro 14"', 'MacBook Air 15"', 'MacBook Air 13"', 'Dell XPS 15', 'Dell XPS 13', 'Dell Latitude 5540', 'ThinkPad X1 Carbon', 'ThinkPad T14', 'ThinkPad E14', 'HP EliteBook 840', 'HP ProBook 450']
     cpmNames.forEach((n, i) => insertCPM.run(n, i))
-
-    // 电脑设备型号
-    const insertCDM = db.prepare('INSERT INTO computer_device_models (purchase_model_id, name, sort_order) VALUES (?, ?, ?)')
-    const cpmId = (name: string) => (db.prepare('SELECT id FROM computer_purchase_models WHERE name = ?').get(name) as any).id
-    const deviceModels: [string, string[]][] = [
-      ['MacBook Pro 16"', ['MacBook Pro 16 M3 Max', 'MacBook Pro 16 M3 Pro', 'MacBook Pro 16 M2 Pro']],
-      ['MacBook Pro 14"', ['MacBook Pro 14 M3 Max', 'MacBook Pro 14 M3 Pro', 'MacBook Pro 14 M2 Pro']],
-      ['MacBook Air 15"', ['MacBook Air 15 M3', 'MacBook Air 15 M2']],
-      ['MacBook Air 13"', ['MacBook Air 13 M3', 'MacBook Air 13 M2', 'MacBook Air 13 M1']],
-      ['Dell XPS 15', ['Dell XPS 15 9530', 'Dell XPS 15 9520']],
-      ['Dell XPS 13', ['Dell XPS 13 9340', 'Dell XPS 13 9330']],
-      ['Dell Latitude 5540', ['Dell Latitude 5540', 'Dell Latitude 5550']],
-      ['ThinkPad X1 Carbon', ['ThinkPad X1 Carbon Gen 11', 'ThinkPad X1 Carbon Gen 12']],
-      ['ThinkPad T14', ['ThinkPad T14 Gen 4', 'ThinkPad T14 Gen 3']],
-      ['ThinkPad E14', ['ThinkPad E14 Gen 5', 'ThinkPad E14 Gen 4']],
-      ['HP EliteBook 840', ['HP EliteBook 840 G10', 'HP EliteBook 840 G9']],
-      ['HP ProBook 450', ['HP ProBook 450 G10', 'HP ProBook 450 G9']],
-    ]
-    for (const [pm, dms] of deviceModels) {
-      const pid = cpmId(pm)
-      dms.forEach((dm, i) => insertCDM.run(pid, dm, i))
-    }
 
     console.log('[db] 已初始化采购字典数据')
   })

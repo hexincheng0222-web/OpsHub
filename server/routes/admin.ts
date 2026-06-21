@@ -94,17 +94,11 @@ const tables: Record<string, TableConfig> = {
     module: '手机型号',
     foreignKey: { table: 'phone_brands', column: 'brand_id', ref: 'brand' },
   },
-  'computer-purchase-models': {
-    table: 'computer_purchase_models',
+  'computer-models': {
+    table: 'computer_models',
     columns: ['name', 'sort_order'],
     listColumns: 'id, name, sort_order, created_at, updated_at',
-    module: '电脑采购型号',
-  },
-  'computer-device-models': {
-    table: 'computer_device_models',
-    columns: ['purchase_model_id', 'name', 'sort_order'],
-    listColumns: 'id, purchase_model_id, name, sort_order, created_at, updated_at',
-    module: '电脑设备型号',
+    module: '电脑型号',
   },
 }
 
@@ -288,8 +282,7 @@ router.get('/overview/stats', (_req: Request, res: Response) => {
     procurementHandlers: cnt('procurement_handlers'),
     phoneBrands: cnt('phone_brands'),
     phoneModels: cnt('phone_models'),
-    computerPurchaseModels: cnt('computer_purchase_models'),
-    computerDeviceModels: cnt('computer_device_models'),
+    computerModels: cnt('computer_models'),
     totalLogs: cnt('operation_logs'),
     recentLogs: db.prepare('SELECT * FROM operation_logs ORDER BY created_at DESC LIMIT 10').all(),
   }
