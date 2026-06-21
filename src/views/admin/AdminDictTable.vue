@@ -158,7 +158,7 @@ const formRef = ref()
 const brandOptions = ref<{ label: string; value: number }[]>([])
 const deviceOptions = ref<{ label: string; value: number; ip: string; os: string }[]>([])
 const searchText = ref('')
-const selectedBrand = ref<number | null>(null)
+const selectedParent = ref<{ prop: string; value: any } | null>(null)
 
 const formRules = computed(() => {
   const rules: Record<string, any[]> = {}
@@ -172,9 +172,9 @@ const formRules = computed(() => {
 
 const filteredData = computed(() => {
   let data = tableData.value
-  // 品牌筛选（手机型号页面）
-  if (dictKey.value === 'phone-models' && selectedBrand.value !== null) {
-    data = data.filter(row => row.brand_id === selectedBrand.value)
+  // 通用父级筛选
+  if (selectedParent.value) {
+    data = data.filter(row => row[selectedParent.value!.prop] === selectedParent.value!.value)
   }
   if (searchText.value) {
     const q = searchText.value.toLowerCase()
@@ -187,22 +187,37 @@ const filteredData = computed(() => {
   return data
 })
 
-// 手机型号页面：品牌卡片数据
-const brandCards = computed(() => {
-  if (dictKey.value !== 'phone-models') return []
-  const counts: Record<number, number> = {}
-  tableData.value.forEach(row => {
-    counts[row.brand_id] = (counts[row.brand_id] || 0) + 1
-  })
-  return brandOptions.value.map(b => ({
-    id: b.value,
-    name: b.label,
-    count: counts[b.value] || 0,
-  }))
+// 通用父级卡片数据（所有有 select 外键的字典页面）
+const parentFilterCol = computed(() => {
+  return config.value.columns.find(c => c.type === 'select' && c.options && c.options.length > 0)
 })
 
-function selectBrand(id: number | null) {
-  selectedBrand.value = selectedBrand.value === id ? null : id
+const parentCards = computed(() => {
+  const col = parentFilterCol.value
+  if (!col || !col.options) return []
+  const prop = col.prop
+  const counts: Record<any, number> = {}
+  tableData.value.forEach(row => {
+    const key = row[prop]
+    if (key != null) counts[key] = (counts[key] || 0) + 1
+  })
+  return col.options
+    .filter(opt => opt.value != null)
+    .map(opt => ({
+      value: opt.value,
+      label: opt.label,
+      count: counts[opt.value] || 0,
+    }))
+})
+
+function selectParent(value: any) {
+  if (!parentFilterCol.value) return
+  const prop = parentFilterCol.value.prop
+  if (selectedParent.value && selectedParent.value.prop === prop && selectedParent.value.value === value) {
+    selectedParent.value = null
+  } else {
+    selectedParent.value = { prop, value }
+  }
 }
 
 async function loadData() {
@@ -262,7 +277,7 @@ async function loadData() {
 
 onMounted(loadData)
 watch(dictKey, () => {
-  selectedBrand.value = null
+  selectedParent.value = null
   searchText.value = ''
   loadData()
 })
@@ -366,17 +381,17 @@ function getDeviceName(deviceId: number | null): string {
       </div>
     </div>
 
-    <!-- 手机型号品牌卡片 -->
-    <div v-if="dictKey === 'phone-models' && brandCards.length" class="brand-cards">
+    <!-- 父级筛选卡片（所有有外键关系的字典页面） -->
+    <div v-if="parentCards.length" class="parent-cards">
       <div
-        v-for="brand in brandCards"
-        :key="brand.id"
-        class="brand-card"
-        :class="{ active: selectedBrand === brand.id }"
-        @click="selectBrand(brand.id)"
+        v-for="card in parentCards"
+        :key="card.value"
+        class="parent-card"
+        :class="{ active: selectedParent?.value === card.value }"
+        @click="selectParent(card.value)"
       >
-        <span class="brand-name">{{ brand.name }}</span>
-        <span class="brand-count">{{ brand.count }}</span>
+        <span class="parent-name">{{ card.label }}</span>
+        <span class="parent-count">{{ card.count }}</span>
       </div>
     </div>
 
@@ -567,15 +582,15 @@ function getDeviceName(deviceId: number | null): string {
   border: 1px solid var(--ops-border-card);
 }
 
-/* 品牌卡片 */
-.brand-cards {
+/* 父级筛选卡片 */
+.parent-cards {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
 
-.brand-card {
+.parent-card {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -588,22 +603,22 @@ function getDeviceName(deviceId: number | null): string {
   user-select: none;
 }
 
-.brand-card:hover {
+.parent-card:hover {
   border-color: var(--ops-accent-blue);
 }
 
-.brand-card.active {
+.parent-card.active {
   background: rgba(88, 166, 255, 0.08);
   border-color: var(--ops-accent-blue);
 }
 
-.brand-name {
+.parent-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--ops-text-primary);
 }
 
-.brand-count {
+.parent-count {
   font-size: 11px;
   color: var(--ops-text-tertiary);
   background: var(--ops-bg-page);
