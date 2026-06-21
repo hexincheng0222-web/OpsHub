@@ -15,9 +15,6 @@
           <el-icon><Refresh /></el-icon>
           {{ servicesStore.checking ? '检测中...' : '检测连通性' }}
         </el-button>
-        <el-button type="primary" @click="openAddDialog">
-          <el-icon><Plus /></el-icon> 添加服务
-        </el-button>
       </div>
     </div>
 
@@ -128,66 +125,6 @@
     </div>
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="editingService ? '编辑服务' : '添加新服务'"
-      width="520px"
-      class="service-dialog"
-    >
-      <el-form ref="serviceFormRef" :model="form" :rules="formRules" label-width="80px" label-position="top">
-        <div class="form-row">
-          <el-form-item label="服务名称" prop="name" class="form-item-half">
-            <el-input v-model="form.name" placeholder="如：Jenkins CI/CD" />
-          </el-form-item>
-          <el-form-item label="分类" prop="category" class="form-item-half">
-            <el-select v-model="form.category" filterable allow-create placeholder="选择分类" style="width: 100%">
-              <el-option v-for="cat in serviceCategories" :key="cat" :label="cat" :value="cat" />
-            </el-select>
-          </el-form-item>
-        </div>
-        <el-form-item label="服务地址" prop="url">
-          <el-input v-model="form.url" placeholder="如：http://192.168.1.100:8080" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" type="textarea" :rows="2" placeholder="简要描述服务功能" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="form.notes" type="textarea" :rows="3" placeholder="添加备注信息，如账号密码、使用说明等" />
-        </el-form-item>
-        <el-form-item label="图标">
-          <div class="icon-picker">
-            <div
-              v-for="icon in iconOptions"
-              :key="icon"
-              class="icon-option"
-              :class="{ selected: form.icon === icon }"
-              @click="form.icon = icon"
-            >
-              <el-icon :size="24"><component :is="icon" /></el-icon>
-            </div>
-          </div>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="form.status">
-            <el-radio-button value="online">在线</el-radio-button>
-            <el-radio-button value="offline">离线</el-radio-button>
-            <el-radio-button value="maintenance">维护中</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="部署主机">
-          <el-select v-model="form.hostId" placeholder="选择部署主机" clearable style="width: 100%">
-            <el-option v-for="h in hosts" :key="h.id" :label="h.name + ' (' + h.ip + ')'" :value="h.id" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="saveService">
-          {{ editingService ? '保存修改' : '添加服务' }}
-        </el-button>
-      </template>
-    </el-dialog>
-
     <!-- 右侧详情抽屉 -->
     <Transition name="drawer-slide">
       <div v-if="drawerVisible" class="drawer-overlay" @click.self="drawerVisible = false">
@@ -228,21 +165,7 @@
             </div>
           </div>
           <div class="drawer-footer">
-            <div class="drawer-actions-left">
-              <el-button @click="openEditFromDrawer">
-                <el-icon><Edit /></el-icon> 编辑
-              </el-button>
-              <el-popconfirm
-                :title="`确定删除「${selectedService?.name}」吗？`"
-                @confirm="deleteFromDrawer"
-              >
-                <template #reference>
-                  <el-button type="danger">
-                    <el-icon><Delete /></el-icon> 删除
-                  </el-button>
-                </template>
-              </el-popconfirm>
-            </div>
+            <div></div>
             <el-button type="primary" @click="openService(selectedService.url)">
               <el-icon><Position /></el-icon> 访问服务
             </el-button>
@@ -254,11 +177,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useServicesStore } from '../stores/services'
 import type { Service } from '../mock/services'
 import { fetchDict } from '../api/admin'
-import { ElMessage } from 'element-plus'
 
 const servicesStore = useServicesStore()
 
@@ -282,7 +204,6 @@ function getHostServiceCount(hostId: number) {
 }
 
 const loading = ref(true)
-const saving = ref(false)
 
 const search = ref('')
 const searchInput = ref('')
@@ -293,8 +214,6 @@ watch(searchInput, (v) => {
 })
 const filterCategory = ref('')
 const filterStatus = ref('')
-
-const iconOptions = ['Setting', 'FolderOpened', 'Box', 'Odometer', 'DataAnalysis', 'Document', 'Reading', 'Connection', 'Tools', 'Cloudy']
 
 const filteredServices = computed(() => {
   return servicesStore.services.filter(s => {
@@ -313,118 +232,12 @@ const filteredServices = computed(() => {
 
 const filteredCount = computed(() => filteredServices.value.length)
 
-const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
-const editingService = ref<Service | null>(null)
-const serviceFormRef = ref()
-
-const formRules = {
-  name: [{ required: true, message: '请输入服务名称', trigger: 'blur' }],
-  url: [
-    { required: true, message: '请输入服务地址', trigger: 'blur' },
-    { validator: validateUrl, trigger: 'blur' }
-  ],
-  category: [{ required: true, message: '请选择分类', trigger: 'blur' }]
-}
-
-function validateUrl(_rule: any, value: string, callback: Function) {
-  if (!value) {
-    callback(new Error('请输入服务地址'))
-    return
-  }
-  const urlRegex = /^(https?:\/\/)?([\w.-]+)(:\d+)?(\/[^\s]*)?$/
-  if (urlRegex.test(value)) {
-    callback()
-  } else {
-    callback(new Error('请输入正确的地址格式'))
-  }
-}
-
-const form = reactive({
-  name: '',
-  url: '',
-  description: '',
-  notes: '',
-  icon: 'Setting',
-  category: '',
-  status: 'online' as Service['status'],
-  hostId: null as number | null
-})
-
-function openAddDialog() {
-  editingService.value = null
-  form.name = ''
-  form.url = ''
-  form.description = ''
-  form.notes = ''
-  form.icon = 'Setting'
-  form.category = ''
-  form.status = 'online'
-  form.hostId = selectedHostId.value
-  dialogVisible.value = true
-}
-
-function openEditDialog(row: Service) {
-  drawerVisible.value = false
-  editingService.value = row
-  form.name = row.name
-  form.url = row.url
-  form.description = row.description
-  form.notes = row.notes || ''
-  form.icon = row.icon
-  form.category = row.category
-  form.status = row.status
-  form.hostId = row.hostId || null
-  setTimeout(() => {
-    dialogVisible.value = true
-  }, 200)
-}
 
 function openDrawer(svc: Service) {
   selectedService.value = svc
   drawerVisible.value = true
-}
-
-function openEditFromDrawer() {
-  if (selectedService.value) {
-    openEditDialog(selectedService.value)
-  }
-}
-
-async function deleteFromDrawer() {
-  if (selectedService.value) {
-    try {
-      await servicesStore.deleteService(selectedService.value.id)
-      ElMessage.success('删除成功')
-    } catch (e: any) {
-      ElMessage.error(e.message || '删除失败')
-    }
-    drawerVisible.value = false
-    selectedService.value = null
-  }
-}
-
-async function saveService() {
-  if (saving.value) return
-  saving.value = true
-  serviceFormRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      try {
-        if (editingService.value) {
-          await servicesStore.updateService(editingService.value.id, { ...form })
-          ElMessage.success('修改成功')
-        } else {
-          await servicesStore.addService({ ...form })
-          ElMessage.success('添加成功')
-        }
-        dialogVisible.value = false
-      } catch (e: any) {
-        ElMessage.error(e.message || '操作失败')
-      }
-    }
-    saving.value = false
-  })
 }
 
 function openService(url: string) {

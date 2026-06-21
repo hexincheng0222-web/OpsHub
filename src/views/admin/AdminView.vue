@@ -53,6 +53,7 @@ const menuItems: MenuItem[] = [
     label: '服务管理',
     icon: FolderOpened,
     children: [
+      { key: 'services/list', label: '服务管理', route: '/admin/services/list' },
       { key: 'services/categories', label: '分类管理', route: '/admin/services/categories' },
       { key: 'services/hosts', label: '主机管理', route: '/admin/services/hosts' },
     ],

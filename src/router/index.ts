@@ -80,6 +80,7 @@ const router = createRouter({
         { path: 'printers/toners', name: 'AdminPrinterToners', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'toner-models', title: '墨粉型号' } },
         { path: 'services/categories', name: 'AdminServiceCategories', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'service-categories', title: '分类管理' } },
         { path: 'services/hosts', name: 'AdminServiceHosts', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'service-hosts', title: '主机管理' } },
+        { path: 'services/list', name: 'AdminServices', component: () => import('../views/admin/AdminServices.vue'), meta: { title: '服务管理' } },
         { path: 'procurement/departments', name: 'AdminProcDepartments', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'procurement-departments', title: '部门管理' } },
         { path: 'procurement/handlers', name: 'AdminProcHandlers', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'procurement-handlers', title: '经手人管理' } },
         { path: 'procurement/phone-brands', name: 'AdminPhoneBrands', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'phone-brands', title: '手机品牌' } },
