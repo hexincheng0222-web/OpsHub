@@ -4,11 +4,9 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useThemeStore } from './stores/theme'
 import { useAuthStore } from './stores/auth'
 
-const router = useRouter()
 const themeStore = useThemeStore()
 const auth = useAuthStore()
 
@@ -21,7 +19,6 @@ function resetTimer() {
   if (auth.isLoggedIn) {
     timer = setTimeout(() => {
       auth.logout()
-      router.push('/login')
     }, TIMEOUT_MS)
   }
 }

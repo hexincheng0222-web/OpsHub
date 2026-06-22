@@ -105,7 +105,7 @@
       </span>
       <template v-if="auth.isLoggedIn">
         <span class="top-action-user">{{ auth.user?.display_name || auth.user?.username }}</span>
-        <span class="top-action-item logout-item" @click="handleLogout">登出</span>
+        <span class="top-action-item logout-item" @click="auth.logout">登出</span>
       </template>
     </div>
   </div>
@@ -141,10 +141,6 @@ function trackMouse(e: MouseEvent) {
   const rect = card.getBoundingClientRect()
   card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
   card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
-}
-
-function handleLogout() {
-  auth.logout()
 }
 
 onMounted(() => {
