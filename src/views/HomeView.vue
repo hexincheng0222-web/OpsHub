@@ -97,14 +97,16 @@
         </div>
       </div>
     </div>
-    <div class="theme-toggle" @click="themeStore.toggleTheme()">
-      <el-icon :size="22">
-        <Sunny v-if="themeStore.isDark" />
-        <Moon v-else />
-      </el-icon>
-    </div>
-    <div v-if="auth.isLoggedIn" class="logout-btn" @click="handleLogout" title="登出">
-      <el-icon :size="22"><SwitchButton /></el-icon>
+    <div class="top-right-actions">
+      <div v-if="auth.isLoggedIn" class="logout-btn" @click="handleLogout" title="登出">
+        <el-icon :size="20"><SwitchButton /></el-icon>
+      </div>
+      <div class="theme-toggle" @click="themeStore.toggleTheme()" title="切换主题">
+        <el-icon :size="20">
+          <Sunny v-if="themeStore.isDark" />
+          <Moon v-else />
+        </el-icon>
+      </div>
     </div>
   </div>
 </template>
@@ -285,23 +287,22 @@ function particleStyle(i: number) {
 .light-theme .card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(207,34,46,.12),rgba(207,34,46,.04));color:#cf222e;box-shadow:0 0 20px rgba(207,34,46,.08)}
 .stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
 .stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
-.theme-toggle{position:fixed;bottom:32px;right:32px;width:52px;height:52px;border-radius:50%;background:rgba(13,17,23,.80);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .35s cubic-bezier(.25,.1,.25,1);z-index:1000;color:#8b949e}
-.theme-toggle:hover{border-color:rgba(88,166,255,.4);color:#79c0ff;box-shadow:0 0 32px rgba(88,166,255,.15);transform:scale(1.08)}
-.theme-toggle .el-icon{transition:transform .35s ease}
-.theme-toggle:hover .el-icon{transform:rotate(30deg)}
-
-.logout-btn {
-  position: fixed; bottom: 96px; right: 32px;
-  width: 52px; height: 52px; border-radius: 50%;
+.top-right-actions {
+  position: fixed; top: 24px; right: 24px;
+  display: flex; gap: 10px;
+  z-index: 1000;
+}
+.top-right-actions > div {
+  width: 44px; height: 44px; border-radius: 50%;
   background: rgba(13,17,23,.80); backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,.08);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: all .35s cubic-bezier(.25,.1,.25,1);
-  z-index: 1000; color: #8b949e;
+  color: #8b949e;
 }
-.logout-btn:hover {
-  border-color: rgba(248,81,73,.4); color: #f85149;
-  box-shadow: 0 0 32px rgba(248,81,73,.15); transform: scale(1.08);
-}
+.theme-toggle:hover{border-color:rgba(88,166,255,.4);color:#79c0ff;box-shadow:0 0 32px rgba(88,166,255,.15);transform:scale(1.08)}
+.theme-toggle .el-icon{transition:transform .35s ease}
+.theme-toggle:hover .el-icon{transform:rotate(30deg)}
+.logout-btn:hover{border-color:rgba(248,81,73,.4);color:#f85149;box-shadow:0 0 32px rgba(248,81,73,.15);transform:scale(1.08)}
 </style>
