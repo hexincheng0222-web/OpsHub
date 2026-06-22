@@ -183,7 +183,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitize'
 import { ElMessageBox } from 'element-plus'
 import { useOperationsStore } from '../stores/operations'
@@ -192,19 +191,6 @@ import type { ManualDoc, ManualFolder } from '../mock/operations'
 const router = useRouter()
 const store = useOperationsStore()
 const loading = ref(true)
-
-// Marked config — custom heading renderer for header IDs
-const renderer = new marked.Renderer()
-renderer.heading = function (token: any) {
-  const text = this.parser.parseInline(token.tokens)
-  const id = text
-    .toLowerCase()
-    .replace(/<[^>]*>/g, '')
-    .replace(/[^\w\u4e00-\u9fff]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-  return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`
-}
-marked.setOptions({ renderer, breaks: true, gfm: true })
 
 // ---- Search (debounced) ----
 const searchQuery = ref('')
@@ -367,17 +353,18 @@ async function doDelete() {
   showDeleteConfirm.value = false
 }
 
-// ---- Rendered markdown (XSS-safe) ----
+// ---- Rendered HTML (XSS-safe) ----
 const renderedContent = computed(() => {
   if (!selectedDoc.value) return ''
-  const raw = marked.parse(selectedDoc.value.content) as string
-  return sanitizeHtml(raw)
+  return sanitizeHtml(selectedDoc.value.content)
 })
 
 // ---- Word count & reading time ----
 const wordCount = computed(() => {
   if (!selectedDoc.value) return 0
-  return selectedDoc.value.content.replace(/[#*`\-\s\[\]()>]/g, '').length
+  // Strip HTML tags for word count
+  const text = selectedDoc.value.content.replace(/<[^>]*>/g, '')
+  return text.replace(/[`\-\[\]()>#]/g, '').length
 })
 const readTime = computed(() => Math.max(1, Math.ceil(wordCount.value / 400)))
 
@@ -385,20 +372,18 @@ const readTime = computed(() => Math.max(1, Math.ceil(wordCount.value / 400)))
 interface TocItem { id: string; text: string; level: number }
 const tocItems = computed<TocItem[]>(() => {
   if (!selectedDoc.value) return []
-  const lines = selectedDoc.value.content.split('\n')
+  const html = selectedDoc.value.content
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, 'text/html')
+  const headings = doc.querySelectorAll('h1[id], h2[id], h3[id], h4[id]')
   const items: TocItem[] = []
-  for (const line of lines) {
-    const m = line.match(/^(#{1,4})\s+(.+)/)
-    if (!m) continue
-    const level = m[1].length
-    const text = m[2].trim()
-    const id = text
-      .toLowerCase()
-      .replace(/<[^>]*>/g, '')
-      .replace(/[^\w\u4e00-\u9fff]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-    items.push({ id, text, level })
-  }
+  headings.forEach((h) => {
+    items.push({
+      id: h.id,
+      text: h.textContent || '',
+      level: parseInt(h.tagName[1]),
+    })
+  })
   return items
 })
 
@@ -428,7 +413,6 @@ function onDocScroll() {
     let active = ''
     for (const h of headings) {
       const rect = (h as HTMLElement).getBoundingClientRect()
-      // Heading is "active" if its top is within 80px of container top (or above it)
       if (rect.top <= containerTop + 80) {
         active = h.id
       }
@@ -782,7 +766,7 @@ function onGlobalKey(e: KeyboardEvent) {
 .ctx-item-danger { color: var(--ops-accent-red); }
 .ctx-item-danger:hover { background: rgba(220,50,50,0.12); }
 
-/* ===== Markdown rendered content ===== */
+/* ===== Rendered HTML content ===== */
 .markdown-body {
   color: var(--ops-text-primary);
   font-size: 14px;
@@ -791,8 +775,11 @@ function onGlobalKey(e: KeyboardEvent) {
 .markdown-body :deep(h1) { font-size: 24px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid var(--ops-border-card); }
 .markdown-body :deep(h2) { font-size: 18px; margin: 28px 0 12px 0; }
 .markdown-body :deep(h3) { font-size: 15px; margin: 20px 0 8px 0; }
+.markdown-body :deep(h4) { font-size: 14px; margin: 16px 0 6px 0; }
 .markdown-body :deep(p) { margin: 8px 0; }
 .markdown-body :deep(strong) { color: var(--ops-accent-blue); }
+.markdown-body :deep(a) { color: var(--ops-accent-blue); text-decoration: none; }
+.markdown-body :deep(a:hover) { text-decoration: underline; }
 .markdown-body :deep(code) {
   background: var(--ops-bg-card-hover);
   padding: 2px 6px; border-radius: 4px;
@@ -828,8 +815,6 @@ function onGlobalKey(e: KeyboardEvent) {
 .markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 24px; margin: 8px 0; }
 .markdown-body :deep(li) { margin: 4px 0; }
 .markdown-body :deep(hr) { border: none; border-top: 1px solid var(--ops-border-card); margin: 24px 0; }
-.markdown-body :deep(a) { color: var(--ops-accent-blue); text-decoration: none; }
-.markdown-body :deep(a:hover) { text-decoration: underline; }
 .markdown-body :deep(img) { max-width: 100%; border-radius: 8px; margin: 8px 0; }
 
 /* ===== Dialogs ===== */

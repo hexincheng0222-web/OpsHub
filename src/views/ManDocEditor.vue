@@ -24,55 +24,28 @@
     </div>
     <div v-if="saveError" class="ed-error">{{ saveError }}</div>
 
-    <!-- Editor body -->
+    <!-- TinyMCE Editor -->
     <div class="ed-body">
-      <div class="ed-pane ed-pane-left">
-        <div class="ed-pane-header">📝 编辑</div>
-        <div class="ed-editor-wrap">
-          <textarea
-            ref="editorRef"
-            v-model="form.content"
-            class="ed-textarea"
-            placeholder="在此编写 Markdown 内容...
-            
-支持 Ctrl+V 粘贴图片（自动转 base64）
-支持 Markdown 语法排版"
-            @paste="handlePaste"
-            @keydown.tab.prevent="insertTab"
-          />
-        </div>
-      </div>
-      <div class="ed-pane ed-pane-right">
-        <div class="ed-pane-header">👁️ 预览</div>
-        <div class="ed-preview-wrap">
-          <div class="markdown-body" v-html="previewHtml" />
-        </div>
-      </div>
+      <Editor
+        v-model="form.content"
+        :init="editorInit"
+        api-key="no-api-key"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { marked } from 'marked'
-import { sanitizeHtml } from '../utils/sanitize'
+import Editor from '@tinymce/tinymce-vue'
 import { useOperationsStore } from '../stores/operations'
 
 const route = useRoute()
 const router = useRouter()
 const store = useOperationsStore()
 
-const renderer = new marked.Renderer()
-renderer.heading = function (token: any) {
-  const text = this.parser.parseInline(token.tokens)
-  const id = text.toLowerCase().replace(/<[^>]*>/g, '').replace(/[^\w\u4e00-\u9fff]+/g, '-').replace(/(^-|-$)/g, '')
-  return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`
-}
-marked.setOptions({ renderer, breaks: true, gfm: true })
-
 const isEdit = computed(() => !!route.params.id)
-const editorRef = ref<HTMLTextAreaElement>()
 const saveError = ref('')
 
 const form = reactive({
@@ -81,13 +54,56 @@ const form = reactive({
   folderId: '',
 })
 
-// Load existing doc for edit mode, or pre-select folder for new
+// TinyMCE editor config
+const editorInit: any = {
+  height: '100%',
+  menubar: true,
+  plugins: [
+    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+  ],
+  toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image table | removeformat code fullscreen help',
+  language: 'zh_CN',
+  images_upload_handler: (blobInfo: any) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.readAsDataURL(blobInfo.blob())
+    })
+  },
+  automatic_uploads: false,
+  file_picker_types: 'image',
+  file_picker_callback: (callback: any) => {
+    const input = document.createElement('input')
+    input.setAttribute('type', 'file')
+    input.setAttribute('accept', 'image/*')
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          callback(reader.result as string, { alt: file.name })
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+    input.click()
+  },
+  setup: (editor: any) => {
+    editor.on('init', () => {
+      if (form.content) {
+        editor.setContent(form.content)
+      }
+    })
+  },
+}
+
+// Load existing doc for edit mode
 onMounted(async () => {
-  // 确保文件夹列表已加载
   if (store.folders.length === 0) await store.loadFolders()
 
   if (isEdit.value) {
-    // 确保文档数据已加载
     if (!store.getDoc(Number(route.params.id))) await store.loadDocs()
     const doc = store.getDoc(Number(route.params.id))
     if (doc) {
@@ -98,7 +114,7 @@ onMounted(async () => {
   } else if (route.query.folderId) {
     form.folderId = route.query.folderId as string
   }
-  // Ctrl+S save
+
   document.addEventListener('keydown', onKeyDown)
 })
 onUnmounted(() => {
@@ -112,41 +128,6 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
-// Live preview (XSS-safe)
-const previewHtml = computed(() => {
-  const raw = marked.parse(form.content) as string
-  return sanitizeHtml(raw)
-})
-
-// Auto-save draft
-const DRAFT_KEY = 'ops-editor-draft'
-let draftTimer: ReturnType<typeof setInterval> | null = null
-let dirty = false
-watch(() => form.content, () => { dirty = true })
-onMounted(() => {
-  draftTimer = setInterval(() => {
-    if (!dirty) return
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
-      title: form.title, content: form.content,
-      folderId: form.folderId,
-      editId: route.params.id || '',
-    }))
-  }, 3000)
-  // Listen for beforeunload
-  window.addEventListener('beforeunload', onBeforeUnload)
-})
-onUnmounted(() => {
-  if (draftTimer) clearInterval(draftTimer)
-  window.removeEventListener('beforeunload', onBeforeUnload)
-})
-function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (dirty) {
-    e.preventDefault()
-    e.returnValue = ''
-  }
-}
-
-// Save
 async function save() {
   saveError.value = ''
   if (!form.title.trim()) { saveError.value = '请输入标题'; return }
@@ -161,51 +142,10 @@ async function save() {
         folderId: form.folderId,
       })
     }
-    dirty = false
-    sessionStorage.removeItem(DRAFT_KEY)
     router.push('/operations')
   } catch (e: any) {
     saveError.value = e.message || '保存失败'
   }
-}
-
-// Image paste → base64
-function handlePaste(e: ClipboardEvent) {
-  const items = e.clipboardData?.items
-  if (!items) return
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      e.preventDefault()
-      const blob = item.getAsFile()
-      if (!blob) continue
-      const reader = new FileReader()
-      reader.onload = () => {
-        const base64 = reader.result as string
-        const mdImage = `![image](${base64})`
-        insertAtCursor(mdImage)
-      }
-      reader.readAsDataURL(blob)
-    }
-  }
-}
-
-// Insert text at cursor position
-function insertAtCursor(text: string) {
-  const el = editorRef.value
-  if (!el) return
-  const start = el.selectionStart
-  const end = el.selectionEnd
-  form.content = form.content.substring(0, start) + text + form.content.substring(end)
-  // Set cursor after inserted text
-  requestAnimationFrame(() => {
-    el.focus()
-    el.selectionStart = el.selectionEnd = start + text.length
-  })
-}
-
-// Tab key → 2 spaces
-function insertTab() {
-  insertAtCursor('  ')
 }
 </script>
 
@@ -278,13 +218,6 @@ function insertTab() {
   padding: 6px 10px; border-radius: 6px; outline: none; font-family: inherit;
 }
 .ed-select:focus { border-color: var(--ops-accent-blue); }
-.ed-input-author {
-  width: 120px; background: var(--ops-bg-card-hover);
-  border: 1px solid var(--ops-border-card);
-  color: var(--ops-text-secondary); font-size: 13px;
-  padding: 6px 10px; border-radius: 6px; outline: none; font-family: inherit;
-}
-.ed-input-author:focus { border-color: var(--ops-accent-blue); }
 .ed-error {
   padding: 4px 16px;
   color: var(--ops-accent-red); font-size: 12px;
@@ -299,82 +232,4 @@ function insertTab() {
   display: flex;
   overflow: hidden;
 }
-.ed-pane {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.ed-pane-left { border-right: 1px solid var(--ops-border-card); }
-.ed-pane-header {
-  font-size: 11px; font-weight: 600; color: var(--ops-text-tertiary);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  padding: 8px 16px;
-  background: var(--ops-bg-card);
-  border-bottom: 1px solid var(--ops-border-card);
-  flex-shrink: 0;
-}
-.ed-editor-wrap { flex: 1; overflow: hidden; }
-.ed-textarea {
-  width: 100%; height: 100%;
-  background: var(--ops-bg-page);
-  border: none; outline: none;
-  color: var(--ops-text-primary);
-  font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
-  font-size: 13px; line-height: 1.7;
-  padding: 16px; resize: none;
-  tab-size: 2;
-}
-.ed-textarea::placeholder { color: var(--ops-text-tertiary); }
-
-.ed-preview-wrap {
-  flex: 1; overflow-y: auto; padding: 24px 32px;
-  max-width: 800px;
-}
-
-/* Markdown styles (same as viewer) */
-.markdown-body {
-  color: var(--ops-text-primary);
-  font-size: 14px;
-  line-height: 1.8;
-}
-.markdown-body :deep(h1) { font-size: 24px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid var(--ops-border-card); }
-.markdown-body :deep(h2) { font-size: 18px; margin: 28px 0 12px 0; }
-.markdown-body :deep(h3) { font-size: 15px; margin: 20px 0 8px 0; }
-.markdown-body :deep(p) { margin: 8px 0; }
-.markdown-body :deep(strong) { color: var(--ops-accent-blue); }
-.markdown-body :deep(code) {
-  background: var(--ops-bg-card-hover);
-  padding: 2px 6px; border-radius: 4px;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 13px; color: var(--ops-accent-yellow);
-}
-.markdown-body :deep(pre) {
-  background: var(--ops-bg-code); border: 1px solid var(--ops-border-code);
-  border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0;
-}
-.markdown-body :deep(pre code) {
-  background: none; padding: 0; color: var(--ops-text-code); font-size: 13px;
-}
-.markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; }
-.markdown-body :deep(th) {
-  background: var(--ops-bg-card-hover); color: var(--ops-text-primary);
-  font-weight: 600; font-size: 12px; padding: 8px 12px; text-align: left;
-  border: 1px solid var(--ops-border-card);
-}
-.markdown-body :deep(td) {
-  padding: 8px 12px; font-size: 13px;
-  border: 1px solid var(--ops-border-card); color: var(--ops-text-secondary);
-}
-.markdown-body :deep(blockquote) {
-  border-left: 3px solid var(--ops-accent-yellow);
-  margin: 12px 0; padding: 8px 16px;
-  background: rgba(210,153,34,0.06); color: var(--ops-text-secondary);
-  border-radius: 0 6px 6px 0;
-}
-.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 24px; margin: 8px 0; }
-.markdown-body :deep(li) { margin: 4px 0; }
-.markdown-body :deep(hr) { border: none; border-top: 1px solid var(--ops-border-card); margin: 24px 0; }
-.markdown-body :deep(a) { color: var(--ops-accent-blue); }
-.markdown-body :deep(img) { max-width: 100%; border-radius: 8px; margin: 8px 0; }
 </style>
