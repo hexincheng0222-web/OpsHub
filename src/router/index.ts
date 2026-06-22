@@ -4,6 +4,12 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
+      path: '/login',
+      name: 'Login',
+      component: () => import('../views/LoginView.vue'),
+      meta: { title: '登录' }
+    },
+    {
       path: '/',
       name: 'Home',
       component: () => import('../views/HomeView.vue'),
@@ -110,6 +116,27 @@ const router = createRouter({
       meta: { title: '页面不存在' }
     }
   ]
+})
+
+// 路由守卫 — 登录和权限检查
+router.beforeEach(async (to) => {
+  const { useAuthStore } = await import('../stores/auth')
+  const auth = useAuthStore()
+
+  // 未登录且目标不是登录页 → 跳转登录
+  if (!auth.isLoggedIn && to.path !== '/login') {
+    return '/login'
+  }
+
+  // 已登录访问登录页 → 跳转首页
+  if (auth.isLoggedIn && to.path === '/login') {
+    return '/'
+  }
+
+  // /admin/** 需要管理员权限
+  if (to.path.startsWith('/admin') && !auth.isAdmin) {
+    return '/'
+  }
 })
 
 // 动态更新页面标题
