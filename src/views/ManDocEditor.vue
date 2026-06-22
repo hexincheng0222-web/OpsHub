@@ -24,13 +24,9 @@
     </div>
     <div v-if="saveError" class="ed-error">{{ saveError }}</div>
 
-    <!-- TinyMCE Editor -->
+    <!-- TinyMCE Editor (self-hosted) -->
     <div class="ed-body">
-      <Editor
-        v-model="form.content"
-        :init="editorInit"
-        api-key="no-api-key"
-      />
+      <textarea ref="editorRef" style="display:none" />
     </div>
   </div>
 </template>
@@ -38,7 +34,30 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Editor from '@tinymce/tinymce-vue'
+
+// TinyMCE self-hosted imports
+import tinymce from 'tinymce/tinymce'
+import 'tinymce/themes/silver/theme'
+import 'tinymce/icons/default/icons'
+import 'tinymce/models/dom/model'
+import 'tinymce/plugins/advlist'
+import 'tinymce/plugins/autolink'
+import 'tinymce/plugins/lists'
+import 'tinymce/plugins/link'
+import 'tinymce/plugins/image'
+import 'tinymce/plugins/charmap'
+import 'tinymce/plugins/preview'
+import 'tinymce/plugins/anchor'
+import 'tinymce/plugins/searchreplace'
+import 'tinymce/plugins/visualblocks'
+import 'tinymce/plugins/code'
+import 'tinymce/plugins/fullscreen'
+import 'tinymce/plugins/insertdatetime'
+import 'tinymce/plugins/media'
+import 'tinymce/plugins/table'
+import 'tinymce/plugins/help'
+import 'tinymce/plugins/wordcount'
+
 import { useOperationsStore } from '../stores/operations'
 
 const route = useRoute()
@@ -47,6 +66,7 @@ const store = useOperationsStore()
 
 const isEdit = computed(() => !!route.params.id)
 const saveError = ref('')
+const editorRef = ref<HTMLTextAreaElement>()
 
 const form = reactive({
   title: '',
@@ -54,8 +74,12 @@ const form = reactive({
   folderId: '',
 })
 
+// TinyMCE editor instance
+let editorInstance: any = null
+
 // TinyMCE editor config
-const editorInit: any = {
+const editorConfig = {
+  target: undefined as any,
   height: '100%',
   menubar: true,
   plugins: [
@@ -91,10 +115,14 @@ const editorInit: any = {
     input.click()
   },
   setup: (editor: any) => {
+    editorInstance = editor
     editor.on('init', () => {
       if (form.content) {
         editor.setContent(form.content)
       }
+    })
+    editor.on('change input undo redo NodeChange', () => {
+      form.content = editor.getContent()
     })
   },
 }
@@ -116,9 +144,22 @@ onMounted(async () => {
   }
 
   document.addEventListener('keydown', onKeyDown)
+
+  // Initialize TinyMCE
+  tinymce.init({
+    ...editorConfig,
+    target: editorRef.value,
+  })
 })
+
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeyDown)
+  // Cleanup TinyMCE instance
+  if (editorInstance) {
+    editorInstance.remove()
+    editorInstance = null
+  }
+  tinymce.remove()
 })
 
 function onKeyDown(e: KeyboardEvent) {
