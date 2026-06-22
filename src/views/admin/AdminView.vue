@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   DataBoard, Document, Monitor, Printer,
-  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis,
+  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis, User,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -26,6 +26,11 @@ const menuItems: MenuItem[] = [
     key: 'logs',
     label: '操作日志',
     icon: Document,
+  },
+  {
+    key: 'users',
+    label: '用户管理',
+    icon: User,
   },
   {
     key: 'devices',
@@ -93,6 +98,7 @@ const activeMenu = computed(() => {
   const path = route.path
   if (path === '/admin') return 'overview'
   if (path === '/admin/logs') return 'logs'
+  if (path === '/admin/users') return 'users'
   const match = path.match(/^\/admin\/(.+)$/)
   return match ? match[1] : 'overview'
 })
@@ -102,6 +108,8 @@ function handleMenuSelect(key: string) {
     router.push('/admin')
   } else if (key === 'logs') {
     router.push('/admin/logs')
+  } else if (key === 'users') {
+    router.push('/admin/users')
   } else {
     for (const item of menuItems) {
       if (item.children) {
