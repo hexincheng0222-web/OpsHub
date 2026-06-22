@@ -24,12 +24,12 @@
     </div>
     <div v-if="saveError" class="ed-error">{{ saveError }}</div>
 
-    <!-- TinyMCE Editor -->
+    <!-- CKEditor 5 -->
     <div class="ed-body">
       <Editor
         v-model="form.content"
-        :init="editorInit"
-        api-key="gpl"
+        :editor="ClassicEditor"
+        :config="editorConfig"
       />
     </div>
   </div>
@@ -38,7 +38,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Editor from '@tinymce/tinymce-vue'
+import { Editor } from '@ckeditor/ckeditor5-vue'
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import { useOperationsStore } from '../stores/operations'
 
 const route = useRoute()
@@ -54,48 +55,24 @@ const form = reactive({
   folderId: '',
 })
 
-// TinyMCE editor config
-const editorInit: any = {
-  height: '100%',
-  menubar: true,
-  plugins: [
-    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-    'insertdatetime', 'media', 'table', 'help', 'wordcount'
-  ],
-  toolbar: 'undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image table | removeformat code fullscreen help',
-  language: 'zh_CN',
-  images_upload_handler: (blobInfo: any) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.readAsDataURL(blobInfo.blob())
-    })
+// CKEditor 5 config
+const editorConfig = {
+  toolbar: {
+    items: [
+      'heading', '|',
+      'bold', 'italic', 'link', '|',
+      'bulletedList', 'numberedList', '|',
+      'insertTable', 'imageUpload', '|',
+      'undo', 'redo', '|',
+      'sourceEditing'
+    ],
   },
-  automatic_uploads: false,
-  file_picker_types: 'image',
-  file_picker_callback: (callback: any) => {
-    const input = document.createElement('input')
-    input.setAttribute('type', 'file')
-    input.setAttribute('accept', 'image/*')
-    input.onchange = () => {
-      const file = input.files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = () => {
-          callback(reader.result as string, { alt: file.name })
-        }
-        reader.readAsDataURL(file)
-      }
-    }
-    input.click()
+  language: 'zh-cn',
+  image: {
+    toolbar: ['imageTextAlternative', 'imageStyle:inline', 'imageStyle:block', 'imageStyle:side']
   },
-  setup: (editor: any) => {
-    editor.on('init', () => {
-      if (form.content) {
-        editor.setContent(form.content)
-      }
-    })
+  table: {
+    contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
   },
 }
 
@@ -231,5 +208,10 @@ async function save() {
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+/* CKEditor custom styles */
+.ed-body :deep(.ck-editor__editable) {
+  min-height: 100%;
 }
 </style>
