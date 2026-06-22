@@ -30,9 +30,14 @@ function onUserActivity() {
   resetTimer()
 }
 
-onMounted(() => {
+onMounted(async () => {
   themeStore.initTheme()
   themeStore.watchSystemTheme()
+
+  // 进入页面先验证 token 是否有效，恢复登录状态
+  if (auth.token) {
+    await auth.fetchMe()
+  }
 
   if (auth.isLoggedIn) {
     resetTimer()

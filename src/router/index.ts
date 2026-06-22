@@ -124,6 +124,11 @@ router.beforeEach(async (to) => {
   const { useAuthStore } = await import('../stores/auth')
   const auth = useAuthStore()
 
+  // 确保已验证过 token
+  if (auth.token && !auth.user) {
+    await auth.fetchMe()
+  }
+
   // 已登录访问登录页 → 跳转首页
   if (auth.isLoggedIn && to.path === '/login') {
     return '/'
@@ -132,7 +137,7 @@ router.beforeEach(async (to) => {
   // /admin/** 需要登录 + 管理员权限
   if (to.path.startsWith('/admin')) {
     if (!auth.isLoggedIn) {
-      return '/login'
+      return { path: '/login', query: { redirect: to.fullPath } }
     }
     if (!auth.isAdmin) {
       return '/'
