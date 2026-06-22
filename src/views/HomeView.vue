@@ -5,7 +5,6 @@
       <div class="orb orb-2" />
       <div class="orb orb-3" />
     </div>
-    <div class="grid-overlay" />
     <div class="particles">
       <div v-for="i in 40" :key="i" class="particle" :style="particleStyle(i)" />
     </div>
@@ -181,7 +180,6 @@ function particleStyle(i: number) {
 @keyframes orbFloat1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(60px,40px) scale(1.1)}66%{transform:translate(-30px,-20px) scale(.95)}}
 @keyframes orbFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,-50px) scale(1.15)}}
 @keyframes orbFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(30px,-40px) scale(1.2)}}
-.grid-overlay{position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.03;background-image:linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px);background-size:48px 48px}
 .particles{position:absolute;inset:0;pointer-events:none;z-index:1}
 .particle{position:absolute;border-radius:50%;animation:particleRise linear infinite;will-change:transform,opacity}
 @keyframes particleRise{0%{transform:translateY(0) scale(.9);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-100vh) scale(1.4);opacity:0}}
@@ -272,16 +270,6 @@ function particleStyle(i: number) {
 .light-theme .card-purple .card-icon-wrap{background:linear-gradient(135deg,rgba(130,80,223,.12),rgba(130,80,223,.04));color:#8250df;box-shadow:0 0 20px rgba(130,80,223,.08)}
 .light-theme .card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
 .light-theme .card-gold .stat-num{color:#9a6700}
-.light-theme .card-gold .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
-.card-red .card-glow{background:linear-gradient(135deg,rgba(248,81,73,.30),transparent 45%,rgba(248,81,73,.06))}
-.card-red:hover{border-color:rgba(248,81,73,.35);box-shadow:0 0 60px rgba(248,81,73,.08),0 0 120px rgba(248,81,73,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(248,81,73,.18),rgba(248,81,73,.06));color:#f85149;box-shadow:0 0 20px rgba(248,81,73,.10)}
-.card-red:hover .card-icon-wrap{box-shadow:0 0 30px rgba(248,81,73,.25)}
-.card-red .stat-num{color:#f85149}
-.light-theme .card-red .stat-num{color:#cf222e}
-.light-theme .card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(207,34,46,.12),rgba(207,34,46,.04));color:#cf222e;box-shadow:0 0 20px rgba(207,34,46,.08)}
-.stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
-.stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .top-right-actions {
   position: fixed; top: 24px; right: 24px;
   display: flex; align-items: center; gap: 16px;
@@ -298,4 +286,12 @@ function particleStyle(i: number) {
   font-size: 13px; color: #79c0ff;
   font-weight: 500;
 }
+.card-red:hover{border-color:rgba(248,81,73,.35);box-shadow:0 0 60px rgba(248,81,73,.08),0 0 120px rgba(248,81,73,.04),0 8px 32px rgba(0,0,0,.5)}
+.card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(248,81,73,.18),rgba(248,81,73,.06));color:#f85149;box-shadow:0 0 20px rgba(248,81,73,.10)}
+.card-red:hover .card-icon-wrap{box-shadow:0 0 30px rgba(248,81,73,.25)}
+.card-red .stat-num{color:#f85149}
+.light-theme .card-red .stat-num{color:#cf222e}
+.light-theme .card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(207,34,46,.12),rgba(207,34,46,.04));color:#cf222e;box-shadow:0 0 20px rgba(207,34,46,.08)}
+.stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
+.stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 </style>
