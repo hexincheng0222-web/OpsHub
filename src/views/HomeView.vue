@@ -98,15 +98,13 @@
       </div>
     </div>
     <div class="top-right-actions">
-      <div v-if="auth.isLoggedIn" class="logout-btn" @click="handleLogout" title="登出">
-        <el-icon :size="20"><SwitchButton /></el-icon>
-      </div>
-      <div class="theme-toggle" @click="themeStore.toggleTheme()" title="切换主题">
-        <el-icon :size="20">
-          <Sunny v-if="themeStore.isDark" />
-          <Moon v-else />
-        </el-icon>
-      </div>
+      <span class="top-action-item" @click="themeStore.toggleTheme()" title="切换主题">
+        {{ themeStore.isDark ? '☀️ 浅色' : '🌙 深色' }}
+      </span>
+      <template v-if="auth.isLoggedIn">
+        <span class="top-action-user">{{ auth.user?.display_name || auth.user?.username }}</span>
+        <span class="top-action-item logout-item" @click="handleLogout">登出</span>
+      </template>
     </div>
   </div>
 </template>
@@ -118,12 +116,11 @@ import { useOperationsStore } from '../stores/operations'
 import { useDevicesStore } from '../stores/devices'
 import { usePrintersStore } from '../stores/printers'
 import { useComputerProcurementStore, usePhoneProcurementStore } from '../stores/procurement'
-import { Monitor, Cellphone, Phone, DataAnalysis, SwitchButton } from '@element-plus/icons-vue'
+import { Monitor, Cellphone, Phone, DataAnalysis } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
 import { fetchPhones } from '../api/phones'
 import { getConfig } from '../api/log-monitor'
-import { useRouter } from 'vue-router'
 const servicesStore = useServicesStore()
 const opsStore = useOperationsStore()
 const devicesStore = useDevicesStore()
@@ -132,22 +129,20 @@ const computerStore = useComputerProcurementStore()
 const phoneStore = usePhoneProcurementStore()
 const themeStore = useThemeStore()
 const auth = useAuthStore()
-const router = useRouter()
 const phoneTotal = ref(0)
 const phoneOnline = ref(0)
 const lmDeviceCount = ref(0)
 
 function trackMouse(e: MouseEvent) {
-
-function handleLogout() {
-  auth.logout()
-  router.push('/')
-}
   const card = (e.target as HTMLElement).closest('.big-card') as HTMLElement | null
   if (!card) return
   const rect = card.getBoundingClientRect()
   card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
   card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
+}
+
+function handleLogout() {
+  auth.logout()
 }
 
 onMounted(() => {
@@ -289,20 +284,18 @@ function particleStyle(i: number) {
 .stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .top-right-actions {
   position: fixed; top: 24px; right: 24px;
-  display: flex; gap: 10px;
+  display: flex; align-items: center; gap: 16px;
   z-index: 1000;
 }
-.top-right-actions > div {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(13,17,23,.80); backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,.08);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: all .35s cubic-bezier(.25,.1,.25,1);
-  color: #8b949e;
+.top-action-item {
+  font-size: 13px; color: #8b949e;
+  cursor: pointer; transition: color .2s ease;
+  user-select: none;
 }
-.theme-toggle:hover{border-color:rgba(88,166,255,.4);color:#79c0ff;box-shadow:0 0 32px rgba(88,166,255,.15);transform:scale(1.08)}
-.theme-toggle .el-icon{transition:transform .35s ease}
-.theme-toggle:hover .el-icon{transform:rotate(30deg)}
-.logout-btn:hover{border-color:rgba(248,81,73,.4);color:#f85149;box-shadow:0 0 32px rgba(248,81,73,.15);transform:scale(1.08)}
+.top-action-item:hover { color: #e6edf3; }
+.logout-item:hover { color: #f85149 !important; }
+.top-action-user {
+  font-size: 13px; color: #79c0ff;
+  font-weight: 500;
+}
 </style>
