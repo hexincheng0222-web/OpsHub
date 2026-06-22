@@ -183,10 +183,24 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitize'
 import { ElMessageBox } from 'element-plus'
 import { useOperationsStore } from '../stores/operations'
 import type { ManualDoc, ManualFolder } from '../mock/operations'
+
+// Marked config for reading mode (docs stored as Markdown)
+const renderer = new marked.Renderer()
+renderer.heading = function (token: any) {
+  const text = this.parser.parseInline(token.tokens)
+  const id = text
+    .toLowerCase()
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^\w一-鿿]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+  return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`
+}
+marked.setOptions({ renderer, breaks: true, gfm: true })
 
 const router = useRouter()
 const store = useOperationsStore()
@@ -353,10 +367,13 @@ async function doDelete() {
   showDeleteConfirm.value = false
 }
 
-// ---- Rendered HTML (XSS-safe) ----
+// ---- Rendered content (Markdown → HTML, XSS-safe) ----
 const renderedContent = computed(() => {
   if (!selectedDoc.value) return ''
-  return sanitizeHtml(selectedDoc.value.content)
+  const raw = selectedDoc.value.content
+  // If content already looks like HTML (starts with <), use directly
+  const html = raw.trim().startsWith('<') ? raw : (marked.parse(raw) as string)
+  return sanitizeHtml(html)
 })
 
 // ---- Word count & reading time ----
