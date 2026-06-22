@@ -76,6 +76,7 @@ const router = createRouter({
       meta: { title: '系统管理' },
       children: [
         { path: '', name: 'AdminOverview', component: () => import('../views/admin/AdminOverview.vue'), meta: { title: '系统概览' } },
+        { path: 'users', name: 'AdminUsers', component: () => import('../views/admin/AdminUsers.vue'), meta: { title: '用户管理' } },
         { path: 'logs', name: 'AdminLogs', component: () => import('../views/admin/AdminLogs.vue'), meta: { title: '操作日志' } },
         { path: 'devices/floors', name: 'AdminDeviceFloors', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-floors', title: '楼层管理' } },
         { path: 'devices/types', name: 'AdminDeviceTypes', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-types', title: '设备类型' } },
