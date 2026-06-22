@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import bcrypt from 'bcryptjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -326,6 +327,18 @@ db.exec(`
     value       TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    username     TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    display_name TEXT NOT NULL DEFAULT '',
+    role         TEXT NOT NULL DEFAULT 'user',
+    is_active    INTEGER NOT NULL DEFAULT 1,
+    last_login_at TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `)
 
@@ -1212,11 +1225,21 @@ if (configCount.cnt === 0) {
   console.log('[db] 已初始化 ATCOM 话机管理默认配置')
 }
 
-// 迁移：service_hosts 表添加 device_id 列
+// 迁移：service_hosts 表将 device_id 替换为 category（服务分类）
 const shColumns = db.prepare("PRAGMA table_info(service_hosts)").all() as { name: string }[]
-if (shColumns.length > 0 && !shColumns.some(c => c.name === 'device_id')) {
-  db.exec('ALTER TABLE service_hosts ADD COLUMN device_id INTEGER REFERENCES devices(id) ON DELETE SET NULL')
-  console.log('[db] 已添加 service_hosts.device_id 列')
+if (shColumns.length > 0) {
+  if (!shColumns.some(c => c.name === 'category')) {
+    db.exec('ALTER TABLE service_hosts ADD COLUMN category TEXT NOT NULL DEFAULT \'\'')
+    console.log('[db] 已添加 service_hosts.category 列')
+  }
+  // 旧 device_id 列保留不删（SQLite 不支持 DROP COLUMN 旧版本兼容），但不再使用
+}
+
+// 迁移：operation_logs 添加 operator 字段
+const olColumns = db.prepare("PRAGMA table_info(operation_logs)").all() as { name: string }[]
+if (olColumns.length > 0 && !olColumns.some(c => c.name === 'operator')) {
+  db.exec("ALTER TABLE operation_logs ADD COLUMN operator TEXT NOT NULL DEFAULT ''")
+  console.log('[db] 已添加 operation_logs.operator 列')
 }
 
 // ========== 日志监控配置表 ==========
@@ -1284,6 +1307,16 @@ if (lmConfigCount.cnt === 0) {
   })
   seedDefaults()
   console.log('[db] 已初始化日志监控默认配置')
+}
+
+// 初始化：如果 users 表为空，创建默认超级管理员
+const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt
+if (userCount === 0) {
+  const hash = bcrypt.hashSync('admin123', 10)
+  db.prepare(
+    "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)"
+  ).run('admin', hash, '超级管理员', 'superadmin')
+  console.log('[db] 已创建默认超级管理员账号：admin / admin123')
 }
 
 export default db
