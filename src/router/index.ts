@@ -134,14 +134,14 @@ router.beforeEach(async (to) => {
     return '/'
   }
 
-  // /admin/** 需要登录 + 管理员权限
-  if (to.path.startsWith('/admin')) {
-    if (!auth.isLoggedIn) {
-      return { path: '/login', query: { redirect: to.fullPath } }
-    }
-    if (!auth.isAdmin) {
-      return '/'
-    }
+  // 所有页面需要登录（登录页除外）
+  if (!auth.isLoggedIn && to.path !== '/login') {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  // /admin/** 需要管理员权限
+  if (to.path.startsWith('/admin') && !auth.isAdmin) {
+    return '/'
   }
 })
 
