@@ -24,12 +24,14 @@
     </div>
     <div v-if="saveError" class="ed-error">{{ saveError }}</div>
 
-    <!-- CKEditor 5 -->
+    <!-- Quill Editor -->
     <div class="ed-body">
-      <Editor
-        v-model="form.content"
-        :editor="ClassicEditor"
-        :config="editorConfig"
+      <QuillEditor
+        v-model:content="form.content"
+        contentType="html"
+        theme="snow"
+        :toolbar="toolbarOptions"
+        style="height: 100%"
       />
     </div>
   </div>
@@ -38,8 +40,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Editor } from '@ckeditor/ckeditor5-vue'
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { useOperationsStore } from '../stores/operations'
 
 const route = useRoute()
@@ -55,26 +57,20 @@ const form = reactive({
   folderId: '',
 })
 
-// CKEditor 5 config
-const editorConfig = {
-  toolbar: {
-    items: [
-      'heading', '|',
-      'bold', 'italic', 'link', '|',
-      'bulletedList', 'numberedList', '|',
-      'insertTable', 'imageUpload', '|',
-      'undo', 'redo', '|',
-      'sourceEditing'
-    ],
-  },
-  language: 'zh-cn',
-  image: {
-    toolbar: ['imageTextAlternative', 'imageStyle:inline', 'imageStyle:block', 'imageStyle:side']
-  },
-  table: {
-    contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties']
-  },
-}
+// Quill toolbar config
+const toolbarOptions = [
+  ['bold', 'italic', 'underline', 'strike'],
+  ['blockquote', 'code-block'],
+  [{ header: 1 }, { header: 2 }, { header: 3 }],
+  [{ list: 'ordered' }, { list: 'bullet' }],
+  [{ indent: '-1' }, { indent: '+1' }],
+  [{ size: ['small', false, 'large', 'huge'] }],
+  [{ color: [] }, { background: [] }],
+  [{ align: [] }],
+  ['clean'],
+  ['link', 'image', 'video'],
+  ['table'],
+]
 
 // Load existing doc for edit mode
 onMounted(async () => {
@@ -207,11 +203,17 @@ async function save() {
 .ed-body {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-/* CKEditor custom styles */
-.ed-body :deep(.ck-editor__editable) {
+/* Quill editor height fix */
+.ed-body :deep(.ql-container) {
+  flex: 1;
+  min-height: 0;
+}
+
+.ed-body :deep(.ql-editor) {
   min-height: 100%;
 }
 </style>
