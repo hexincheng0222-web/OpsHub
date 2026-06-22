@@ -65,8 +65,8 @@ const tables: Record<string, TableConfig> = {
   },
   'service-hosts': {
     table: 'service_hosts',
-    columns: ['name', 'ip', 'os', 'description', 'sort_order', 'device_id'],
-    listColumns: 'id, name, ip, os, description, sort_order, device_id, created_at, updated_at',
+    columns: ['name', 'ip', 'os', 'description', 'sort_order', 'category'],
+    listColumns: 'id, name, ip, os, description, sort_order, category, created_at, updated_at',
     module: '服务主机',
   },
   'procurement-departments': {
@@ -103,10 +103,10 @@ const tables: Record<string, TableConfig> = {
 }
 
 // 记录操作日志
-function logOperation(module: string, action: string, target: string, detail: string = '') {
+function logOperation(module: string, action: string, target: string, detail: string = '', operator: string = '') {
   db.prepare(
-    'INSERT INTO operation_logs (module, action, target, detail) VALUES (?, ?, ?, ?)'
-  ).run(module, action, target, detail)
+    'INSERT INTO operation_logs (module, action, target, detail, operator) VALUES (?, ?, ?, ?, ?)'
+  ).run(module, action, target, detail, operator)
 }
 
 // ========== 系统配置（必须在 /:table 之前） ==========
@@ -146,7 +146,7 @@ router.put('/config', (req: Request, res: Response) => {
   })
   tx()
 
-  logOperation('系统配置', '修改', configs.map(c => c.key).join(', '), JSON.stringify(configs))
+  logOperation('系统配置', '修改', configs.map(c => c.key).join(', '), JSON.stringify(configs), req.user?.username || '')
   res.json({ code: 200, message: '配置已保存' })
 })
 
@@ -175,7 +175,7 @@ router.post('/:table', (req: Request, res: Response) => {
   try {
     const result = db.prepare(`INSERT INTO ${config.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(result.lastInsertRowid)
-    logOperation(config.module, '新增', String(req.body.name || ''), JSON.stringify(req.body))
+    logOperation(config.module, '新增', String(req.body.name || ''), JSON.stringify(req.body), req.user?.username || '')
     res.status(201).json({ code: 201, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
@@ -202,7 +202,7 @@ router.put('/:table/:id', (req: Request, res: Response) => {
   try {
     db.prepare(`UPDATE ${config.table} SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(req.params.id)
-    logOperation(config.module, '修改', String(req.body.name || `ID:${req.params.id}`), JSON.stringify(req.body))
+    logOperation(config.module, '修改', String(req.body.name || `ID:${req.params.id}`), JSON.stringify(req.body), req.user?.username || '')
     res.json({ code: 200, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
@@ -222,7 +222,7 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
 
   try {
     db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
-    logOperation(config.module, '删除', existing.name)
+    logOperation(config.module, '删除', existing.name, '', req.user?.username || '')
     res.status(204).send()
   } catch (err: any) {
     if (err.message?.includes('FOREIGN KEY')) {
@@ -259,7 +259,7 @@ router.get('/logs/list', (req: Request, res: Response) => {
 // DELETE /api/v1/admin/logs/clear  — 清空日志
 router.delete('/logs/clear', (_req: Request, res: Response) => {
   db.prepare('DELETE FROM operation_logs').run()
-  logOperation('系统', '清空日志', '所有操作日志')
+  logOperation('系统', '清空日志', '所有操作日志', '', req.user?.username || '')
   res.json({ code: 200, message: '日志已清空' })
 })
 
