@@ -26,7 +26,7 @@
 
     <!-- TinyMCE Editor (self-hosted) -->
     <div class="ed-body">
-      <textarea ref="editorRef" style="display:none" />
+      <div ref="editorRef" style="height: 100%" />
     </div>
   </div>
 </template>
@@ -66,7 +66,7 @@ const store = useOperationsStore()
 
 const isEdit = computed(() => !!route.params.id)
 const saveError = ref('')
-const editorRef = ref<HTMLTextAreaElement>()
+const editorRef = ref<HTMLDivElement>()
 
 const form = reactive({
   title: '',
