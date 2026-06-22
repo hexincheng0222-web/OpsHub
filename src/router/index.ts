@@ -124,19 +124,19 @@ router.beforeEach(async (to) => {
   const { useAuthStore } = await import('../stores/auth')
   const auth = useAuthStore()
 
-  // 未登录且目标不是登录页 → 跳转登录
-  if (!auth.isLoggedIn && to.path !== '/login') {
-    return '/login'
-  }
-
   // 已登录访问登录页 → 跳转首页
   if (auth.isLoggedIn && to.path === '/login') {
     return '/'
   }
 
-  // /admin/** 需要管理员权限
-  if (to.path.startsWith('/admin') && !auth.isAdmin) {
-    return '/'
+  // /admin/** 需要登录 + 管理员权限
+  if (to.path.startsWith('/admin')) {
+    if (!auth.isLoggedIn) {
+      return '/login'
+    }
+    if (!auth.isAdmin) {
+      return '/'
+    }
   }
 })
 
