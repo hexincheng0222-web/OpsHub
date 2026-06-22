@@ -24,9 +24,13 @@
     </div>
     <div v-if="saveError" class="ed-error">{{ saveError }}</div>
 
-    <!-- TinyMCE Editor (self-hosted) -->
+    <!-- TinyMCE Editor -->
     <div class="ed-body">
-      <div ref="editorRef" style="height: 100%" />
+      <Editor
+        v-model="form.content"
+        :init="editorInit"
+        api-key="gpl"
+      />
     </div>
   </div>
 </template>
@@ -34,30 +38,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
-// TinyMCE self-hosted imports
-import tinymce from 'tinymce/tinymce'
-import 'tinymce/themes/silver/theme'
-import 'tinymce/icons/default/icons'
-import 'tinymce/models/dom/model'
-import 'tinymce/plugins/advlist'
-import 'tinymce/plugins/autolink'
-import 'tinymce/plugins/lists'
-import 'tinymce/plugins/link'
-import 'tinymce/plugins/image'
-import 'tinymce/plugins/charmap'
-import 'tinymce/plugins/preview'
-import 'tinymce/plugins/anchor'
-import 'tinymce/plugins/searchreplace'
-import 'tinymce/plugins/visualblocks'
-import 'tinymce/plugins/code'
-import 'tinymce/plugins/fullscreen'
-import 'tinymce/plugins/insertdatetime'
-import 'tinymce/plugins/media'
-import 'tinymce/plugins/table'
-import 'tinymce/plugins/help'
-import 'tinymce/plugins/wordcount'
-
+import Editor from '@tinymce/tinymce-vue'
 import { useOperationsStore } from '../stores/operations'
 
 const route = useRoute()
@@ -66,7 +47,6 @@ const store = useOperationsStore()
 
 const isEdit = computed(() => !!route.params.id)
 const saveError = ref('')
-const editorRef = ref<HTMLDivElement>()
 
 const form = reactive({
   title: '',
@@ -74,15 +54,10 @@ const form = reactive({
   folderId: '',
 })
 
-// TinyMCE editor instance
-let editorInstance: any = null
-
 // TinyMCE editor config
-const editorConfig = {
-  target: undefined as any,
+const editorInit: any = {
   height: '100%',
   menubar: true,
-  license_key: 'gpl',
   plugins: [
     'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
     'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
@@ -116,14 +91,10 @@ const editorConfig = {
     input.click()
   },
   setup: (editor: any) => {
-    editorInstance = editor
     editor.on('init', () => {
       if (form.content) {
         editor.setContent(form.content)
       }
-    })
-    editor.on('change input undo redo NodeChange', () => {
-      form.content = editor.getContent()
     })
   },
 }
@@ -145,22 +116,9 @@ onMounted(async () => {
   }
 
   document.addEventListener('keydown', onKeyDown)
-
-  // Initialize TinyMCE
-  tinymce.init({
-    ...editorConfig,
-    target: editorRef.value,
-  })
 })
-
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeyDown)
-  // Cleanup TinyMCE instance
-  if (editorInstance) {
-    editorInstance.remove()
-    editorInstance = null
-  }
-  tinymce.remove()
 })
 
 function onKeyDown(e: KeyboardEvent) {
