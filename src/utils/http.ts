@@ -9,15 +9,35 @@ export interface ApiResponse<T = any> {
  * 统一的 HTTP 请求函数
  * - 支持 204 No Content 响应
  * - 自动检查 HTTP 状态码和业务 code
+ * - 自动添加 Authorization header
+ * - 401 自动跳转登录页
  */
 export async function request<T = any>(url: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('token')
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {}),
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers,
   })
 
   // 204 No Content 响应没有 body
   if (res.status === 204) return undefined as T
+
+  // 401 未登录/登录过期 → 清除 token 并跳转登录
+  if (res.status === 401) {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
+    throw new Error('登录已过期')
+  }
 
   // HTTP 错误（4xx/5xx）
   if (!res.ok) {
