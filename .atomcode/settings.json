@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "match": {
+          "glob": "src/**/*.{ts,vue}",
+          "toolUse": ["Edit", "Write"]
+        },
+        "commands": ["vue-tsc --noEmit 2>&1 | head -50"]
+      }
+    ]
+  },
+  "preToolUse": {
+    "blockPatterns": ["package-lock.json", ".env"]
+  }
+}

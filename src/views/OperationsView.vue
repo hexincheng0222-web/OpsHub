@@ -13,13 +13,39 @@
 
       <!-- Search -->
       <div class="sb-search">
-        <input ref="searchInputRef" v-model="searchQuery" class="sb-search-input" placeholder="搜索手册... (Ctrl+K)" @input="onSearchInput">
-        <button v-if="searchQuery" class="sb-search-clear" @click="searchQuery = ''; searchInputRef?.focus()" title="清空">✕</button>
+        <input ref="searchInputRef" v-model="searchQuery" class="sb-search-input" placeholder="搜索手册... (Ctrl+K)">
+        <button v-if="searchQuery" class="sb-search-clear" @click="clearSearch(); searchInputRef?.focus()" title="清空">✕</button>
+      </div>
+
+      <!-- Sidebar Tabs: All / Favorites -->
+      <div class="sb-tabs">
+        <div class="sb-tab" :class="{ active: sidebarTab === 'all' }" @click="sidebarTab = 'all'">📁 所有文件夹</div>
+        <div class="sb-tab" :class="{ active: sidebarTab === 'fav' }" @click="sidebarTab = 'fav'">⭐ 收藏夹</div>
       </div>
 
       <div class="sb-list" ref="sbListRef" role="tree">
+        <!-- Favorites mode -->
+        <template v-if="sidebarTab === 'fav'">
+          <div v-if="favoriteDocs.length === 0" class="sb-empty">暂无收藏文档 — 点击文档标题旁的 ☆ 收藏</div>
+          <div
+            v-for="doc in favoriteDocs" :key="doc.id"
+            class="sb-doc sb-doc-flat"
+            :class="{ active: selectedDoc?.id === doc.id }"
+            role="treeitem"
+            tabindex="0"
+            :aria-selected="selectedDoc?.id === doc.id"
+            @click="selectDoc(doc)"
+            @keydown.enter="selectDoc(doc)"
+          >
+            <span class="sb-doc-icon">📄</span>
+            <div class="sb-doc-info">
+              <span class="sb-doc-title">{{ doc.title }}</span>
+              <span class="sb-doc-meta">{{ getFolderName(doc.folderId) }}</span>
+            </div>
+          </div>
+        </template>
         <!-- Search results mode -->
-        <template v-if="searchQuery">
+        <template v-else-if="searchQuery">
           <div v-if="searchResults.length === 0" class="sb-empty">无匹配结果</div>
           <div
             v-for="doc in searchResults" :key="doc.id"
@@ -40,7 +66,7 @@
         </template>
 
         <!-- Folder tree mode -->
-        <template v-else>
+        <template v-else-if="sidebarTab === 'all'">
           <div v-for="folder in store.folders" :key="folder.id" class="sb-folder" :class="{ open: openFolder === folder.id }">
             <div class="sb-folder-row" @click="toggleFolder(folder.id)" @contextmenu.prevent="openContextMenu($event, folder)" role="treeitem" tabindex="0" :aria-expanded="openFolder === folder.id" @keydown.enter="toggleFolder(folder.id)">
               <span class="sb-arrow">{{ openFolder === folder.id ? '▾' : '▸' }}</span>
@@ -86,12 +112,25 @@
       <!-- Document viewer -->
       <template v-else>
         <div class="ops-doc-header">
-          <button class="back-btn" @click="$router.push('/')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            <span>返回</span>
-          </button>
+          <BackButton to="/" />
           <h2 class="doc-title">{{ selectedDoc.title }}</h2>
           <div class="doc-actions">
+            <button class="act-btn" @click="onToggleFavorite">
+              <span v-if="selectedDoc && store.isFavorited(selectedDoc.id)" title="取消收藏">★</span>
+              <span v-else title="收藏文档">☆</span>
+            </button>
+            <button class="act-btn" @click="importDoc">📥 导入</button>
+            <el-dropdown @command="handleExport" trigger="click">
+              <button class="act-btn">📤 导出 ▾</button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="md">Markdown (.md)</el-dropdown-item>
+                  <el-dropdown-item command="docx">Word (.doc)</el-dropdown-item>
+                  <el-dropdown-item command="html">HTML (.html)</el-dropdown-item>
+                  <el-dropdown-item command="print">打印</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <button class="act-btn" @click="editDoc(selectedDoc.id)">✏️ 编辑</button>
             <button class="act-btn act-btn-danger" @click="confirmDelete">🗑️ 删除</button>
           </div>
@@ -102,7 +141,7 @@
           <span class="doc-stats">{{ wordCount }} 字 · {{ readTime }} 分钟</span>
         </div>
         <div class="ops-doc-content">
-          <div class="ops-doc-body">
+          <div class="ops-doc-body" @scroll="onDocScroll">
             <div class="markdown-body" v-html="renderedContent" />
           </div>
           <aside v-if="tocItems.length > 0" class="ops-toc">
@@ -162,6 +201,31 @@
       </div>
     </Teleport>
 
+    <!-- Import Dialog -->
+    <el-dialog v-model="showImportDialog" title="导入文档" width="480px" destroy-on-close>
+      <el-form label-width="70px">
+        <el-form-item label="文件">
+          <input ref="importFileInput" type="file" accept=".md,.html,.htm,.txt,.docx" style="width:100%" @change="onImportFileChange" />
+          <div class="import-tip">支持 Markdown (.md)、HTML (.html)、纯文本 (.txt)、Word (.docx)</div>
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="importForm.title" placeholder="文档标题" />
+        </el-form-item>
+        <el-form-item label="文件夹">
+          <el-select v-model="importForm.folderId" placeholder="选择文件夹" style="width:100%">
+            <el-option v-for="f in store.folders" :key="f.id" :label="f.name" :value="f.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showImportDialog = false">取消</el-button>
+        <el-button type="primary" @click="doImport" :disabled="!importForm.title || !importForm.folderId || !importForm.content || importForm.loading">
+          <span v-if="importForm.loading">解析中...</span>
+          <span v-else>导入</span>
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- Delete Confirm -->
     <Teleport to="body">
       <div v-if="showDeleteConfirm" class="mo-overlay" @click.self="showDeleteConfirm = false">
@@ -181,13 +245,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { sanitizeHtml } from '../utils/sanitize'
 import { ElMessageBox } from 'element-plus'
 import { useOperationsStore } from '../stores/operations'
+import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 import type { ManualDoc, ManualFolder } from '../mock/operations'
+import BackButton from '../components/BackButton.vue'
 
 // Marked config for reading mode (docs stored as Markdown)
 const renderer = new marked.Renderer()
@@ -207,36 +273,45 @@ const store = useOperationsStore()
 const loading = ref(true)
 
 // ---- Search (debounced) ----
-const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement>()
-const debouncedQuery = ref('')
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchQuery, (q) => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { debouncedQuery.value = q }, 300)
-})
+const { searchInput: searchQuery, search: searchDebounced, clearSearch } = useDebouncedSearch(250)
 const searchResults = computed(() => {
-  const q = debouncedQuery.value.toLowerCase()
+  const q = searchDebounced.value.toLowerCase()
   if (!q) return []
   return store.manuals.filter(m =>
     m.title.toLowerCase().includes(q) ||
     m.content.toLowerCase().includes(q)
   )
 })
-function onSearchInput() {
-  if (searchQuery.value) selectedDoc.value = null
-}
+watch(searchQuery, (q) => { if (q) selectedDoc.value = null })
 
 // ---- Sidebar state ----
 const SESSION_KEY = 'ops-selected'
 const openFolder = ref('')
+const sidebarTab = ref<'all' | 'fav'>('all')
 const selectedDoc = ref<ManualDoc | null>(null)
+
+// 收藏文档列表（从所有文档中过滤出已收藏的）
+const favoriteDocs = computed(() => {
+  return store.manuals.filter(m => store.isFavorited(m.id))
+})
+
+async function onToggleFavorite() {
+  if (!selectedDoc.value) return
+  try {
+    await store.toggleFavorite(selectedDoc.value.id)
+  } catch (e: any) {
+    const { ElMessage } = await import('element-plus')
+    ElMessage.error(e.message || '操作失败')
+  }
+}
 
 // Restore state from sessionStorage
 onMounted(async () => {
   // 先从后端加载数据
   await store.loadFolders()
   await store.loadDocs()
+  await store.loadFavorites()
   loading.value = false
 
   // 恢复上次选中状态
@@ -277,13 +352,152 @@ function getFolderName(folderId: string) { return store.folders.find(f => f.id =
 function selectDoc(doc: ManualDoc) {
   selectedDoc.value = doc
   openFolder.value = doc.folderId
-  searchQuery.value = '' // clear search when selecting
+  clearSearch() // clear search when selecting
 }
 
 // ---- Navigation ----
 function newDoc() { router.push('/operations/edit') }
 function newDocInFolder(folderId: string) { router.push(`/operations/edit?folderId=${folderId}`) }
 function editDoc(id: number) { router.push(`/operations/edit/${id}`) }
+
+// ---- Import ----
+const showImportDialog = ref(false)
+const importFileInput = ref<HTMLInputElement>()
+const importForm = reactive({ title: '', folderId: '', content: '', fileName: '', loading: false })
+
+function importDoc() {
+  importForm.title = ''
+  importForm.folderId = openFolder.value || store.folders[0]?.id || ''
+  importForm.content = ''
+  importForm.fileName = ''
+  importForm.loading = false
+  if (importFileInput.value) importFileInput.value.value = ''
+  showImportDialog.value = true
+  nextTick(() => importFileInput.value?.click())
+}
+
+async function onImportFileChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  importForm.fileName = file.name
+  importForm.title = importForm.title || file.name.replace(/\.\w+$/, '')
+  importForm.content = ''
+  importForm.loading = true
+
+  try {
+    if (ext === 'docx') {
+      // Word 文档：用 mammoth 转为 HTML
+      const mammoth = await import('mammoth')
+      const arrayBuffer = await file.arrayBuffer()
+      const result = await mammoth.convertToHtml({ arrayBuffer })
+      importForm.content = result.value
+      if (result.messages?.length) {
+        console.warn('[import] Word 解析警告:', result.messages)
+      }
+    } else {
+      // 其他格式：按文本读取
+      const text = await file.text()
+      if (ext === 'md' || ext === 'txt') {
+        importForm.content = marked.parse(text) as string
+      } else {
+        importForm.content = text
+      }
+    }
+  } catch (err: any) {
+    console.error('[import] 文件解析失败:', err)
+    importForm.content = ''
+    // 通过 ElMessage 提示错误（动态导入避免循环依赖）
+    const { ElMessage } = await import('element-plus')
+    ElMessage.error(`文件解析失败: ${err.message || '未知错误'}`)
+  } finally {
+    importForm.loading = false
+  }
+}
+
+async function doImport() {
+  if (!importForm.title || !importForm.folderId || !importForm.content) return
+  try {
+    await store.addDoc({ title: importForm.title, content: importForm.content, folderId: importForm.folderId })
+    showImportDialog.value = false
+  } catch { /* error already shown by store */ }
+}
+
+// ---- Export ----
+function handleExport(command: string) {
+  if (!selectedDoc.value) return
+  const doc = selectedDoc.value
+  if (command === 'print') {
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${doc.title}</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.8;color:#222}
+h1,h2,h3{color:#1a1a1a;border-bottom:1px solid #eee;padding-bottom:8px}
+code{background:#f4f4f4;padding:2px 6px;border-radius:3px;font-size:0.9em}
+pre{background:#f4f4f4;padding:16px;border-radius:6px;overflow-x:auto}
+blockquote{border-left:4px solid #58a6ff;margin:0;padding-left:16px;color:#555}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}
+img{max-width:100%}@media print{body{margin:0;padding:20px}}
+</style></head><body><h1>${doc.title}</h1>${renderedContent.value}</body></html>`)
+    w.document.close()
+    setTimeout(() => w.print(), 300)
+    return
+  }
+
+  let content: string
+  let filename: string
+  let mime: string
+  if (command === 'md') {
+    content = htmlToMarkdown(doc.content)
+    filename = doc.title + '.md'
+    mime = 'text/markdown'
+  } else if (command === 'docx') {
+    // 导出为 Word 兼容格式（HTML 包装，Word 可直接打开）
+    content = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>${doc.title}</title>
+<style>
+body{font-family:"Microsoft YaHei","SimSun",sans-serif;margin:40px 60px;line-height:1.8;color:#222}
+h1,h2,h3,h4{color:#1a1a1a;margin:24px 0 12px}
+h1{font-size:24px;border-bottom:2px solid #333;padding-bottom:8px}
+h2{font-size:20px}
+h3{font-size:16px}
+p{margin:8px 0}
+code,pre{background:#f4f4f4;padding:2px 6px;border-radius:3px;font-family:"Consolas",monospace;font-size:0.9em}
+pre{padding:16px;overflow-x:auto}
+blockquote{border-left:4px solid #58a6ff;margin:12px 0;padding:8px 16px;color:#555;background:#f8f9fa}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+td,th{border:1px solid #ddd;padding:8px 12px}
+img{max-width:100%}
+a{color:#58a6ff}
+ul,ol{padding-left:24px}
+li{margin:4px 0}
+</style>
+</head>
+<body>
+<h1>${doc.title}</h1>
+${renderedContent.value}
+</body>
+</html>`
+    filename = doc.title + '.doc'
+    mime = 'application/msword'
+  } else {
+    content = doc.content
+    filename = doc.title + '.html'
+    mime = 'text/html'
+  }
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ---- Delete (doc or folder) ----
 const showDeleteConfirm = ref(false)
@@ -405,44 +619,72 @@ const tocItems = computed<TocItem[]>(() => {
 })
 
 const activeHeading = ref('')
-let scrollContainer: HTMLElement | null = null
 let scrollTimer: ReturnType<typeof setTimeout> | null = null
+
+onMounted(() => {
+  document.addEventListener('keydown', onGlobalKey)
+})
+onUnmounted(() => {
+  document.removeEventListener('keydown', onGlobalKey)
+  if (scrollTimer) clearTimeout(scrollTimer)
+})
 
 watch(selectedDoc, () => {
   activeHeading.value = ''
   nextTick(() => {
-    if (scrollContainer) scrollContainer.removeEventListener('scroll', onDocScroll)
-    scrollContainer = document.querySelector('.ops-doc-body')
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', onDocScroll, { passive: true })
-      onDocScroll() // fire once to set initial active heading
-    }
+    const container = document.querySelector('.ops-doc-body')
+    if (!container) return
+    restoreScrollPosition(container)
+    updateActiveHeading()
   })
 })
 
-function onDocScroll() {
-  if (scrollTimer) clearTimeout(scrollTimer)
-  scrollTimer = setTimeout(() => {
-    const container = document.querySelector('.ops-doc-body')
-    if (!container) return
-    const containerTop = container.getBoundingClientRect().top
-    const headings = container.querySelectorAll('.markdown-body h1[id], .markdown-body h2[id], .markdown-body h3[id]')
-    let active = ''
-    for (const h of headings) {
-      const rect = (h as HTMLElement).getBoundingClientRect()
-      if (rect.top <= containerTop + 80) {
-        active = h.id
-      }
+/** 恢复滚动位置，等待图片加载后自动修正 */
+function restoreScrollPosition(container: Element) {
+  const saved = sessionStorage.getItem(SESSION_KEY)
+  if (!saved) return
+  let targetScroll = 0
+  try {
+    const { docId, scrollTop } = JSON.parse(saved)
+    if (docId === selectedDoc.value?.id && scrollTop) {
+      targetScroll = scrollTop
     }
-    if (active) activeHeading.value = active
-  }, 80)
+  } catch { return }
+
+  const setPos = () => { container.scrollTop = targetScroll }
+  setPos()
+
+  // 图片加载后内容高度可能变化，重新修正一次
+  const imgs = container.querySelectorAll('img')
+  if (imgs.length) {
+    let loaded = 0
+    imgs.forEach(img => {
+      if (img.complete) { loaded++; return }
+      img.addEventListener('load', () => { loaded++; if (loaded === imgs.length) setPos() }, { once: true })
+      img.addEventListener('error', () => { loaded++; if (loaded === imgs.length) setPos() }, { once: true })
+    })
+  }
 }
 
-// Cleanup
-onUnmounted(() => {
-  if (scrollContainer) scrollContainer.removeEventListener('scroll', onDocScroll)
-  if (searchTimer) clearTimeout(searchTimer)
-})
+function onDocScroll() {
+  if (scrollTimer) clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(updateActiveHeading, 80)
+}
+
+function updateActiveHeading() {
+  const container = document.querySelector('.ops-doc-body')
+  if (!container) return
+  const containerTop = container.getBoundingClientRect().top
+  const headings = container.querySelectorAll('.markdown-body h1[id], .markdown-body h2[id], .markdown-body h3[id]')
+  let active = ''
+  for (const h of headings) {
+    const rect = (h as HTMLElement).getBoundingClientRect()
+    if (rect.top <= containerTop + 80) {
+      active = h.id
+    }
+  }
+  if (active) activeHeading.value = active
+}
 
 function scrollToHeading(id: string) {
   let el = document.getElementById(id)
@@ -461,32 +703,7 @@ function scrollToHeading(id: string) {
   activeHeading.value = id
 }
 
-// ---- Restore scroll position on doc select ----
-watch(selectedDoc, () => {
-  nextTick(() => {
-    const el = document.querySelector('.ops-doc-body')
-    if (!el) return
-    const saved = sessionStorage.getItem(SESSION_KEY)
-    if (saved) {
-      try {
-        const { docId, scrollTop } = JSON.parse(saved)
-        if (docId === selectedDoc.value?.id && scrollTop) {
-          el.scrollTop = scrollTop
-          return
-        }
-      } catch {}
-    }
-    el.scrollTop = 0
-  })
-})
-
 // ---- Keyboard navigation ----
-onMounted(() => {
-  document.addEventListener('keydown', onGlobalKey)
-})
-onUnmounted(() => {
-  document.removeEventListener('keydown', onGlobalKey)
-})
 function onGlobalKey(e: KeyboardEvent) {
   const tag = (e.target as HTMLElement)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
@@ -506,6 +723,88 @@ function onGlobalKey(e: KeyboardEvent) {
     const next = e.key === 'ArrowUp' ? idx - 1 : idx + 1
     if (next >= 0 && next < allDocs.length) selectDoc(allDocs[next])
   }
+}
+
+// Simple HTML → Markdown converter for export
+function htmlToMarkdown(html: string): string {
+  let md = html
+  // Headings
+  md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, c) => `\n# ${c.trim()}\n`)
+  md = md.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, (_, c) => `\n## ${c.trim()}\n`)
+  md = md.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, (_, c) => `\n### ${c.trim()}\n`)
+  md = md.replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, (_, c) => `\n#### ${c.trim()}\n`)
+  md = md.replace(/<h5[^>]*>([\s\S]*?)<\/h5>/gi, (_, c) => `\n##### ${c.trim()}\n`)
+  md = md.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, (_, c) => `\n###### ${c.trim()}\n`)
+  // Code blocks
+  md = md.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, c) => {
+    const code = c.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+    return `\n\`\`\`\n${code}\n\`\`\`\n`
+  })
+  md = md.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, c) => {
+    const code = c.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    return `\`${code}\``
+  })
+  // Bold / italic
+  md = md.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, (_, c) => `**${c}**`)
+  md = md.replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, (_, c) => `**${c}**`)
+  md = md.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, (_, c) => `*${c}*`)
+  md = md.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, (_, c) => `*${c}*`)
+  // Links
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => `[${text}](${href})`)
+  // Images
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*\/?>/gi, (_, src, alt) => `![${alt}](${src})`)
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*\/?>/gi, (_, src) => `![](${src})`)
+  // Blockquote
+  md = md.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_, c) => {
+    const inner = c.trim().split('\n').map((l: string) => `> ${l}`).join('\n')
+    return `\n${inner}\n`
+  })
+  // Lists
+  md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, c) => {
+    const items = c.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || []
+    return '\n' + items.map((i: string) => {
+      const t = i.replace(/<li[^>]*>/, '').replace(/<\/li>/, '').trim()
+      return `- ${t}`
+    }).join('\n') + '\n'
+  })
+  md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, c) => {
+    const items = c.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || []
+    return '\n' + items.map((i: string, idx: number) => {
+      const t = i.replace(/<li[^>]*>/, '').replace(/<\/li>/, '').trim()
+      return `${idx + 1}. ${t}`
+    }).join('\n') + '\n'
+  })
+  // Line breaks and paragraphs
+  md = md.replace(/<br\s*\/?>/gi, '\n')
+  md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (_, c) => `\n${c.trim()}\n`)
+  // Tables
+  md = md.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_, tableHtml) => {
+    const rows: string[][] = []
+    const trs = tableHtml.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || []
+    for (const tr of trs) {
+      const cells = tr.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || []
+      const row = cells.map((c: string) => c.replace(/<[^>]+>/g, '').trim())
+      rows.push(row)
+    }
+    if (rows.length === 0) return ''
+    const header = rows[0]
+    const body = rows.slice(1)
+    let result = '| ' + header.join(' | ') + ' |\n'
+    result += '| ' + header.map(() => '---').join(' | ') + ' |\n'
+    for (const row of body) {
+      result += '| ' + row.join(' | ') + ' |\n'
+    }
+    return '\n' + result
+  })
+  // Horizontal rule
+  md = md.replace(/<hr\s*\/?>/gi, '\n---\n')
+  // Remove remaining HTML tags
+  md = md.replace(/<[^>]+>/g, '')
+  // Decode common entities
+  md = md.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  // Clean up excess blank lines
+  md = md.replace(/\n{3,}/g, '\n\n').trim()
+  return md
 }
 </script>
 
@@ -566,6 +865,35 @@ function onGlobalKey(e: KeyboardEvent) {
   font-size: 14px; padding: 0; line-height: 1;
 }
 .sb-search-clear:hover { color: var(--ops-text-secondary); }
+
+/* Sidebar tabs (All / Favorites) */
+.sb-tabs {
+  display: flex;
+  padding: 6px 12px;
+  gap: 4px;
+  border-bottom: 1px solid var(--ops-border-card);
+  flex-shrink: 0;
+}
+.sb-tab {
+  flex: 1;
+  text-align: center;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  user-select: none;
+}
+.sb-tab:hover {
+  background: var(--ops-bg-card-hover);
+  color: var(--ops-text-secondary);
+}
+.sb-tab.active {
+  background: rgba(88,166,255,0.1);
+  color: var(--ops-accent-blue);
+  font-weight: 600;
+}
 
 /* Folder list container */
 .sb-list { flex: 1; overflow-y: auto; padding: 4px 0; }
@@ -683,19 +1011,6 @@ function onGlobalKey(e: KeyboardEvent) {
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   flex-shrink: 0;
 }
-.back-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 14px 6px 10px;
-  background: var(--ops-bg-card-hover);
-  border: 1px solid var(--ops-border-card);
-  border-radius: 20px;
-  color: var(--ops-text-secondary);
-  cursor: pointer; font-size: 12px; font-family: inherit;
-  transition: all 0.2s ease;
-}
-.back-btn svg { transition: transform 0.2s ease; }
-.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.06); }
-.back-btn:hover svg { transform: translateX(-2px); }
 .doc-title { font-size: 15px; font-weight: 700; color: var(--ops-text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
 .doc-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .act-btn {
@@ -861,4 +1176,6 @@ function onGlobalKey(e: KeyboardEvent) {
 .mo-btn-cancel { background: var(--ops-bg-card-hover); color: var(--ops-text-secondary); border: 1px solid var(--ops-border-card); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
 .mo-btn-confirm { background: rgba(88,166,255,0.15); color: var(--ops-accent-blue); border: 1px solid rgba(88,166,255,0.3); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; }
 .mo-btn-danger { background: rgba(220,50,50,0.15); color: var(--ops-accent-red); border: 1px solid rgba(220,50,50,0.3); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; font-family: inherit; }
+.import-tip { font-size: 11px; color: var(--ops-text-tertiary); margin-top: 4px; line-height: 1.4; }
+@media print { .ops-sidebar, .ops-doc-header, .ops-toc { display: none !important; } .ops-main { padding: 0; } }
 </style>

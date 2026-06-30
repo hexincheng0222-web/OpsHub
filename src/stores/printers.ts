@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Printer } from '../mock/printers'
+import type { Printer } from '../types'
 import * as api from '../api/printers'
 import { ElMessage } from 'element-plus'
 

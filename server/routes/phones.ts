@@ -107,11 +107,19 @@ function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data:
 
 // ── 缓存 ─────────────────────────────────────────────────────
 let cache: { data: any[]; ts: number } | null = null
-const CACHE_TTL = 30_000 // 30 秒
+const CACHE_TTL = 180_000 // 3 分钟
 
-function getCached() {
+export function getCachedPhones() {
   if (cache && Date.now() - cache.ts < CACHE_TTL) return cache.data
   return null
+}
+
+/** 确保缓存存在（首页/其它模块调用时不会因空缓存而查不到数据） */
+export async function ensurePhoneCache(): Promise<void> {
+  if (!cache || Date.now() - cache.ts >= CACHE_TTL) {
+    const devices = await discoverPhones()
+    cache = { data: devices, ts: Date.now() }
+  }
 }
 
 // ── 读取配置 ─────────────────────────────────────────────────
@@ -271,15 +279,37 @@ async function discoverPhones(): Promise<PhoneDevice[]> {
 // GET /api/v1/phones — 获取所有话机列表
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const cached = getCached()
+    const cached = getCachedPhones()
     const devices = cached || await discoverPhones()
     if (!cached) cache = { data: devices, ts: Date.now() }
 
-    // 合并上次 IP
+    // 自动同步分机号到字典表（新分机自动插入，已有不覆盖）
+    if (devices.length > 0) {
+      const insertLoc = db.prepare(
+        'INSERT OR IGNORE INTO phone_locations (extension) VALUES (?)'
+      )
+      const syncBatch = db.transaction(() => {
+        for (const d of devices) {
+          if (d.extension) insertLoc.run(d.extension)
+        }
+      })
+      syncBatch()
+    }
+
+    // 合并上次 IP 和位置信息
     const ipMap: Record<string, string> = {}
     const ipRows = db.prepare('SELECT phone_id, ip, last_seen FROM phone_ip_history').all() as any[]
     ipRows.forEach(r => { ipMap[r.phone_id] = r.ip })
-    const enriched = devices.map((d: any) => ({ ...d, lastIp: ipMap[d.id] || '' }))
+
+    const locMap: Record<string, string> = {}
+    const locRows = db.prepare('SELECT extension, location FROM phone_locations').all() as any[]
+    locRows.forEach(r => { locMap[r.extension] = r.location })
+
+    const enriched = devices.map((d: any) => ({
+      ...d,
+      lastIp: ipMap[d.id] || '',
+      location: locMap[d.extension] || '',
+    }))
 
     res.json({
       code: 200,

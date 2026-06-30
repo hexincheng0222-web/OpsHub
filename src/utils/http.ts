@@ -32,10 +32,16 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
   // 204 No Content 响应没有 body
   if (res.status === 204) return undefined as T
 
-  // 401 未登录/登录过期 → 清除 token 并跳转登录
+  // 401 未登录/登录过期 → 通知 auth store 退出（避免整页跳转丢失 SPA 状态）
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    window.location.href = '/login'
+    try {
+      // 动态导入避免循环依赖
+      const { useAuthStore } = await import('../stores/auth')
+      useAuthStore().logout()
+    } catch {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
     throw new Error('登录已过期')
   }
 

@@ -52,7 +52,7 @@
     </el-table>
 
     <div class="pagination" v-if="filteredContacts.length > pageSize">
-      <el-pagination v-model:current-page="page" :page-size="pageSize" :total="filteredContacts.length" layout="prev, pager, next" small />
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[20, 50, 100, 200]" :total="filteredContacts.length" layout="total, sizes, prev, pager, next" small @update:page-size="savePageSize" />
     </div>
 
     <!-- 新增/编辑弹窗 -->
@@ -80,12 +80,15 @@
     <el-dialog v-model="deployVisible" title="推送电话簿到话机" width="600px" destroy-on-close>
       <div v-if="phones.length === 0" style="text-align:center;padding:20px;color:var(--ops-text-tertiary)">暂无在线话机</div>
       <div v-else>
-        <el-checkbox v-model="selectAll" @change="toggleSelectAll" style="margin-bottom:12px">全选在线话机 ({{ phones.length }})</el-checkbox>
+        <el-input v-model="phoneSearch" placeholder="搜索分机号或 IP..." clearable size="small" style="width:100%;margin-bottom:12px" />
+        <el-checkbox v-model="selectAll" @change="toggleSelectAll" style="margin-bottom:12px">全选 ({{ filteredPhones.length }})</el-checkbox>
+        <div style="max-height:300px;overflow-y:auto">
         <el-checkbox-group v-model="deployPhones">
-          <div v-for="p in phones" :key="p.id" style="padding:4px 0">
+          <div v-for="p in filteredPhones" :key="p.id" style="padding:4px 0">
             <el-checkbox :value="p.id">{{ p.extension }} — {{ p.ip || '无IP' }} <el-tag size="small" type="success">在线</el-tag></el-checkbox>
           </div>
         </el-checkbox-group>
+        </div>
         <div style="margin-top:16px">
           <el-radio-group v-model="deployMode">
             <el-radio value="remote">远程 XML 电话簿</el-radio>
@@ -110,16 +113,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import * as phonebookApi from '../api/phonebook'
 import type { PhonebookContact } from '../api/phonebook'
+import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 
+const fileInput = ref<HTMLInputElement>()
 const loading = ref(false)
 const contacts = ref<PhonebookContact[]>([])
-const searchInput = ref('')
-const search = ref('')
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchInput, v => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => { search.value = v }, 300) })
+const { searchInput, search } = useDebouncedSearch()
 const filterType = ref('')
 const page = ref(1)
-const pageSize = 50
+const pageSize = ref(parseInt(localStorage.getItem('phonebook_pageSize') || '50'))
+function savePageSize(size: number) { localStorage.setItem('phonebook_pageSize', String(size)) }
 const selectedIds = ref<number[]>([])
 
 watch([search, filterType], () => { page.value = 1 })
@@ -133,7 +136,7 @@ const filteredContacts = computed(() => {
   }
   return data
 })
-const pagedData = computed(() => { const s = (page.value - 1) * pageSize; return filteredContacts.value.slice(s, s + pageSize) })
+const pagedData = computed(() => { const s = (page.value - 1) * pageSize.value; return filteredContacts.value.slice(s, s + pageSize.value) })
 
 async function loadContacts() {
   loading.value = true
@@ -189,7 +192,7 @@ async function handleDelete(row: PhonebookContact) {
 function onSelectionChange(rows: PhonebookContact[]) { selectedIds.value = rows.map(r => r.id) }
 
 async function handleAction(cmd: string) {
-  if (cmd === 'import') (document.querySelector('input[type=file]') as HTMLInputElement)?.click()
+  if (cmd === 'import') fileInput.value?.click()
   else if (cmd === 'deploy') openDeploy()
   else if (cmd === 'batchDelete') {
     try {
@@ -210,7 +213,12 @@ async function syncFromPbx() {
   try {
     const result = await phonebookApi.syncFromPbx()
     ElMessage.success(`同步完成，${result.synced} 个分机`)
-    loadContacts()
+    // 如果返回了联系人列表直接使用，否则重新加载
+    if ((result as any).list) {
+      contacts.value = (result as any).list
+    } else {
+      loadContacts()
+    }
   } catch (e: any) { ElMessage.error(e.message || '同步失败') }
   finally { syncing.value = false }
 }
@@ -222,6 +230,14 @@ const deployMode = ref('remote')
 const deploying = ref(false)
 const selectAll = ref(false)
 const phones = ref<any[]>([])
+const phoneSearch = ref('')
+const filteredPhones = computed(() => {
+  if (!phoneSearch.value) return phones.value
+  const q = phoneSearch.value.toLowerCase()
+  return phones.value.filter((p: any) =>
+    p.extension?.toLowerCase().includes(q) || (p.ip || '').toLowerCase().includes(q)
+  )
+})
 
 async function openDeploy() {
   deployPhones.value = []
@@ -252,7 +268,24 @@ async function handleImport(e: Event) {
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' })
     const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 }) as any[][]
     if (data.length < 2) { ElMessage.warning('文件无数据'); return }
-    const rows = data.slice(1).filter(r => r[0] && r[1]).map(r => ({ name: String(r[0]).trim(), number: String(r[1]).trim(), department: String(r[2] || '').trim(), position: String(r[3] || '').trim(), type: 'external' as const, notes: String(r[4] || '').trim() }))
+    // 通过表头匹配列顺序
+    const headerRow = data[0].map((h: any) => String(h).trim())
+    const colMap: Record<string, number> = {}
+    const expectedHeaders = ['姓名', '号码', '部门', '职位', '备注']
+    expectedHeaders.forEach(name => {
+      const idx = headerRow.findIndex((h: string) => h.includes(name))
+      if (idx >= 0) colMap[name] = idx
+    })
+    if (colMap['姓名'] === undefined || colMap['号码'] === undefined) {
+      ElMessage.warning('未找到"姓名"和"号码"列，请检查表头')
+      ;(e.target as HTMLInputElement).value = ''
+      return
+    }
+    const rows = data.slice(1).filter((r: any[]) => r[colMap['姓名']!] && r[colMap['号码']!]).map((r: any[]) => ({
+      name: String(r[colMap['姓名']!]).trim(), number: String(r[colMap['号码']!]).trim(),
+      department: String(r[colMap['部门']] || '').trim(), position: String(r[colMap['职位']] || '').trim(),
+      type: 'external' as const, notes: String(r[colMap['备注']] || '').trim(),
+    }))
     if (!rows.length) { ElMessage.warning('无有效数据'); return }
     const result = await phonebookApi.importContacts(rows)
     ElMessage.success(`导入 ${result.imported} 条`)

@@ -1,7 +1,7 @@
 <!-- src/components/devices/USlot.vue -->
 <script setup lang="ts">
 import type { SlotInfo } from '../../utils/rack-utils'
-import type { Device } from '../../mock/devices'
+import type { Device } from '../../types'
 import { getUBadgeLabel } from '../../utils/rack-utils'
 import DeviceCard from './DeviceCard.vue'
 

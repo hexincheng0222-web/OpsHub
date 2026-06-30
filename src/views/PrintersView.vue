@@ -2,10 +2,7 @@
   <div class="printers-page">
     <!-- Header — same as PhoneProcurementView -->
     <div class="top-bar">
-      <button class="back-btn" @click="$router.push('/')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        <span>返回</span>
-      </button>
+      <BackButton to="/" />
       <h3>打印机管理 <span class="top-count">{{ store.total }} 台</span></h3>
       <div class="top-actions">
         <el-dropdown @command="handleTopAction" trigger="click">
@@ -112,7 +109,7 @@
                   <span v-if="row.printer.status !== '正常'" class="status-text">{{ row.printer.status }}</span>
                 </td>
                 <td class="col-act">
-                  <button class="row-btn" @click="openEditDialog(row.printer)">编辑</button>
+                  <button class="row-btn" @click="openEditDialog(row.printer as Printer)">编辑</button>
                 </td>
               </tr>
             </template>
@@ -181,11 +178,16 @@ import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '..
 import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { fetchDict } from '../api/admin'
+import { useDebouncedSearch } from '../composables/useDebouncedSearch'
+import { buildFloorGroups, floorWeight } from '../utils/printer-table-helper'
+import type { PrinterTableRow, FloorGroup } from '../utils/printer-table-helper'
+import BackButton from '../components/BackButton.vue'
 
 const store = usePrintersStore()
 
 // 加载打印机型号字典
 onMounted(async () => {
+  store.loadPrinters()
   try {
     const [brands, models] = await Promise.all([
       fetchDict('printer-brands'),
@@ -231,25 +233,9 @@ function handleTopAction(command: string) {
 }
 
 // 搜索
-const searchInput = ref('')
-const searchQuery = ref('')
-let printerSearchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchInput, (v) => {
-  if (printerSearchTimer) clearTimeout(printerSearchTimer)
-  printerSearchTimer = setTimeout(() => { searchQuery.value = v }, 300)
-})
+const { searchInput, search: searchQuery } = useDebouncedSearch()
 
-// 楼层排序权重
-function floorWeight(f: string): number {
-  const map: Record<string, number> = {
-    '负二楼': -20, '负一楼': -10, '负0.5': -5,
-    '一楼': 1, '二楼': 2, '三楼': 3, '四楼': 4, '五楼': 5, '六楼': 6, '七楼': 7, '八楼': 8, '九楼': 9, '十楼': 10,
-  }
-  if (map[f] !== undefined) return map[f]
-  const m = f.match(/负?(\d+(\.\d+)?)F?/)
-  if (m) return f.startsWith('负') ? -parseFloat(m[1]) : parseFloat(m[1])
-  return 999
-}
+// 楼层排序权重 — 在 helper 中
 
 const allFloors = computed(() => {
   const floors = [...new Set(store.printers.map(p => p.floor))]
@@ -263,101 +249,43 @@ watch(allFloors, (floors) => {
   }
 }, { immediate: true })
 
-interface TableRow {
-  printer: Printer
-  count: number        // 同型号合并数量
-  ids: number[]        // 合并的所有 ID
-  isFirstInLocation: boolean  // 该位置的第一行（用于 rowspan）
-  locationSpan: number        // 该位置占几行
-  locationOdd: boolean        // 位置组奇偶（用于交替背景）
-}
-
-interface FloorGroup { floor: string; rows: TableRow[]; totalCount: number }
-
-const floorGroups = computed((): FloorGroup[] => {
-  const q = searchQuery.value.toLowerCase()
-  let printers = store.printers
-
-  // 按楼层筛选
-  if (selectedFloor.value) {
-    printers = printers.filter(p => p.floor === selectedFloor.value)
-  }
-
-  const filtered = q
-    ? printers.filter(p =>
-        p.manufacturer.toLowerCase().includes(q) ||
-        p.model.toLowerCase().includes(q) ||
-        p.location.toLowerCase().includes(q) ||
-        p.tonerModel.toLowerCase().includes(q)
-      )
-    : printers
-
-  // 按楼层分组
-  const floorMap = new Map<string, Printer[]>()
-  for (const p of filtered) {
-    const list = floorMap.get(p.floor) || []; list.push(p); floorMap.set(p.floor, list)
-  }
-
-  return [...floorMap.entries()].sort(([a], [b]) => floorWeight(a) - floorWeight(b)).map(([floor, printers]) => {
-    // 按位置分组，保持顺序
-    const locMap = new Map<string, Printer[]>()
-    for (const p of printers) {
-      const key = p.location || '未分配'
-      const list = locMap.get(key) || []; list.push(p); locMap.set(key, list)
-    }
-
-    const rows: TableRow[] = []
-    let locIdx = 0
-    for (const [, locPrinters] of locMap) {
-      // 同位置内按型号合并
-      const modelMap = new Map<string, Printer[]>()
-      for (const p of locPrinters) {
-        const key = `${p.manufacturer}|${p.model}`
-        const list = modelMap.get(key) || []; list.push(p); modelMap.set(key, list)
-      }
-      const modelEntries = [...modelMap.values()]
-      const locationSpan = modelEntries.length
-      const locationOdd = locIdx % 2 === 0
-
-      modelEntries.forEach((group, idx) => {
-        rows.push({
-          printer: group[0],
-          count: group.length,
-          ids: group.map(p => p.id),
-          isFirstInLocation: idx === 0,
-          locationSpan,
-          locationOdd,
-        })
-      })
-      locIdx++
-    }
-    return { floor, rows, totalCount: printers.length }
-  })
-})
+const floorGroups = computed(() =>
+  buildFloorGroups(store.printers as any, selectedFloor.value, searchQuery.value)
+)
 
 const selectedIds = ref(new Set<number>())
-function toggleRow(row: TableRow) { const all = row.ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) row.ids.forEach(id => n.delete(id)); else row.ids.forEach(id => n.add(id)); selectedIds.value = n }
+function toggleRow(row: PrinterTableRow) { const all = row.ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) row.ids.forEach(id => n.delete(id)); else row.ids.forEach(id => n.add(id)); selectedIds.value = n }
 function toggleGroupAll(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
 function groupAllSelected(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); return ids.length > 0 && ids.every(id => selectedIds.value.has(id)) }
-function batchDelete() {
-  const ids = [...selectedIds.value]
-  const printers = store.printers.filter(p => selectedIds.value.has(p.id))
-  const list = printers.slice(0, 5).map(p => `• ${p.manufacturer} ${p.model} — ${p.location}`).join('\n')
-  const suffix = printers.length > 5 ? `\n...等共 ${printers.length} 台` : ''
-  ElMessageBox.confirm(`确定删除以下打印机？\n\n${list}${suffix}`, '批量删除', { type: 'warning', confirmButtonText: '删除' })
-    .then(async () => {
-      await store.deletePrinters(ids)
-      selectedIds.value = new Set()
-      ElMessage.success(`已删除 ${ids.length} 台打印机`)
-    })
-    .catch(() => {})
+async function batchDelete() {
+  const count = selectedIds.value.size
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${count} 台打印机？`, '批量删除', { type: 'warning', confirmButtonText: '删除' })
+    await store.deletePrinters([...selectedIds.value])
+    selectedIds.value = new Set()
+    ElMessage.success(`已删除 ${count} 台打印机`)
+  } catch { /* 取消 */ }
 }
 
 const fileInput = ref<HTMLInputElement>()
 function triggerImport() { fileInput.value?.click() }
 function exportCSV() { exportPrintersCSV(store.printers) }
 function downloadTemplate() { downloadPrinterTemplate() }
-function handleImport(e: Event) { const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => { const d = parsePrintersCSV(r.result as string); if (d.length) store.batchImport(d as Printer[]); if (fileInput.value) fileInput.value.value = '' }; r.readAsText(f) }
+async function handleImport(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const data = parsePrintersCSV(text)
+    if (data.length) {
+      await store.batchImport(data as Printer[])
+      ElMessage.success(`导入 ${data.length} 台打印机`)
+    }
+  } catch (err: any) {
+    ElMessage.error(err.message || '导入失败')
+  }
+  if (fileInput.value) fileInput.value.value = ''
+}
 
 const dialogVisible = ref(false); const editingPrinter = ref<Printer | null>(null)
 const form = reactive<Omit<Printer, 'id'>>({ floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' })
@@ -370,10 +298,10 @@ async function savePrinter() {
   if (!form.model) { ElMessage.warning('请选择型号'); return }
   try {
     if (editingPrinter.value) {
-      await store.updatePrinter(editingPrinter.value.id, { ...form })
+      await store.updatePrinter(editingPrinter.value.id, { ...form, status: form.status as "正常" | "缺墨" | "故障" })
       ElMessage.success('修改成功')
     } else {
-      await store.addPrinter({ ...form } as Omit<Printer, 'id'>)
+      await store.addPrinter({ ...form, status: form.status as "正常" | "缺墨" | "故障" } as Omit<Printer, 'id'>)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false
@@ -390,10 +318,6 @@ async function savePrinter() {
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }
 .top-bar h3 { flex: 1; font-size: 16px; font-weight: 600; color: var(--ops-text-primary); margin: 0; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
-.back-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px 6px 10px; background: var(--ops-bg-card-hover); border: 1px solid var(--ops-border-card); border-radius: 20px; color: var(--ops-text-secondary); cursor: pointer; font-size: 12px; font-family: inherit; transition: all 0.2s ease; }
-.back-btn svg { transition: transform 0.2s ease; }
-.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); }
-.back-btn:hover svg { transform: translateX(-2px); }
 .top-count { font-size: 12px; font-weight: 400; color: var(--ops-text-tertiary); margin-left: 6px; }
 
 /* Toolbar */

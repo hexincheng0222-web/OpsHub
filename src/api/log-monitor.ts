@@ -70,11 +70,6 @@ export function getAuditList(params: {
   return request<AuditListResult>(`${BASE}/audit${qs ? '?' + qs : ''}`)
 }
 
-// 手动触发
-export function runOnce() {
-  return request<any>(`${BASE}/run-once`, { method: 'POST' })
-}
-
 // 调度器控制
 export function startScheduler() {
   return request<{ message: string }>(`${BASE}/scheduler/start`, { method: 'POST' })
@@ -84,20 +79,11 @@ export function stopScheduler() {
   return request<{ message: string }>(`${BASE}/scheduler/stop`, { method: 'POST' })
 }
 
-export function getSchedulerStatus() {
-  return request<{ running: boolean; lastRun: string | null }>(`${BASE}/scheduler/status`)
-}
-
 // LLM 测试
 export function testLLM() {
   return request<{ success: boolean; latency_ms: number; response?: string; error?: string }>(
     `${BASE}/llm-test`, { method: 'POST' }
   )
-}
-
-// 健康检查
-export function getHealth() {
-  return request<HealthStatus>(`${BASE}/health`)
 }
 
 // Dashboard 数据
@@ -110,6 +96,7 @@ export interface DashboardLog {
 export interface DashboardDevice {
   device_id: string
   device_name: string
+  hostname: string
   log_count: number
   logs: DashboardLog[]
   analysis: {
@@ -128,4 +115,31 @@ export interface DashboardData {
 
 export function getDashboard(timeRange: string = '1h') {
   return request<DashboardData>(`${BASE}/dashboard?time_range=${timeRange}`)
+}
+
+// 单设备 AI 分析
+export function analyzeDevice(deviceId: string, hostname?: string, timeRange: string = '1h') {
+  return request<{
+    summary: string
+    has_abnormal: boolean
+    llm_ms: number
+    created_at: string
+  }>(`${BASE}/analyze-device`, {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId, hostname, time_range: timeRange }),
+  })
+}
+
+// 从 Loki 自动发现设备
+export function discoverDevices() {
+  return request<{ device_id: string; name: string; is_new: boolean }[]>(`${BASE}/discover`)
+}
+
+// 测试 Loki 连接
+export function testLokiConnection(url: string) {
+  return request<{ success: boolean; latency_ms: number; label_count?: number; error?: string }>(
+    `${BASE}/test-loki`, {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  })
 }

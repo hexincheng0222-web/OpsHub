@@ -2,10 +2,7 @@
   <div class="phones-page">
     <!-- 顶部栏 -->
     <div class="top-bar">
-      <button class="back-btn" @click="$router.push('/')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        <span>返回</span>
-      </button>
+      <BackButton to="/" />
       <h3>话机管理</h3>
       <div class="top-right">
         <el-input v-model="searchText" size="small" placeholder="搜索分机号 / IP" clearable class="search-input">
@@ -46,27 +43,26 @@
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态/注册" width="120">
           <template #default="{ row }">
-            <span :class="row.online ? 'dot green' : 'dot gray'"></span>
-            {{ row.online ? row.status : '离线' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="注册" width="90">
-          <template #default="{ row }">
-            <span v-if="row.registered === 'Avail'" class="green">已注册</span>
-            <span v-else class="muted">--</span>
+            <template v-if="row.online">
+              <span class="dot green"></span>
+              <span>{{ row.status }}</span>
+              <span class="registered-tag" v-if="row.registered === 'Avail'">已注册</span>
+            </template>
+            <template v-else-if="row.registered === 'Avail'">
+              <span class="dot yellow"></span>
+              <span class="muted">已注册</span>
+            </template>
+            <template v-else>
+              <span class="dot gray"></span>
+              <span class="muted">离线</span>
+            </template>
           </template>
         </el-table-column>
         <el-table-column label="延迟" width="90">
           <template #default="{ row }">
             <span v-if="row.delay !== 'n/a'" class="mono" :class="{ yellow: parseFloat(row.delay) > 50 }">{{ row.delay }}ms</span>
-            <span v-else class="muted">--</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="SIP 地址" min-width="180">
-          <template #default="{ row }">
-            <span v-if="row.address !== 'n/a'" class="mono small">{{ row.address }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
@@ -138,7 +134,7 @@
       <div v-else style="text-align:center;padding:40px;color:var(--ops-text-tertiary)">无法获取详情</div>
       <template #footer>
         <div style="display:flex;gap:8px">
-          <el-button type="danger" plain size="small" @click="rebootPhone" :disabled="!selectedPhone?.online">重启话机</el-button>
+          <el-button type="danger" plain size="small" @click="handleRebootPhone" :disabled="!selectedPhone?.online">重启话机</el-button>
           <div style="flex:1"></div>
           <el-button size="small" @click="drawerVisible = false">关闭</el-button>
         </div>
@@ -151,7 +147,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { Refresh, Phone, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchPhones } from '@/api/phones'
+import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, rebootPhone as rebootPhoneApi } from '@/api/phones'
+import { request } from '@/utils/http'
+import BackButton from '../components/BackButton.vue'
 
 const loading = ref(false)
 const searchText = ref('')
@@ -174,8 +172,8 @@ async function openDetail(phone: any) {
   detail.value = null
   editing.value = false
   try {
-    const res = await fetch(`/api/v1/phones/${phone.id}/details`).then(r => r.json())
-    if (res.code === 200) detail.value = res.data
+    const data = await fetchPhoneDetail(phone.id)
+    detail.value = data
   } catch { detail.value = null }
   finally { detailLoading.value = false }
 }
@@ -202,27 +200,38 @@ function startEdit() {
 }
 
 async function saveAccount() {
+  // 前置校验
+  const port = parseInt(editForm.value.sipServerPort)
+  if (isNaN(port) || port < 1 || port > 65535) {
+    ElMessage.warning('服务器端口范围为 1-65535')
+    return
+  }
+  if (editForm.value.userName && !editForm.value.sipServer) {
+    ElMessage.warning('填写用户名后必须填写 SIP 服务器')
+    return
+  }
+
   saving.value = true
   try {
-    const res = await fetch(`/api/v1/phones/${selectedPhone.value.id}/account`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm.value),
-    }).then(r => r.json())
-    if (res.code === 200) { ElMessage.success('配置已同步到话机'); editing.value = false; openDetail(selectedPhone.value) }
-    else ElMessage.error(res.message || '同步失败')
+    await updatePhoneAccount(selectedPhone.value.id, editForm.value)
+    ElMessage.success('配置已同步到话机')
+    // 记录操作日志（不影响主流程）
+    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'update_account', detail: `话机 ${selectedPhone.value.extension} 配置已更新` }) }).catch(() => {})
+    editing.value = false
+    openDetail(selectedPhone.value)
   } catch (e: any) { ElMessage.error(e.message || '同步失败') }
   finally { saving.value = false }
 }
 
-async function rebootPhone() {
+async function handleRebootPhone() {
   try {
     await ElMessageBox.confirm(`确定重启话机 ${selectedPhone.value.extension}？`, '重启确认', { type: 'warning' })
   } catch { return }
   try {
-    const res = await fetch(`/api/v1/phones/${selectedPhone.value.id}/reboot`, { method: 'POST' }).then(r => r.json())
-    if (res.code === 200) ElMessage.success('重启指令已发送')
-    else ElMessage.error(res.message)
+    await rebootPhoneApi(selectedPhone.value.id)
+    ElMessage.success('重启指令已发送')
+    // 记录操作日志
+    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'reboot', detail: `话机 ${selectedPhone.value.extension} 已重启` }) }).catch(() => {})
   } catch (e: any) { ElMessage.error(e.message || '重启失败') }
 }
 
@@ -231,12 +240,13 @@ const filteredDevices = computed(() => {
   const q = searchText.value.toLowerCase()
   return devices.value.filter(d =>
     d.extension?.toLowerCase().includes(q) ||
-    d.ip?.toLowerCase().includes(q)
+    d.ip?.toLowerCase().includes(q) ||
+    d.address?.toLowerCase().includes(q)
   )
 })
 
 const CACHE_KEY = 'opshub_phones_cache'
-const CACHE_TTL = 30 * 60 * 1000 // 30 分钟
+const CACHE_TTL = 60 * 1000 // 1 分钟（后端已有缓存，前端只做短时保底）
 
 async function loadDevices(force = false) {
   // 先尝试缓存
@@ -259,19 +269,17 @@ async function loadDevices(force = false) {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await fetchPhones()
-    if (res.code === 200) {
-      devices.value = res.data
-      total.value = res.total
-      onlineCount.value = res.online
-      offlineCount.value = res.offline
-      // 写入缓存
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: { devices: res.data, total: res.total, online: res.online, offline: res.offline } }))
-      } catch {}
-    } else {
-      errorMsg.value = res.message || '获取设备失败'
-    }
+    // fetchPhones 返回 { devices, total, online, offline } 对象
+    const data = await fetchPhones()
+    const list = data.devices || []
+    devices.value = list
+    total.value = data.total ?? list.length
+    onlineCount.value = data.online ?? list.filter((d: any) => d.online).length
+    offlineCount.value = data.offline ?? list.filter((d: any) => !d.online).length
+    // 写入缓存
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: { devices: list, total: total.value, online: onlineCount.value, offline: offlineCount.value } }))
+    } catch {}
   } catch (err: any) {
     errorMsg.value = err.message || '无法连接后端服务'
   } finally {
@@ -314,20 +322,6 @@ onMounted(() => { loadDevices() })
 }
 .search-input { width: 170px; }
 
-.back-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 14px 6px 10px;
-  background: var(--ops-bg-card-hover);
-  border: 1px solid var(--ops-border-card);
-  border-radius: 20px;
-  color: var(--ops-text-secondary);
-  cursor: pointer; font-size: 12px; font-family: inherit;
-  transition: all 0.2s ease;
-}
-.back-btn svg { transition: transform 0.2s ease; }
-.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); }
-.back-btn:hover svg { transform: translateX(-2px); }
-
 /* 统计条 */
 .stats-bar {
   display: flex;
@@ -358,7 +352,20 @@ onMounted(() => { loadDevices() })
   vertical-align: middle;
 }
 .dot.green { background: var(--ops-accent-green); }
+.dot.yellow { background: var(--ops-accent-yellow); }
 .dot.gray { background: var(--ops-text-tertiary); }
+
+/* 注册标签 */
+.registered-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  background: rgba(64, 158, 255, 0.1);
+  color: var(--ops-accent-blue);
+  border-radius: 3px;
+  vertical-align: middle;
+}
 
 /* 文字 */
 .ext { font-weight: 600; color: var(--ops-accent-blue); }

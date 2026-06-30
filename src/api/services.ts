@@ -1,5 +1,5 @@
 // src/api/services.ts
-import type { Service } from '../mock/services'
+import type { Service } from '../types'
 import { request } from '../utils/http'
 
 const BASE = '/api/v1/services'
@@ -74,10 +74,4 @@ export async function checkAllServices(): Promise<{
 // 8. 单个检测连通性
 export async function checkService(id: number): Promise<{ id: number; status: string; latencyMs: number | null }> {
   return request<any>(`${BASE}/${id}/check`, { method: 'POST' })
-}
-
-// 9. 获取分类列表
-export async function fetchCategories(): Promise<string[]> {
-  const data = await request<{ categories: string[] }>(`${BASE}/categories`)
-  return data.categories
 }

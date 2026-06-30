@@ -209,8 +209,37 @@ router.delete('/:id', (req: Request, res: Response) => {
   res.status(204).send()
 })
 
-// 7. 批量检测连通性
+// 并发池：同时最多执行 maxConcurrent 个异步任务
+async function concurrentPool<T, R>(
+  items: T[],
+  maxConcurrent: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  const queue = items.map((item, i) => ({ item, i }))
+
+  const worker = async () => {
+    while (queue.length > 0) {
+      const { item, i } = queue.shift()!
+      results[i] = await fn(item)
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(maxConcurrent, items.length) }, () => worker())
+  await Promise.all(workers)
+  return results
+}
+
+// 7. 批量检测连通性（含缓存 + 并发控制）
+let checkAllCache: { timestamp: number; data: any } | null = null
+const CHECK_CACHE_TTL = 60_000 // 60 秒
+
 router.post('/check-all', async (_req: Request, res: Response) => {
+  // 缓存命中
+  if (checkAllCache && Date.now() - checkAllCache.timestamp < CHECK_CACHE_TTL) {
+    return res.json({ code: 200, data: checkAllCache.data, cached: true })
+  }
+
   const services = db.prepare("SELECT * FROM services WHERE status != 'maintenance'").all() as any[]
   const skipped = db.prepare("SELECT * FROM services WHERE status = 'maintenance'").all() as any[]
 
@@ -227,15 +256,14 @@ router.post('/check-all', async (_req: Request, res: Response) => {
     }
   }
 
-  const results = await Promise.allSettled(services.map(checkOne))
+  // 并发控制：最多 10 个同时检测
+  const results = await concurrentPool(services, 10, checkOne)
   const allResults: any[] = []
   const updateStmt = db.prepare("UPDATE services SET status = ?, updated_at = datetime('now') WHERE id = ?")
 
   for (const r of results) {
-    if (r.status === 'fulfilled') {
-      allResults.push(r.value)
-      updateStmt.run(r.value.status, r.value.id)
-    }
+    allResults.push(r)
+    updateStmt.run(r.status, r.id)
   }
 
   for (const s of skipped) {
@@ -249,7 +277,9 @@ router.post('/check-all', async (_req: Request, res: Response) => {
     maintenance: allResults.filter(r => r.status === 'maintenance').length,
   }
 
-  res.json({ code: 200, data: { results: allResults, summary } })
+  const data = { results: allResults, summary }
+  checkAllCache = { timestamp: Date.now(), data }
+  res.json({ code: 200, data })
 })
 
 // 8. 单个检测连通性

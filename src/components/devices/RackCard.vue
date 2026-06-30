@@ -1,7 +1,7 @@
 <!-- src/components/devices/RackCard.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Rack, Device } from '../../mock/devices'
+import type { Rack, Device } from '../../types'
 import type { SlotInfo } from '../../utils/rack-utils'
 import RackHeader from './RackHeader.vue'
 import RackStats from './RackStats.vue'

@@ -77,9 +77,10 @@ router.get('/stats', (_req: Request, res: Response) => {
   })
 })
 
-// ============ 1. 获取所有机柜 ============
+// ============ 1. 获取所有机柜（可选包含设备布局） ============
 router.get('/', (req: Request, res: Response) => {
   const floor = req.query.floor as string
+  const includeDevices = req.query.include_devices === 'true'
 
   let racksQuery = 'SELECT * FROM racks'
   const params: any[] = []
@@ -103,9 +104,26 @@ router.get('/', (req: Request, res: Response) => {
   const slotStatsMap: Record<string, { deviceCount: number; usedU: number }> = {}
   for (const row of slotStats) slotStatsMap[row.rack_id] = { deviceCount: row.deviceCount, usedU: row.usedU }
 
+  // 可选：一次性获取所有 slot 和设备布局
+  let allSlotsMap: Record<string, any[]> = {}
+  if (includeDevices) {
+    const allSlots = db.prepare(`
+      SELECT rs.rack_id, rs.u_offset, rs.u_size, rs.device_id,
+             d.name, d.type, d.model, d.u, d.ports, d.status, d.ip
+      FROM rack_slots rs
+      LEFT JOIN devices d ON d.id = rs.device_id
+      ORDER BY rs.u_offset ASC
+    `).all() as any[]
+
+    for (const s of allSlots) {
+      if (!allSlotsMap[s.rack_id]) allSlotsMap[s.rack_id] = []
+      allSlotsMap[s.rack_id].push(s)
+    }
+  }
+
   const rackList = racks.map(rack => {
     const stats = slotStatsMap[rack.id] || { deviceCount: 0, usedU: 0 }
-    return {
+    const item: any = {
       id: rack.id,
       name: rack.name,
       floor: rack.floor,
@@ -113,6 +131,27 @@ router.get('/', (req: Request, res: Response) => {
       deviceCount: stats.deviceCount,
       usedU: stats.usedU,
     }
+
+    if (includeDevices) {
+      const slots = allSlotsMap[rack.id] || []
+      const slotMap = new Map<number, any>()
+      for (const s of slots) {
+        slotMap.set(s.u_offset, s)
+      }
+      const devices: (any | null)[] = []
+      for (let i = 0; i < rack.total_u; i++) {
+        const s = slotMap.get(i)
+        if (s && s.device_id) {
+          devices.push({ id: s.device_id, name: s.name, type: s.type, model: s.model, u: s.u, ports: s.ports, status: s.status, ip: s.ip })
+          if (s.u_size > 1) i += s.u_size - 1 // skip spanned U slots
+        } else {
+          devices.push(null)
+        }
+      }
+      item.devices = devices
+    }
+
+    return item
   })
 
   // 统计：一次性查询设备状态分布

@@ -1,7 +1,7 @@
 <!-- src/components/devices/DeviceCard.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Device } from '../../mock/devices'
+import type { Device } from '../../types'
 import { useDevicesStore } from '../../stores/devices'
 
 const props = defineProps<{

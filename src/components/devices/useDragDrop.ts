@@ -1,6 +1,6 @@
 // src/components/devices/useDragDrop.ts
 import { reactive, onMounted, onBeforeUnmount } from 'vue'
-import type { Rack, Device } from '../../mock/devices'
+import type { Rack, Device } from '../../types'
 import { canPlaceAt } from '../../utils/rack-utils'
 
 interface DragState {

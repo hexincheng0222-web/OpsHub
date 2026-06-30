@@ -66,7 +66,7 @@ function getConfig(key: string): any {
 
 function setConfig(key: string, value: any): void {
   db.prepare(
-    'INSERT OR REPLACE INTO log_monitor_config (key, value, updated_at) VALUES (?, ?, datetime("now"))'
+    'INSERT OR REPLACE INTO log_monitor_config (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))'
   ).run(key, JSON.stringify(value))
 }
 
@@ -249,7 +249,7 @@ export function saveAudit(device: DeviceConfig, logs: LogEntry[], result: LLMRes
 export function cleanupAudit(retentionDays: number): number {
   if (retentionDays <= 0) return 0
   const row = db.prepare(
-    'DELETE FROM log_audit WHERE created_at < datetime("now", ?)'
+    'DELETE FROM log_audit WHERE created_at < datetime(\'now\', ?)'
   ).run(`-${retentionDays} days`)
   return row.changes
 }
@@ -297,6 +297,61 @@ export async function healthCheck(): Promise<HealthStatus> {
   return result
 }
 
+// ========== Loki 设备自动发现 ==========
+
+function getLokiUrl(): string {
+  const cfg = loadConfig()
+  return cfg.log_server?.base_url || 'http://10.3.0.143:3100'
+}
+
+export interface DiscoveredDevice {
+  ip: string
+  hostname: string
+}
+
+export async function discoverDevices(): Promise<DiscoveredDevice[]> {
+  const start = new Date(Date.now() - 7 * 86400000).toISOString()
+  const end = new Date().toISOString()
+
+  // 用 query_range 查少量日志，从每条 stream 的 labels 里取 host + source_ip 建立关联
+  try {
+    const url = `${getLokiUrl()}/loki/api/v1/query_range?query={job="syslog"}&limit=500&direction=backward&start=${start}&end=${end}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
+    if (!res.ok) return []
+    const data = await res.json() as any
+
+    // 从 stream labels 关联 IP → hostname（每个 stream 只取一条，去重）
+    const ipHostMap = new Map<string, string>()
+    for (const stream of (data.data?.result || [])) {
+      const host: string = stream.stream?.host || ''
+      const sourceIp: string = stream.stream?.source_ip || ''
+      const m = sourceIp.match(/(\d+\.\d+\.\d+\.\d+)/)
+      if (host && m && !ipHostMap.has(m[1])) {
+        ipHostMap.set(m[1], host)
+      }
+    }
+
+    if (ipHostMap.size > 0) {
+      return Array.from(ipHostMap.entries()).map(([ip, hostname]) => ({ ip, hostname }))
+    }
+  } catch {}
+
+  // 回退：仅查 source_ip label values，hostname 回落到 IP
+  try {
+    const url = `${getLokiUrl()}/loki/api/v1/label/source_ip/values?start=${start}&end=${end}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return []
+    const data = await res.json() as any
+    return (data.data || []).map((s: string) => {
+      const m = s.match(/(\d+\.\d+\.\d+\.\d+)/)
+      const ip = m ? m[1] : s
+      return { ip, hostname: ip }
+    })
+  } catch {
+    return []
+  }
+}
+
 // ========== 调度器 ==========
 
 let cronTask: ScheduledTask | null = null
@@ -312,12 +367,25 @@ export function startScheduler(): void {
   cronTask = cron.schedule(cronExpr, async () => {
     lastRunTime = new Date()
     const config = loadConfig()
-    console.log(`[scheduler] 开始新一轮分析, 设备数=${config.devices.length}`)
-    for (const device of config.devices) {
+    // 从 Loki 自动发现设备，回退到配置列表
+    let deviceList: DeviceConfig[]
+    const discovered = await discoverDevices()
+    if (discovered.length > 0) {
+      const nameMap = new Map(config.devices.map(d => [d.device_id, d.name]))
+      deviceList = discovered.map(d => ({
+        device_id: d.ip,
+        name: nameMap.get(d.ip) || d.hostname || d.ip,
+        hostname: d.hostname,  // 保留 hostname 用于 Loki 查询
+      }))
+    } else {
+      deviceList = config.devices
+    }
+    console.log(`[scheduler] 开始新一轮分析, 设备数=${deviceList.length}`)
+    for (const device of deviceList) {
       try {
         const endTime = new Date()
         const startTime = new Date(endTime.getTime() - (config.scheduler.window * 1000))
-        const logs = await fetchLogs(device.device_id, startTime, endTime)
+        const logs = await fetchLokiLogs((device as any).hostname || device.device_id, startTime, endTime, 10000)
         const result = await analyzeLogs(logs, config.llm.system_prompt)
         saveAudit(device, logs, result)
       } catch (e: any) {
@@ -354,8 +422,6 @@ if (savedConfig.scheduler_running) {
 
 // ========== Dashboard 数据 ==========
 
-const LOKI_URL = 'http://10.3.0.143:3100'
-
 interface DashboardLog {
   ts: string
   level: string
@@ -365,6 +431,7 @@ interface DashboardLog {
 interface DashboardDevice {
   device_id: string
   device_name: string
+  hostname: string
   log_count: number
   logs: DashboardLog[]
   analysis: {
@@ -389,46 +456,31 @@ function parseLogLevel(line: string): string {
   return 'INFO'
 }
 
-function parseLogTimestamp(line: string): string {
-  // 华为 syslog: "2026-06-20T16:02:42+08:00 S5720 ..."
-  const m = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/)
-  return m ? m[1].replace('T', ' ').slice(11, 19) : ''
-}
-
-async function fetchLokiLogs(deviceIp: string, timeRange: string): Promise<DashboardLog[]> {
-  const now = new Date()
-  const rangeMap: Record<string, number> = {
-    '5m': 5 * 60 * 1000,
-    '15m': 15 * 60 * 1000,
-    '1h': 60 * 60 * 1000,
-    '6h': 6 * 60 * 60 * 1000,
-    '24h': 24 * 60 * 60 * 1000,
-    '7d': 7 * 24 * 60 * 60 * 1000,
-  }
-  const ms = rangeMap[timeRange] || rangeMap['1h']
-  const start = new Date(now.getTime() - ms)
-
-  const query = `{job="rsyslog", host="logserver", filename=~".*${deviceIp}.*"}`
+export async function fetchLokiLogs(hostname: string, start: Date, end: Date, limit: number = 2000): Promise<LogEntry[]> {
+  const query = `{job="syslog", host="${hostname}"}`
   const params = new URLSearchParams({
     query,
-    limit: '100',
+    limit: String(limit),
     direction: 'backward',
     start: String(Math.floor(start.getTime() / 1e6) * 1e6) + '000000',
-    end: String(Math.floor(now.getTime() / 1e6) * 1e6) + '000000',
+    end: String(Math.floor(end.getTime() / 1e6) * 1e6) + '000000',
   })
 
   try {
-    const url = `${LOKI_URL}/loki/api/v1/query_range?${params}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
+    const url = `${getLokiUrl()}/loki/api/v1/query_range?${params}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
     if (!res.ok) return []
     const data = await res.json() as any
-    const results: DashboardLog[] = []
+    const results: LogEntry[] = []
     for (const stream of (data.data?.result || [])) {
       for (const [tsNano, line] of (stream.values || [])) {
+        let parsed: any = {}
+        try { parsed = JSON.parse(line) } catch { parsed = { message: line } }
+        const msg = parsed.message || line
         results.push({
-          ts: parseLogTimestamp(line),
-          level: parseLogLevel(line),
-          msg: line.slice(0, 200),
+          ts: new Date(Number(tsNano) / 1e6).toISOString().replace('T', ' ').slice(0, 19),
+          level: parseLogLevel(parsed.message || line),
+          msg: (parsed.message || line).slice(0, 500),
         })
       }
     }
@@ -459,32 +511,60 @@ function extractSummary(text: string): string {
 export async function getDashboardData(timeRange: string): Promise<DashboardData> {
   const config = loadConfig()
 
-  // 并行查询所有设备
-  const devicePromises = config.devices.map(async (device) => {
-    const [logs, auditRow] = await Promise.all([
-      fetchLokiLogs(device.device_id, timeRange),
-      Promise.resolve(
-        db.prepare(
-          'SELECT llm_summary, has_abnormal, llm_ms, created_at FROM log_audit WHERE device_id = ? ORDER BY id DESC LIMIT 1'
-        ).get(device.device_id) as { llm_summary: string; has_abnormal: number; llm_ms: number; created_at: string } | undefined
-      ),
-    ])
+  // 计算时间范围
+  const rangeMap: Record<string, number> = {
+    '5m': 5 * 60 * 1000,
+    '15m': 15 * 60 * 1000,
+    '1h': 60 * 60 * 1000,
+    '6h': 6 * 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+  }
+  const ms = rangeMap[timeRange] || rangeMap['1h']
+  const now = new Date()
+  const startTime = new Date(now.getTime() - ms)
 
-    return {
-      device_id: device.device_id,
-      device_name: device.name,
-      log_count: logs.length,
-      logs,
-      analysis: auditRow ? {
+  // 从 Loki 自动发现设备
+  let discoveredDevices = await discoverDevices()
+
+  // 如果配置页有设备列表，则过滤只显示已配置的设备
+  const nameMap = new Map(config.devices.map(d => [d.device_id, d.name]))
+  if (config.devices.length > 0) {
+    const configuredIds = new Set(config.devices.map(d => d.device_id))
+    discoveredDevices = discoveredDevices.filter(d => configuredIds.has(d.ip))
+  }
+
+  // 并行查询所有设备
+const devicePromises = discoveredDevices.map(async (device) => {
+  const logs = await fetchLokiLogs(device.hostname, startTime, now)
+
+  // 未启动调度器时不显示历史分析数据，除非手动分析过
+  let analysis = null
+  if (config.scheduler_running) {
+    const auditRow = db.prepare(
+      'SELECT llm_summary, has_abnormal, llm_ms, created_at FROM log_audit WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+    ).get(device.ip) as { llm_summary: string; has_abnormal: number; llm_ms: number; created_at: string } | undefined
+    if (auditRow) {
+      analysis = {
         summary: extractSummary(auditRow.llm_summary),
         has_abnormal: Boolean(auditRow.has_abnormal),
         llm_ms: auditRow.llm_ms,
         created_at: auditRow.created_at,
-      } : null,
-    } as DashboardDevice
-  })
+      }
+    }
+  }
 
-  const devices = await Promise.all(devicePromises)
+  return {
+    device_id: device.ip,
+    device_name: nameMap.get(device.ip) || device.hostname || device.ip,
+    hostname: device.hostname,
+    log_count: logs.length,
+    logs: logs.map(l => ({ ...l })),
+    analysis,
+  } as DashboardDevice
+})
+
+const devices = await Promise.all(devicePromises)
 
   // 最后一次分析时间
   const lastAudit = db.prepare(

@@ -1,10 +1,7 @@
 <template>
   <div class="services-page">
     <div class="top-bar">
-      <button class="back-btn" @click="$router.push('/')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        <span>返回</span>
-      </button>
+      <BackButton to="/" />
       <h3>内网服务管理</h3>
       <div class="top-actions">
         <el-button
@@ -65,7 +62,7 @@
     </div>
 
     <!-- 骨架屏：首次加载且无数据时显示 -->
-    <div v-if="loading && servicesStore.services.length === 0" class="service-grid">
+    <div v-if="servicesStore.loading && servicesStore.services.length === 0" class="service-grid">
       <el-skeleton v-for="i in 6" :key="i" animated class="svc-card">
         <template #template>
           <div style="display: flex; gap: 12px; flex-direction: column;">
@@ -106,7 +103,7 @@
         <div class="status-bar" />
         <div class="svc-top">
           <div class="svc-icon">
-            <el-icon :size="28"><component :is="svc.icon" /></el-icon>
+            <el-icon :size="28"><component :is="resolveIcon(svc.icon)" /></el-icon>
             <span class="status-dot" :class="'dot-' + svc.status" />
           </div>
           <div class="svc-info">
@@ -126,61 +123,54 @@
 
     <!-- 新增/编辑弹窗 -->
     <!-- 右侧详情抽屉 -->
-    <Transition name="drawer-slide">
-      <div v-if="drawerVisible" class="drawer-overlay" @click.self="drawerVisible = false">
-        <div class="drawer-panel" v-if="selectedService">
-          <div class="drawer-header">
-            <h3>{{ selectedService.name }}</h3>
-            <button class="drawer-close" @click="drawerVisible = false">✕</button>
+    <el-drawer v-model="drawerVisible" direction="rtl" size="400px" :show-close="false">
+      <template #header>
+        <div v-if="selectedService" style="display:flex;align-items:center;gap:12px">
+          <div class="drawer-icon" :class="'status-' + selectedService.status">
+            <el-icon :size="28"><component :is="resolveIcon(selectedService.icon)" /></el-icon>
           </div>
-          <div class="drawer-content">
-            <div class="drawer-icon-row">
-              <div class="drawer-icon" :class="'status-' + selectedService.status">
-                <el-icon :size="40"><component :is="selectedService.icon" /></el-icon>
-              </div>
-              <div class="drawer-icon-info">
-                <h4>{{ selectedService.name }}</h4>
-                <el-tag :type="statusType(selectedService.status)" size="small" effect="dark">
-                  {{ statusLabel(selectedService.status) }}
-                </el-tag>
-              </div>
-            </div>
-
-            <div class="drawer-section">
-              <div class="drawer-label">服务地址</div>
-              <div class="drawer-url">
-                <el-icon><Link /></el-icon>
-                <span>{{ selectedService.url }}</span>
-              </div>
-            </div>
-
-            <div class="drawer-section">
-              <div class="drawer-label">描述</div>
-              <div class="drawer-value">{{ selectedService.description || '暂无描述' }}</div>
-            </div>
-
-            <div class="drawer-section">
-              <div class="drawer-label">备注</div>
-              <div class="drawer-notes">{{ selectedService.notes || '暂无备注' }}</div>
-            </div>
-          </div>
-          <div class="drawer-footer">
-            <div></div>
-            <el-button type="primary" @click="openService(selectedService.url)">
-              <el-icon><Position /></el-icon> 访问服务
-            </el-button>
+          <div>
+            <h4 style="margin:0;font-size:16px;font-weight:600;color:var(--ops-text-primary)">{{ selectedService.name }}</h4>
+            <el-tag :type="statusType(selectedService.status)" size="small" effect="dark" style="margin-top:4px">
+              {{ statusLabel(selectedService.status) }}
+            </el-tag>
           </div>
         </div>
+      </template>
+      <div v-if="selectedService" class="drawer-content">
+        <div class="drawer-section">
+          <div class="drawer-label">服务地址</div>
+          <div class="drawer-url">
+            <el-icon><Link /></el-icon>
+            <span>{{ selectedService.url }}</span>
+          </div>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-label">描述</div>
+          <div class="drawer-value">{{ selectedService.description || '暂无描述' }}</div>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-label">备注</div>
+          <div class="drawer-notes">{{ selectedService.notes || '暂无备注' }}</div>
+        </div>
       </div>
-    </Transition>
+      <template #footer>
+        <el-button type="primary" @click="openService(selectedService!.url)">
+          <el-icon><Position /></el-icon> 访问服务
+        </el-button>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useServicesStore } from '../stores/services'
-import type { Service } from '../mock/services'
+import { useDebouncedSearch } from '../composables/useDebouncedSearch'
+import type { Service } from '../types'
 import { fetchDict } from '../api/admin'
+import { resolveIcon } from '../utils/icons'
+import BackButton from '../components/BackButton.vue'
 
 const servicesStore = useServicesStore()
 
@@ -189,10 +179,9 @@ const hosts = ref<any[]>([])
 const selectedHostId = ref<number | null>(null)
 const serviceCategories = ref<string[]>([])
 
-onMounted(async () => {
-  await servicesStore.loadServices()
+onMounted(() => {
+  servicesStore.loadServices()
   servicesStore.checkAllServices()
-  loading.value = false
   // 加载字典
   fetchDict('service-hosts').then(data => { hosts.value = data }).catch((e: any) => console.warn('加载主机列表失败:', e.message))
   fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch((e: any) => console.warn('加载服务分类失败:', e.message))
@@ -203,15 +192,7 @@ function getHostServiceCount(hostId: number) {
   return servicesStore.services.filter(s => s.hostId === hostId).length
 }
 
-const loading = ref(true)
-
-const search = ref('')
-const searchInput = ref('')
-let svcSearchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchInput, (v) => {
-  if (svcSearchTimer) clearTimeout(svcSearchTimer)
-  svcSearchTimer = setTimeout(() => { search.value = v }, 300)
-})
+const { searchInput, search } = useDebouncedSearch()
 const filterCategory = ref('')
 const filterStatus = ref('')
 
@@ -274,20 +255,6 @@ function statusLabel(status: string) {
   min-height: 100vh;
   background: var(--ops-bg-page);
 }
-
-.back-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 14px 6px 10px;
-  background: var(--ops-bg-card-hover);
-  border: 1px solid var(--ops-border-card);
-  border-radius: 20px;
-  color: var(--ops-text-secondary);
-  cursor: pointer; font-size: 12px; font-family: inherit;
-  transition: all 0.2s ease;
-}
-.back-btn svg { transition: transform 0.2s ease; }
-.back-btn:hover { color: var(--ops-accent-blue); border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.06); }
-.back-btn:hover svg { transform: translateX(-2px); }
 
 .top-bar {
   display: flex;
@@ -759,98 +726,25 @@ function statusLabel(status: string) {
   margin: 16px 0;
 }
 
-/* ---- 右侧抽屉面板 ---- */
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.drawer-panel {
-  width: 400px;
-  height: 100%;
-  background: var(--ops-bg-card);
-  border-left: 1px solid var(--ops-border-card);
-  display: flex;
-  flex-direction: column;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
-}
-
-.drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--ops-border-card);
-}
-
-.drawer-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--ops-text-primary);
-}
-
-.drawer-close {
-  background: none;
-  border: none;
-  color: var(--ops-text-tertiary);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.drawer-close:hover {
-  background: var(--ops-bg-card-hover);
-  color: var(--ops-text-primary);
-}
-
-.drawer-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
+/* ---- el-drawer 内容样式 ---- */
 .drawer-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-
-.drawer-icon-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.drawer-icon-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.drawer-icon-info h4 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--ops-text-primary);
-}
-
 .drawer-icon.status-online { background: rgba(63, 185, 80, 0.15); color: var(--ops-status-online); }
 .drawer-icon.status-offline { background: rgba(72, 79, 88, 0.3); color: var(--ops-text-tertiary); }
 .drawer-icon.status-maintenance { background: rgba(210, 153, 34, 0.15); color: var(--ops-status-maintenance); }
+
+.drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 .drawer-section {
   display: flex;
@@ -894,37 +788,4 @@ function statusLabel(status: string) {
   font-family: monospace;
 }
 
-.drawer-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-top: 1px solid var(--ops-border-card);
-}
-
-.drawer-actions-left {
-  display: flex;
-  gap: 8px;
-}
-
-/* 抽屉过渡动画 */
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.drawer-slide-enter-active .drawer-panel,
-.drawer-slide-leave-active .drawer-panel {
-  transition: transform 0.3s ease;
-}
-
-.drawer-slide-enter-from,
-.drawer-slide-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-enter-from .drawer-panel,
-.drawer-slide-leave-to .drawer-panel {
-  transform: translateX(100%);
-}
 </style>

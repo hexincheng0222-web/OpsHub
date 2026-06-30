@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -40,16 +41,24 @@ const router = createRouter({
       meta: { title: '设备管理' }
     },
     {
+      path: '/procurement',
+      name: 'Procurement',
+      component: () => import('../views/procurement/ProcurementView.vue'),
+      meta: { title: '采购管理' }
+    },
+    {
       path: '/computer-procurement',
       name: 'ComputerProcurement',
-      component: () => import('../views/ComputerProcurementView.vue'),
-      meta: { title: '电脑采购' }
+      component: () => import('../views/procurement/ProcurementView.vue'),
+      meta: { title: '电脑采购' },
+      beforeEnter: () => ({ path: '/procurement', query: { tab: 'computer' }, replace: true })
     },
     {
       path: '/phone-procurement',
       name: 'PhoneProcurement',
-      component: () => import('../views/PhoneProcurementView.vue'),
-      meta: { title: '手机采购' }
+      component: () => import('../views/procurement/ProcurementView.vue'),
+      meta: { title: '手机采购' },
+      beforeEnter: () => ({ path: '/procurement', query: { tab: 'phone' }, replace: true })
     },
     {
       path: '/phones',
@@ -121,7 +130,6 @@ const router = createRouter({
 
 // 路由守卫 — 登录和权限检查
 router.beforeEach(async (to) => {
-  const { useAuthStore } = await import('../stores/auth')
   const auth = useAuthStore()
 
   // 确保已验证过 token

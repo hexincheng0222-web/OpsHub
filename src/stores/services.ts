@@ -1,88 +1,111 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import type { Service } from '../mock/services'
+import { ref, computed } from 'vue'
+import type { Service } from '../types'
 import * as api from '../api/services'
+import { ElMessage } from 'element-plus'
+
+const SVC_CACHE_KEY = 'opshub_services_cache'
+const SVC_TTL = 5 * 60 * 1000 // 5 分钟
+
+function readSvcCache(): { list: Service[]; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(SVC_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+function writeSvcCache(list: Service[]) {
+  try { localStorage.setItem(SVC_CACHE_KEY, JSON.stringify({ list, ts: Date.now() })) } catch {}
+}
+function clearSvcCache() {
+  try { localStorage.removeItem(SVC_CACHE_KEY) } catch {}
+}
 
 export const useServicesStore = defineStore('services', () => {
   const services = ref<Service[]>([])
-  const checking = ref(false)
+  const checkResults = ref<Record<number, { status: string; latencyMs: number | null }>>({})
   const loading = ref(false)
+  const checking = ref(false)
 
-  // 启动时从后端加载数据
+  const total = computed(() => services.value.length)
+  const onlineCount = computed(() => services.value.filter(s => s.status === 'online').length)
+  const offlineCount = computed(() => services.value.filter(s => s.status === 'offline').length)
+  const maintenanceCount = computed(() => services.value.filter(s => s.status === 'maintenance').length)
+
   async function loadServices() {
+    // 先读缓存立即显示
+    const cached = readSvcCache()
+    if (cached) {
+      services.value = cached.list
+      if (Date.now() - cached.ts < SVC_TTL) return // 未过期，不请求
+    }
+
     loading.value = true
     try {
-      const data = await api.fetchServices({ pageSize: 100 })
-      services.value = data.list
-    } catch (err) {
-      console.error('[services] 加载失败:', err)
+      const { list } = await api.fetchServices()
+      services.value = list
+      writeSvcCache(list)
+    } catch (e: any) {
+      if (!cached) ElMessage.error(e.message || '加载服务数据失败')
+      else console.warn('服务数据静默刷新失败:', e.message)
     } finally {
       loading.value = false
     }
   }
 
-  // 批量检测连通性
+  async function addService(svc: Omit<Service, 'id'>) {
+    const created = await api.createService(svc)
+    services.value.push(created)
+    clearSvcCache()
+    return created
+  }
+
+  async function updateService(id: number, data: Partial<Service>) {
+    await api.updateService(id, data as any)
+    const idx = services.value.findIndex(s => s.id === id)
+    if (idx !== -1) services.value[idx] = { ...services.value[idx], ...data }
+    clearSvcCache()
+  }
+
+  async function patchService(id: number, data: Partial<Service>) {
+    await api.patchService(id, data)
+    const idx = services.value.findIndex(s => s.id === id)
+    if (idx !== -1) services.value[idx] = { ...services.value[idx], ...data }
+    clearSvcCache()
+  }
+
+  async function deleteService(id: number) {
+    await api.deleteService(id)
+    services.value = services.value.filter(s => s.id !== id)
+    delete checkResults.value[id]
+    clearSvcCache()
+  }
+
   async function checkAllServices() {
     checking.value = true
-    services.value.forEach(s => { s.status = 'checking' })
-
     try {
-      const result = await api.checkAllServices()
-      // 根据后端返回更新状态
-      for (const r of result.results) {
-        const svc = services.value.find(s => s.id === r.id)
-        if (svc) {
-          svc.status = r.status as Service['status']
-        }
+      const data = await api.checkAllServices()
+      for (const r of data.results) {
+        checkResults.value[r.id] = { status: r.status, latencyMs: r.latencyMs }
       }
-    } catch (err) {
-      console.error('[services] 检测失败:', err)
+    } catch (e: any) {
+      console.warn('连通性检测失败:', e.message)
+      ElMessage.warning(e.message || '连通性检测失败')
     } finally {
       checking.value = false
     }
   }
 
-  // 新增服务
-  async function addService(service: Omit<Service, 'id'>) {
-    try {
-      const created = await api.createService(service)
-      services.value.push(created)
-    } catch (err) {
-      console.error('[services] 创建失败:', err)
-      throw err
-    }
+  async function checkService(id: number) {
+    const result = await api.checkService(id)
+    checkResults.value[id] = { status: result.status, latencyMs: result.latencyMs }
+    return result
   }
 
-  // 更新服务
-  async function updateService(id: number, data: Partial<Service>) {
-    try {
-      if (Object.keys(data).length <= 3 && (data.status || data.notes || data.description)) {
-        // 部分更新
-        const updated = await api.patchService(id, data)
-        const idx = services.value.findIndex(s => s.id === id)
-        if (idx !== -1) services.value[idx] = updated
-      } else {
-        // 全量更新
-        const updated = await api.updateService(id, data as any)
-        const idx = services.value.findIndex(s => s.id === id)
-        if (idx !== -1) services.value[idx] = updated
-      }
-    } catch (err) {
-      console.error('[services] 更新失败:', err)
-      throw err
-    }
+  return {
+    services, checkResults, loading, checking,
+    total, onlineCount, offlineCount, maintenanceCount,
+    loadServices, addService, updateService, patchService, deleteService,
+    checkAllServices, checkService,
   }
-
-  // 删除服务
-  async function deleteService(id: number) {
-    try {
-      await api.deleteService(id)
-      services.value = services.value.filter(s => s.id !== id)
-    } catch (err) {
-      console.error('[services] 删除失败:', err)
-      throw err
-    }
-  }
-
-  return { services, checking, loading, loadServices, checkAllServices, addService, updateService, deleteService }
 })

@@ -1,4 +1,5 @@
 // src/api/phones.ts
+import { request } from '../utils/http'
 
 const BASE = '/api/v1/phones'
 
@@ -17,34 +18,37 @@ export interface PhoneDevice {
   display_name: string
 }
 
-export interface PhonesResponse {
-  code: number
-  data: PhoneDevice[]
-  total: number
-  online: number
-  offline: number
-  cached: boolean
-  message?: string
-}
-
 // 获取所有话机（优先走缓存）
-export async function fetchPhones(): Promise<PhonesResponse> {
-  const res = await fetch(BASE, {
-    headers: { 'Content-Type': 'application/json' },
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: 获取话机列表失败`)
-  const json: PhonesResponse = await res.json()
-  if (json.code >= 400) throw new Error(json.message || `错误码 ${json.code}`)
-  return json
+export async function fetchPhones() {
+  const res = await request<any>(BASE)
+  // 后端返回 { code, data: [...], total, online, offline }
+  // 统一转为 { devices, total, online, offline } 供前端使用
+  const list: PhoneDevice[] = Array.isArray(res) ? res : (res.devices || [])
+  return {
+    devices: list,
+    total: list.length,
+    online: list.filter(d => d.online).length,
+    offline: list.filter(d => !d.online).length,
+  }
 }
 
-// 强制刷新（清除后端缓存，重新从 IPPBX 拉取）
-export async function refreshPhones(): Promise<PhonesResponse> {
-  const res = await fetch(`${BASE}/refresh`, {
-    headers: { 'Content-Type': 'application/json' },
+/** 获取话机详情 */
+export async function fetchPhoneDetail(id: string) {
+  return request<any>(`${BASE}/${id}/details`)
+}
+
+/** 编辑话机账号配置 */
+export async function updatePhoneAccount(id: string, data: any) {
+  return request<any>(`${BASE}/${id}/account`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: 刷新话机列表失败`)
-  const json: PhonesResponse = await res.json()
-  if (json.code >= 400) throw new Error(json.message || `错误码 ${json.code}`)
-  return json
+}
+
+/** 重启话机 */
+export async function rebootPhone(id: string) {
+  return request<any>(`${BASE}/${id}/reboot`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
 }

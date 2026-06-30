@@ -1,4 +1,4 @@
-import type { Printer } from '../mock/printers'
+import type { Printer } from '../types'
 
 const CSV_HEADERS = ['楼层', '位置', '厂商', '型号', '硒鼓型号', '备注'] as const
 
@@ -27,7 +27,9 @@ export function downloadPrinterTemplate() {
 
 /** 解析 CSV 文件，返回 Printer 数组 */
 export function parsePrintersCSV(text: string): Partial<Printer>[] {
-  const lines = text.trim().split(/\r?\n/)
+  // 去除 BOM
+  const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text
+  const lines = clean.trim().split(/\r?\n/)
   if (lines.length < 2) return []
   const result: Partial<Printer>[] = []
   for (let i = 1; i < lines.length; i++) {

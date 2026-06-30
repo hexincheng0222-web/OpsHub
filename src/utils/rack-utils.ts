@@ -1,4 +1,4 @@
-import type { Device, Rack } from '../mock/devices'
+import type { Device, Rack } from '../types'
 
 export interface SlotInfo {
   type: 'device' | 'empty' | 'occupied'
@@ -74,16 +74,6 @@ export function getUBadgeLabel(slot: SlotInfo): string {
     return `U${slot.uOffset + slot.uSize}-${slot.uOffset + 1}`
   }
   return `U${slot.uOffset + 1}`
-}
-
-export const DEVICE_TYPE_COLORS: Record<string, string> = {
-  server: '#60a5fa',
-  switch: '#4ade80',
-  storage: '#c084fc',
-  router: '#fb923c',
-  firewall: '#f87171',
-  ups: '#f472b6',
-  pdu: '#94a3b8',
 }
 
 export const DEVICE_TYPE_LABELS: Record<string, string> = {

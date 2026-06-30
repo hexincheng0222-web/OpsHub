@@ -1,7 +1,7 @@
 <!-- src/components/devices/DeviceForm.vue -->
 <script setup lang="ts">
 import { reactive, computed, onMounted, ref, watch } from 'vue'
-import type { Device } from '../../mock/devices'
+import type { Device } from '../../types'
 import { fetchDict } from '../../api/admin'
 import { ElMessage } from 'element-plus'
 

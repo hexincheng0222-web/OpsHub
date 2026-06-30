@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
 import {
-  loadConfig, saveConfigPartial, fetchLogs, analyzeLogs,
+  loadConfig, saveConfigPartial, fetchLokiLogs, analyzeLogs,
   saveAudit, cleanupAudit, healthCheck, startScheduler,
   stopScheduler, getSchedulerStatus, getDashboardData,
+  discoverDevices,
 } from '../logMonitor'
 
 const router = Router()
@@ -58,7 +59,7 @@ router.delete('/audit', (req: Request, res: Response) => {
   res.json({ code: 0, data: { deleted } })
 })
 
-// 5. 手动触发一次分析
+// 5. 手动触发一次分析（自动发现设备）
 router.post('/run-once', async (req: Request, res: Response) => {
   try {
     const config = loadConfig()
@@ -66,8 +67,16 @@ router.post('/run-once', async (req: Request, res: Response) => {
     const endTime = new Date()
     const startTime = new Date(endTime.getTime() - (config.scheduler.window * 1000))
 
-    for (const device of config.devices) {
-      const logs = await fetchLogs(device.device_id, startTime, endTime)
+    // 自动发现设备，回退到配置列表
+    const discovered = await discoverDevices()
+    const nameMap = new Map(config.devices.map(d => [d.device_id, d.name]))
+    const deviceList = discovered.length > 0
+      ? discovered.map(d => ({ device_id: d.ip, name: nameMap.get(d.ip) || d.hostname, hostname: d.hostname }))
+      : config.devices
+
+    for (const device of deviceList) {
+      const queryTarget = (device as any).hostname || device.device_id
+      const logs = await fetchLokiLogs(queryTarget, startTime, endTime, 200)
       const result = await analyzeLogs(logs, config.llm.system_prompt)
       const id = saveAudit(device, logs, result)
       results.push({ id, device_id: device.device_id, has_abnormal: result.has_abnormal })
@@ -75,6 +84,54 @@ router.post('/run-once', async (req: Request, res: Response) => {
     res.json({ code: 0, data: results })
   } catch (e: any) {
     res.json({ code: 500, message: e.message })
+  }
+})
+
+// 5b. 单设备分析（点击卡片“分析”按钮触发）
+router.post('/analyze-device', async (req: Request, res: Response) => {
+  try {
+    const { device_id, hostname, time_range } = req.body
+    if (!device_id) {
+      return res.status(400).json({ code: 400, message: '缺少 device_id' })
+    }
+
+    const config = loadConfig()
+    const endTime = new Date()
+
+    // 根据前端传入的时间范围确定查询窗口，默认 1 小时
+    const rangeMap: Record<string, number> = {
+      '5m': 5 * 60 * 1000,
+      '15m': 15 * 60 * 1000,
+      '1h': 60 * 60 * 1000,
+      '6h': 6 * 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+    }
+    const windowMs = rangeMap[time_range] || 60 * 60 * 1000
+    const startTime = new Date(endTime.getTime() - windowMs)
+
+    // 用 fetchLokiLogs 从 Loki 查真实日志（不限量，取时间窗口内全部日志）
+    const queryTarget = hostname || device_id
+    const logs = await fetchLokiLogs(queryTarget, startTime, endTime, 10000)
+    if (!logs.length) {
+      return res.json({ code: 0, data: { summary: '无日志可分析', has_abnormal: false, llm_ms: 0 } })
+    }
+
+    const result = await analyzeLogs(logs, config.llm.system_prompt)
+    const device = { device_id, name: hostname || device_id }
+    saveAudit(device, logs, result)
+
+    res.json({
+      code: 0,
+      data: {
+        summary: result.summary,
+        has_abnormal: result.has_abnormal,
+        llm_ms: result._llm_ms || 0,
+        created_at: new Date().toISOString(),
+      },
+    })
+  } catch (e: any) {
+    res.status(500).json({ code: 500, message: e.message })
   }
 })
 
@@ -124,6 +181,28 @@ router.post('/llm-test', async (req: Request, res: Response) => {
   }
 })
 
+// 7b. Loki 连通测试
+router.post('/test-loki', async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body
+    const testUrl = (url || '').replace(/\/$/, '')
+    if (!testUrl) {
+      return res.json({ code: 0, data: { success: false, latency_ms: 0, error: '请先填写 Loki 地址' } })
+    }
+    const t0 = Date.now()
+    const r = await fetch(testUrl + '/loki/api/v1/labels', { signal: AbortSignal.timeout(10000) })
+    const ms = Date.now() - t0
+    if (!r.ok) {
+      return res.json({ code: 0, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
+    }
+    const data = await r.json() as any
+    const labelCount = data.data?.length || 0
+    res.json({ code: 0, data: { success: true, latency_ms: ms, label_count: labelCount } })
+  } catch (e: any) {
+    res.json({ code: 0, data: { success: false, latency_ms: 0, error: e.message } })
+  }
+})
+
 // 8. Dashboard 数据
 router.get('/dashboard', async (req: Request, res: Response) => {
   const timeRange = (req.query.time_range as string) || '1h'
@@ -135,6 +214,25 @@ router.get('/dashboard', async (req: Request, res: Response) => {
 router.get('/health', async (_req: Request, res: Response) => {
   const status = await healthCheck()
   res.json({ code: 0, data: status })
+})
+
+// 10. 从 Loki 自动发现设备
+router.get('/discover', async (_req: Request, res: Response) => {
+  try {
+    const devices = await discoverDevices()
+    const config = loadConfig()
+    const configuredIds = new Set(config.devices.map(d => d.device_id))
+    const result = devices.map(d => ({
+      device_id: d.ip,
+      name: configuredIds.has(d.ip)
+        ? config.devices.find(c => c.device_id === d.ip)?.name || d.hostname
+        : d.hostname,
+      is_new: !configuredIds.has(d.ip),
+    }))
+    res.json({ code: 0, data: result })
+  } catch (e: any) {
+    res.status(500).json({ code: 500, message: e.message })
+  }
 })
 
 export default router

@@ -1,4 +1,4 @@
-import type { Printer } from '../mock/printers'
+import type { Printer } from '../types'
 import { request } from '../utils/http'
 
 const BASE = '/api/v1/printers'
@@ -59,8 +59,4 @@ export async function importPrinters(rows: Partial<Printer>[]): Promise<{ import
     method: 'POST',
     body: JSON.stringify({ rows }),
   })
-}
-
-export async function fetchPrinterStats(): Promise<{ total: number; normal: number; lowInk: number; fault: number }> {
-  return request(`${BASE}/stats`)
 }

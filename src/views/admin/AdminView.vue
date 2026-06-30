@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   DataBoard, Document, Monitor, Printer,
@@ -17,25 +17,11 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  { key: 'overview', label: '概览', icon: DataBoard },
+  { key: 'logs', label: '操作日志', icon: Document },
+  { key: 'users', label: '用户管理', icon: User },
   {
-    key: 'overview',
-    label: '概览',
-    icon: DataBoard,
-  },
-  {
-    key: 'logs',
-    label: '操作日志',
-    icon: Document,
-  },
-  {
-    key: 'users',
-    label: '用户管理',
-    icon: User,
-  },
-  {
-    key: 'devices',
-    label: '设备管理',
-    icon: Monitor,
+    key: 'devices', label: '设备管理', icon: Monitor,
     children: [
       { key: 'devices/floors', label: '楼层管理', route: '/admin/devices/floors' },
       { key: 'devices/types', label: '设备类型', route: '/admin/devices/types' },
@@ -43,9 +29,7 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    key: 'printers',
-    label: '打印机管理',
-    icon: Printer,
+    key: 'printers', label: '打印机管理', icon: Printer,
     children: [
       { key: 'printers/floors', label: '楼层管理', route: '/admin/printers/floors' },
       { key: 'printers/brands', label: '品牌管理', route: '/admin/printers/brands' },
@@ -54,9 +38,7 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    key: 'services',
-    label: '服务管理',
-    icon: FolderOpened,
+    key: 'services', label: '服务管理', icon: FolderOpened,
     children: [
       { key: 'services/list', label: '服务管理', route: '/admin/services/list' },
       { key: 'services/categories', label: '分类管理', route: '/admin/services/categories' },
@@ -64,9 +46,7 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    key: 'procurement',
-    label: '采购管理',
-    icon: ShoppingBag,
+    key: 'procurement', label: '采购管理', icon: ShoppingBag,
     children: [
       { key: 'procurement/departments', label: '部门管理', route: '/admin/procurement/departments' },
       { key: 'procurement/handlers', label: '经手人管理', route: '/admin/procurement/handlers' },
@@ -76,17 +56,11 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    key: 'atcom',
-    label: 'ATCOM 话机',
-    icon: Phone,
-    children: [
-      { key: 'atcom-config', label: '连接配置', route: '/admin/atcom-config' },
-    ],
+    key: 'atcom', label: 'ATCOM 话机', icon: Phone,
+    children: [{ key: 'atcom-config', label: '连接配置', route: '/admin/atcom-config' }],
   },
   {
-    key: 'log-monitor',
-    label: '日志监控',
-    icon: DataAnalysis,
+    key: 'log-monitor', label: '日志监控', icon: DataAnalysis,
     children: [
       { key: 'log-monitor', label: '监控配置', route: '/admin/log-monitor' },
       { key: 'log-monitor/llm-test', label: 'LLM 测试', route: '/admin/log-monitor/llm-test' },
@@ -103,29 +77,27 @@ const activeMenu = computed(() => {
   return match ? match[1] : 'overview'
 })
 
+// 侧边栏展开/折叠持久化
+const openedMenus = ref<string[]>([])
+try {
+  openedMenus.value = JSON.parse(localStorage.getItem('admin_menu_opened') || '[]')
+} catch { /* localStorage 损坏则使用默认空数组 */ }
+watch(openedMenus, (val) => {
+  localStorage.setItem('admin_menu_opened', JSON.stringify(val))
+}, { deep: true })
+
 function handleMenuSelect(key: string) {
-  if (key === 'overview') {
-    router.push('/admin')
-  } else if (key === 'logs') {
-    router.push('/admin/logs')
-  } else if (key === 'users') {
-    router.push('/admin/users')
-  } else {
-    for (const item of menuItems) {
-      if (item.children) {
-        const child = item.children.find(c => c.key === key)
-        if (child) {
-          router.push(child.route)
-          return
-        }
-      }
+  for (const item of menuItems) {
+    if (item.children) {
+      const child = item.children.find(c => c.key === key)
+      if (child) { router.push(child.route); return }
     }
   }
+  // 顶级菜单
+  router.push(key === 'overview' ? '/admin' : `/admin/${key}`)
 }
 
-function goHome() {
-  router.push('/')
-}
+function goHome() { router.push('/') }
 </script>
 
 <template>
@@ -138,8 +110,11 @@ function goHome() {
 
       <el-menu
         :default-active="activeMenu"
+        :default-openeds="openedMenus"
         class="sidebar-menu"
         @select="handleMenuSelect"
+        @open="(index: string) => openedMenus.push(index)"
+        @close="(index: string) => openedMenus = openedMenus.filter(i => i !== index)"
       >
         <template v-for="item in menuItems" :key="item.key">
           <el-sub-menu v-if="item.children" :index="item.key">

@@ -1,4 +1,4 @@
-import type { ManualFolder, ManualDoc } from '../mock/operations'
+import type { ManualFolder, ManualDoc } from '../types'
 import { request } from '../utils/http'
 
 const BASE = '/api/v1/operations'
@@ -91,4 +91,52 @@ export async function updateDoc(id: number, data: {
 
 export async function deleteDoc(id: number): Promise<void> {
   await request(`${BASE}/docs/${id}`, { method: 'DELETE' })
+}
+
+// ---- 版本历史 ----
+
+export interface DocVersion {
+  id: number
+  docId: number
+  title: string
+  versionNumber: number
+  author: string
+  createdAt: string
+}
+
+export async function fetchVersions(docId: number): Promise<DocVersion[]> {
+  const data = await request<any[]>(`${BASE}/docs/${docId}/versions`)
+  return data.map(v => ({
+    id: v.id, docId: v.docId, title: v.title,
+    versionNumber: v.versionNumber, author: v.author,
+    createdAt: v.createdAt,
+  }))
+}
+
+export async function rollbackVersion(docId: number, versionId: number): Promise<ManualDoc> {
+  const r = await request<any>(`${BASE}/docs/${docId}/versions/${versionId}/rollback`, { method: 'POST' })
+  return {
+    id: r.id, title: r.title, content: r.content,
+    folderId: r.folderId, author: r.author || '',
+    createTime: r.createTime, updateTime: r.updateTime,
+  }
+}
+
+// ---- 收藏 ----
+
+export async function fetchFavorites(): Promise<ManualDoc[]> {
+  const data = await request<any[]>(`${BASE}/favorites`)
+  return data.map((r: any) => ({
+    id: r.id, title: r.title, content: r.content,
+    folderId: r.folderId, author: r.author || '',
+    createTime: r.createTime, updateTime: r.updateTime,
+  }))
+}
+
+export async function addFavorite(docId: number): Promise<void> {
+  await request(`${BASE}/docs/${docId}/favorite`, { method: 'POST' })
+}
+
+export async function removeFavorite(docId: number): Promise<void> {
+  await request(`${BASE}/docs/${docId}/favorite`, { method: 'DELETE' })
 }

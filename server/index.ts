@@ -13,6 +13,7 @@ import phonesRouter from './routes/phones'
 import logMonitorRouter from './routes/log-monitor'
 import authRouter from './routes/auth'
 import usersRouter from './routes/users'
+import dashboardRouter from './routes/dashboard'
 import { authRequired, requireRole } from './middleware/auth'
 
 const app = express()
@@ -28,18 +29,20 @@ app.get('/api/health', (_req, res) => {
 })
 
 // API 路由
-app.use('/api/v1/services', servicesRouter)
-app.use('/api/v1/racks', racksRouter)
-app.use('/api/v1/devices', devicesRouter)
-app.use('/api/v1/admin', authRequired, requireRole('admin', 'superadmin'), adminRouter)
-app.use('/api/v1/operations', operationsRouter)
-app.use('/api/v1/printers', printersRouter)
-app.use('/api/v1/computer-procurement', computerProcRouter)
-app.use('/api/v1/phone-procurement', phoneProcRouter)
-app.use('/api/v1/phones', phonesRouter)
+// 顺序：先注册不需要鉴权的路由（auth 登录、health），其余统一加 authRequired
 app.use('/api/v1/auth', authRouter)
-app.use('/api/v1/users', usersRouter)
-app.use('/api/v1/log-monitor', logMonitorRouter)
+app.use('/api/v1/services', authRequired, servicesRouter)
+app.use('/api/v1/racks', authRequired, racksRouter)
+app.use('/api/v1/devices', authRequired, devicesRouter)
+app.use('/api/v1/admin', authRequired, requireRole('admin', 'superadmin'), adminRouter)
+app.use('/api/v1/operations', authRequired, operationsRouter)
+app.use('/api/v1/printers', authRequired, printersRouter)
+app.use('/api/v1/computer-procurement', authRequired, computerProcRouter)
+app.use('/api/v1/phone-procurement', authRequired, phoneProcRouter)
+app.use('/api/v1/phones', authRequired, phonesRouter)
+app.use('/api/v1/users', authRequired, usersRouter)
+app.use('/api/v1/log-monitor', authRequired, logMonitorRouter)
+app.use('/api/v1/dashboard', authRequired, dashboardRouter)
 
 // 全局错误处理
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

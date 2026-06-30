@@ -4,8 +4,11 @@ import { ref } from 'vue'
 export const useThemeStore = defineStore('theme', () => {
   const isDark = ref(true) // 默认深色主题
 
-  // 初始化时从localStorage读取主题
+  // 初始化时从localStorage读取主题（幂等：已是同步执行则跳过）
+  let _initialized = false
   function initTheme() {
+    if (_initialized) return
+    _initialized = true
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) {
       isDark.value = savedTheme === 'dark'

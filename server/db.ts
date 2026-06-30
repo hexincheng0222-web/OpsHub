@@ -201,6 +201,28 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_manual_docs_folder ON manual_docs (folder_id);
 
+  CREATE TABLE IF NOT EXISTS manual_doc_versions (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id         INTEGER NOT NULL REFERENCES manual_docs(id) ON DELETE CASCADE,
+    title          TEXT    NOT NULL,
+    content        TEXT    NOT NULL,
+    version_number INTEGER NOT NULL,
+    author         TEXT    NOT NULL DEFAULT '',
+    created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_mdv_doc ON manual_doc_versions (doc_id, version_number);
+
+  -- 文档收藏表（按用户隔离，支持跨设备同步）
+  CREATE TABLE IF NOT EXISTS manual_favorites (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    doc_id     INTEGER NOT NULL REFERENCES manual_docs(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, doc_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_mf_user ON manual_favorites (user_id);
+  CREATE INDEX IF NOT EXISTS idx_mf_doc ON manual_favorites (doc_id);
+
   CREATE TABLE IF NOT EXISTS computer_procurement (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     model            VARCHAR(128) NOT NULL DEFAULT '',
@@ -322,6 +344,17 @@ db.exec(`
     CONSTRAINT uq_phone_id UNIQUE (phone_id)
   );
 
+  CREATE TABLE IF NOT EXISTS phone_locations (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    extension  TEXT NOT NULL,
+    location   TEXT NOT NULL DEFAULT '',
+    notes      TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    CONSTRAINT uq_phone_locations_ext UNIQUE (extension)
+  );
+
   CREATE TABLE IF NOT EXISTS system_config (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL DEFAULT '',
@@ -336,11 +369,17 @@ db.exec(`
     display_name TEXT NOT NULL DEFAULT '',
     role         TEXT NOT NULL DEFAULT 'user',
     is_active    INTEGER NOT NULL DEFAULT 1,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
     last_login_at TEXT,
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `)
+
+// 兼容旧数据库：如果列不存在则添加
+try { db.prepare('ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0').run() } catch {}
+try { db.prepare('ALTER TABLE users ADD COLUMN locked_until TEXT').run() } catch {}
 
 // 如果表为空，插入 mock 数据
 const count = db.prepare('SELECT COUNT(*) as cnt FROM services').get() as { cnt: number }

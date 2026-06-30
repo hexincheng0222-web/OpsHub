@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { FLOORS } from '../mock/devices'
-import type { Device, Rack } from '../mock/devices'
+import { FLOORS } from '../types'
+import type { Device, Rack } from '../types'
 import { buildOccupied, buildCompactDevices } from '../utils/rack-utils'
 import * as api from '../api/devices'
 import { fetchDict } from '../api/admin'
+import { ElMessage } from 'element-plus'
 
 export const useDevicesStore = defineStore('devices', () => {
   const racks = ref<Rack[]>([])
@@ -52,26 +53,16 @@ export const useDevicesStore = defineStore('devices', () => {
     loading.value = true
     try {
       const data = await api.fetchRacks()
-      const loaded: Rack[] = []
-      for (const r of data.racks) {
-        const detail = await api.fetchRackSlots(r.id)
-        const devices: (Device | null)[] = []
-        let i = 0
-        while (i < detail.slots.length) {
-          const slot = detail.slots[i]
-          if (slot.device) {
-            devices.push(slot.device as Device)
-            i += slot.device.u
-          } else {
-            devices.push(null)
-            i++
-          }
-        }
-        loaded.push({ id: r.id, name: r.name, floor: r.floor, totalU: r.totalU, devices })
-      }
-      racks.value = loaded
+      racks.value = data.racks.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        floor: r.floor,
+        totalU: r.totalU,
+        devices: r.devices || [],
+      }))
     } catch (err) {
       console.error('[devices] 加载失败:', err)
+      ElMessage.error('加载机柜数据失败')
     } finally {
       loading.value = false
     }
@@ -85,8 +76,8 @@ export const useDevicesStore = defineStore('devices', () => {
     try {
       await api.createRack({ name, floor, totalU })
       await loadRacks()
-    } catch (err) {
-      console.error('[devices] 创建机柜失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '创建机柜失败')
       throw err
     }
   }
@@ -99,8 +90,8 @@ export const useDevicesStore = defineStore('devices', () => {
     try {
       await api.deleteRack(rackId)
       racks.value = racks.value.filter(r => r.id !== rackId)
-    } catch (err) {
-      console.error('[devices] 删除机柜失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '删除机柜失败')
       throw err
     }
   }
@@ -115,8 +106,8 @@ export const useDevicesStore = defineStore('devices', () => {
       await api.updateRack(rackId, { name, floor })
       const rack = racks.value.find(r => r.id === rackId)
       if (rack) { rack.name = name; if (floor) rack.floor = floor }
-    } catch (err) {
-      console.error('[devices] 更新机柜失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '更新机柜失败')
       throw err
     }
   }
@@ -139,8 +130,8 @@ export const useDevicesStore = defineStore('devices', () => {
       const device = await api.addDeviceToRack(rackId, { ...data, uOffset } as any)
       addDeviceToRack(rackId, uOffset, device as Device)
       return device
-    } catch (err) {
-      console.error('[devices] 添加设备失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '添加设备失败')
       throw err
     }
   }
@@ -182,8 +173,8 @@ export const useDevicesStore = defineStore('devices', () => {
     try {
       await api.moveDevice(deviceId, targetRackId, targetUOffset)
       moveDevice(sourceRackId, targetRackId, targetUOffset, deviceId)
-    } catch (err) {
-      console.error('[devices] 移动设备失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '移动设备失败')
       throw err
     }
   }
@@ -200,8 +191,8 @@ export const useDevicesStore = defineStore('devices', () => {
     try {
       await api.updateDevice(deviceId, data)
       updateDevice(deviceId, data)
-    } catch (err) {
-      console.error('[devices] 更新设备失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '更新设备失败')
       throw err
     }
   }
@@ -214,8 +205,8 @@ export const useDevicesStore = defineStore('devices', () => {
     try {
       await api.deleteDevice(deviceId)
       deleteDevice(deviceId)
-    } catch (err) {
-      console.error('[devices] 删除设备失败:', err)
+    } catch (err: any) {
+      ElMessage.error(err.message || '删除设备失败')
       throw err
     }
   }

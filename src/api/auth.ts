@@ -26,10 +26,3 @@ export function login(username: string, password: string) {
 export function getMe() {
   return request<UserInfo>('/api/v1/auth/me')
 }
-
-export function changePassword(oldPassword: string, newPassword: string) {
-  return request<any>('/api/v1/auth/password', {
-    method: 'PUT',
-    body: JSON.stringify({ oldPassword, newPassword }),
-  })
-}

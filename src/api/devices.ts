@@ -1,5 +1,5 @@
 // src/api/devices.ts
-import type { Device } from '../mock/devices'
+import type { Device } from '../types'
 import { request } from '../utils/http'
 
 const BASE_RACKS = '/api/v1/racks'
@@ -7,7 +7,7 @@ const BASE_DEVICES = '/api/v1/devices'
 
 // 1. 获取所有机柜
 export async function fetchRacks(floor?: string): Promise<{ racks: any[]; stats: any }> {
-  const qs = floor ? '?floor=' + floor : ''
+  const qs = floor ? '?floor=' + floor + '&include_devices=true' : '?include_devices=true'
   return request(BASE_RACKS + qs)
 }
 
@@ -26,12 +26,7 @@ export async function deleteRack(id: string): Promise<void> {
   await request(`${BASE_RACKS}/${id}`, { method: 'DELETE' })
 }
 
-// 5. 获取机柜详情（含设备布局）
-export async function fetchRackSlots(rackId: string): Promise<{ rack: any; slots: any[] }> {
-  return request(`${BASE_RACKS}/${rackId}/slots`)
-}
-
-// 6. 添加设备到机柜
+// 5. 添加设备到机柜
 export async function addDeviceToRack(rackId: string, data: Omit<Device, 'id'> & { uOffset: number }): Promise<Device> {
   return request(`${BASE_RACKS}/${rackId}/devices`, {
     method: 'POST',
@@ -62,21 +57,4 @@ export async function moveDevice(
     method: 'POST',
     body: JSON.stringify({ targetRackId, targetUOffset }),
   })
-}
-
-// 10. 获取统计
-export async function fetchStats(): Promise<any> {
-  return request(`${BASE_RACKS}/stats`)
-}
-
-// 11. 获取楼层列表
-export async function fetchFloors(): Promise<string[]> {
-  const data = await request<{ floors: string[] }>(`${BASE_RACKS}/floors`)
-  return data.floors
-}
-
-// 12. 获取设备列表（可按类型筛选）
-export async function fetchDevices(type?: string): Promise<any[]> {
-  const qs = type ? `?type=${type}` : ''
-  return request(`${BASE_DEVICES}${qs}`)
 }

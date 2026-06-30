@@ -148,8 +148,20 @@ router.post('/docs', (req: Request, res: Response) => {
 // PUT /api/v1/operations/docs/:id
 router.put('/docs/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT id FROM manual_docs WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(req.params.id) as any
     if (!existing) return res.status(404).json({ code: 404, message: '文档不存在' })
+
+    // 保存当前内容为历史版本（仅在内容变化时）
+    if (req.body.content !== undefined || req.body.title !== undefined) {
+      const newContent = req.body.content !== undefined ? req.body.content : existing.content
+      const newTitle = req.body.title !== undefined ? req.body.title : existing.title
+      if (newContent !== existing.content || newTitle !== existing.title) {
+        const maxVer = db.prepare('SELECT MAX(version_number) as mv FROM manual_doc_versions WHERE doc_id = ?').get(req.params.id) as any
+        const nextVer = (maxVer?.mv || 0) + 1
+        db.prepare('INSERT INTO manual_doc_versions (doc_id, title, content, version_number, author) VALUES (?, ?, ?, ?, ?)')
+          .run(req.params.id, existing.title, existing.content, nextVer, existing.author || '')
+      }
+    }
 
     const fields: string[] = []
     const values: any[] = []
@@ -177,6 +189,58 @@ router.put('/docs/:id', (req: Request, res: Response) => {
   }
 })
 
+// GET /api/v1/operations/docs/:id/versions — 获取版本历史
+router.get('/docs/:id/versions', (req: Request, res: Response) => {
+  try {
+    const existing = db.prepare('SELECT id FROM manual_docs WHERE id = ?').get(req.params.id)
+    if (!existing) return res.status(404).json({ code: 404, message: '文档不存在' })
+
+    const versions = db.prepare(
+      'SELECT id, doc_id, title, version_number, author, created_at FROM manual_doc_versions WHERE doc_id = ? ORDER BY version_number DESC'
+    ).all(req.params.id) as any[]
+
+    res.json({ code: 200, data: versions.map(v => ({
+      id: v.id, docId: v.doc_id, title: v.title,
+      versionNumber: v.version_number, author: v.author,
+      createdAt: v.created_at,
+    }))})
+  } catch (err: any) {
+    console.error('[server] 获取版本历史失败:', err.message)
+    res.status(500).json({ code: 500, message: '获取版本历史失败' })
+  }
+})
+
+// POST /api/v1/operations/docs/:id/versions/:versionId/rollback — 回滚到指定版本
+router.post('/docs/:id/versions/:versionId/rollback', (req: Request, res: Response) => {
+  try {
+    const existing = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(req.params.id) as any
+    if (!existing) return res.status(404).json({ code: 404, message: '文档不存在' })
+
+    const version = db.prepare('SELECT * FROM manual_doc_versions WHERE id = ? AND doc_id = ?').get(req.params.versionId, req.params.id) as any
+    if (!version) return res.status(404).json({ code: 404, message: '版本不存在' })
+
+    // 保存回滚前的当前版本
+    const maxVer = db.prepare('SELECT MAX(version_number) as mv FROM manual_doc_versions WHERE doc_id = ?').get(req.params.id) as any
+    const nextVer = (maxVer?.mv || 0) + 1
+    db.prepare('INSERT INTO manual_doc_versions (doc_id, title, content, version_number, author) VALUES (?, ?, ?, ?, ?)')
+      .run(req.params.id, existing.title || '', existing.content || '', nextVer, existing.author || '')
+
+    // 回滚到目标版本
+    db.prepare("UPDATE manual_docs SET title = ?, content = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(version.title, version.content, req.params.id)
+
+    const row = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(req.params.id) as any
+    res.json({ code: 200, data: {
+      id: row.id, title: row.title, content: row.content,
+      folderId: row.folder_id, author: row.author,
+      createTime: row.created_at, updateTime: row.updated_at,
+    }})
+  } catch (err: any) {
+    console.error('[server] 回滚失败:', err.message)
+    res.status(500).json({ code: 500, message: '回滚失败' })
+  }
+})
+
 // DELETE /api/v1/operations/docs/:id
 router.delete('/docs/:id', (req: Request, res: Response) => {
   try {
@@ -188,6 +252,60 @@ router.delete('/docs/:id', (req: Request, res: Response) => {
   } catch (err: any) {
     console.error('[server] 删除文档失败:', err.message)
     res.status(500).json({ code: 500, message: '删除文档失败' })
+  }
+})
+
+// ========== 收藏 ==========
+
+// GET /api/v1/operations/favorites — 获取当前用户收藏的文档列表
+router.get('/favorites', (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id
+    const rows = db.prepare(`
+      SELECT d.id, d.title, d.content, d.folder_id, d.author, d.created_at, d.updated_at
+      FROM manual_favorites f
+      JOIN manual_docs d ON d.id = f.doc_id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+    `).all(userId) as any[]
+
+    res.json({ code: 200, data: rows.map(r => ({
+      id: r.id, title: r.title, content: r.content,
+      folderId: r.folder_id, author: r.author,
+      createTime: r.created_at, updateTime: r.updated_at,
+    }))})
+  } catch (err: any) {
+    console.error('[server] 获取收藏列表失败:', err.message)
+    res.status(500).json({ code: 500, message: '获取收藏列表失败' })
+  }
+})
+
+// POST /api/v1/operations/docs/:id/favorite — 添加收藏
+router.post('/docs/:id/favorite', (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id
+    const docId = req.params.id
+    const existing = db.prepare('SELECT id FROM manual_docs WHERE id = ?').get(docId)
+    if (!existing) return res.status(404).json({ code: 404, message: '文档不存在' })
+
+    db.prepare('INSERT OR IGNORE INTO manual_favorites (user_id, doc_id) VALUES (?, ?)').run(userId, docId)
+    res.json({ code: 200, data: { success: true } })
+  } catch (err: any) {
+    console.error('[server] 添加收藏失败:', err.message)
+    res.status(500).json({ code: 500, message: '添加收藏失败' })
+  }
+})
+
+// DELETE /api/v1/operations/docs/:id/favorite — 取消收藏
+router.delete('/docs/:id/favorite', (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id
+    const docId = req.params.id
+    db.prepare('DELETE FROM manual_favorites WHERE user_id = ? AND doc_id = ?').run(userId, docId)
+    res.json({ code: 200, data: { success: true } })
+  } catch (err: any) {
+    console.error('[server] 取消收藏失败:', err.message)
+    res.status(500).json({ code: 500, message: '取消收藏失败' })
   }
 })
 

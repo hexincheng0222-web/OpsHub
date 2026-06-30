@@ -18,17 +18,41 @@ router.post('/login', (req: Request, res: Response) => {
     return res.status(401).json({ code: 401, message: '用户名或密码错误' })
   }
 
+  // 检查账号是否被锁定
+  if (user.locked_until) {
+    const now = new Date().toISOString()
+    if (user.locked_until > now) {
+      const remaining = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000)
+      return res.status(429).json({
+        code: 429,
+        message: `账号已锁定，请 ${remaining} 分钟后重试`,
+      })
+    }
+    // 锁定时间已过，重置失败计数
+    db.prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?").run(user.id)
+  }
+
   if (!user.is_active) {
     return res.status(403).json({ code: 403, message: '账号已被禁用' })
   }
 
   const valid = bcrypt.compareSync(password, user.password_hash)
   if (!valid) {
+    // 记录失败次数
+    const newAttempts = (user.failed_attempts || 0) + 1
+    if (newAttempts >= 5) {
+      const lockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      db.prepare("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?").run(
+        newAttempts, lockedUntil, user.id
+      )
+      return res.status(429).json({ code: 429, message: '密码错误次数过多，账号已锁定 15 分钟' })
+    }
+    db.prepare("UPDATE users SET failed_attempts = ? WHERE id = ?").run(newAttempts, user.id)
     return res.status(401).json({ code: 401, message: '用户名或密码错误' })
   }
 
-  // 更新最后登录时间
-  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id)
+  // 登录成功，重置失败计数
+  db.prepare("UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = datetime('now') WHERE id = ?").run(user.id)
 
   // 生成 token
   const secret = getJwtSecret()

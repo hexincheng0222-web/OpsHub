@@ -30,6 +30,15 @@ export default defineConfig({
           if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
             return 'vendor-element'
           }
+          if (id.includes('node_modules/quill') || id.includes('node_modules/@vueup/vue-quill')) {
+            return 'vendor-editor'
+          }
+          if (id.includes('node_modules/xlsx')) {
+            return 'vendor-xlsx'
+          }
+          if (id.includes('node_modules/marked') || id.includes('node_modules/mammoth')) {
+            return 'vendor-docs'
+          }
         },
       },
     },

@@ -6,7 +6,7 @@
       <div class="orb orb-3" />
     </div>
     <div class="particles">
-      <div v-for="i in 40" :key="i" class="particle" :style="particleStyle(i)" />
+      <div v-for="i in 40" :key="i" class="particle" :style="particles[i - 1]" />
     </div>
     <div class="hero">
       <div class="title-glow" />
@@ -27,7 +27,7 @@
         <div class="card-icon-wrap"><el-icon :size="32"><Link /></el-icon></div>
         <div class="card-body"><h3>内网服务</h3><p>管理所有内网部署服务，一键跳转访问</p></div>
         <div class="card-stat">
-          <span class="stat-num">{{ servicesStore.services.length }}</span>
+          <span class="stat-num">{{ serviceCount || '--' }}</span>
           <span class="stat-label">个服务</span>
         </div>
       </div>
@@ -36,9 +36,8 @@
         <div class="card-icon-wrap"><el-icon :size="32"><Operation /></el-icon></div>
         <div class="card-body"><h3>运维操作手册</h3><p>系统运维操作手册，文档查阅与知识管理</p></div>
         <div class="card-stat">
-          <span class="stat-num">{{ opsStore.total }}</span>
+          <span class="stat-num">{{ manualCount || '--' }}</span>
           <span class="stat-label">篇手册</span>
-          <span class="stat-sub">{{ opsStore.activeCount }} 个分类</span>
         </div>
       </div>
       <div class="big-card card-purple" @click="$router.push('/devices')">
@@ -46,27 +45,17 @@
         <div class="card-icon-wrap"><el-icon :size="32"><Cpu /></el-icon></div>
         <div class="card-body"><h3>设备信息</h3><p>公司设备资产详情，分类查询与管理</p></div>
         <div class="card-stat">
-          <span class="stat-num">{{ devicesStore.total }}</span>
+          <span class="stat-num">{{ deviceCount || '--' }}</span>
           <span class="stat-label">台设备</span>
-          <span class="stat-sub">正常 {{ devicesStore.normalCount }}</span>
         </div>
       </div>
-      <div class="big-card card-pink" @click="$router.push('/computer-procurement')">
+      <div class="big-card card-pink" @click="$router.push('/procurement')">
         <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
-        <div class="card-icon-wrap"><el-icon :size="32"><Monitor /></el-icon></div>
-        <div class="card-body"><h3>电脑采购登记</h3><p>电脑设备采购登记与资产追踪</p></div>
+        <div class="card-icon-wrap"><el-icon :size="32"><ShoppingCart /></el-icon></div>
+        <div class="card-body"><h3>采购管理</h3><p>电脑 / 手机采购登记与资产追踪</p></div>
         <div class="card-stat">
-          <span class="stat-num">{{ computerStore.total }}</span>
-          <span class="stat-label">台电脑</span>
-        </div>
-      </div>
-      <div class="big-card card-cyan" @click="$router.push('/phone-procurement')">
-        <div class="card-glow" /><div class="card-shine" /><div class="card-top-line" />
-        <div class="card-icon-wrap"><el-icon :size="32"><Cellphone /></el-icon></div>
-        <div class="card-body"><h3>手机采购登记</h3><p>手机设备采购登记与资产追踪</p></div>
-        <div class="card-stat">
-          <span class="stat-num">{{ phoneStore.total }}</span>
-          <span class="stat-label">部手机</span>
+          <span class="stat-num">{{ (computerCount || 0) + (phoneCount || 0) }}</span>
+          <span class="stat-label">台设备</span>
         </div>
       </div>
       <div class="big-card card-orange" @click="$router.push('/printers')">
@@ -74,7 +63,7 @@
         <div class="card-icon-wrap"><el-icon :size="32"><Printer /></el-icon></div>
         <div class="card-body"><h3>打印机管理</h3><p>打印机列表、状态监控与耗材管理</p></div>
         <div class="card-stat">
-          <span class="stat-num">{{ printersStore.total }}</span>
+          <span class="stat-num">{{ printerCount || '--' }}</span>
           <span class="stat-label">台打印机</span>
         </div>
       </div>
@@ -112,25 +101,21 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useServicesStore } from '../stores/services'
-import { useOperationsStore } from '../stores/operations'
-import { useDevicesStore } from '../stores/devices'
-import { usePrintersStore } from '../stores/printers'
-import { useComputerProcurementStore, usePhoneProcurementStore } from '../stores/procurement'
-import { Monitor, Cellphone, Phone, DataAnalysis } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { Monitor, Phone, DataAnalysis, Link, Operation, Cpu, Printer, ShoppingCart } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
-import { fetchPhones } from '../api/phones'
-import { getConfig } from '../api/log-monitor'
-const servicesStore = useServicesStore()
-const opsStore = useOperationsStore()
-const devicesStore = useDevicesStore()
-const printersStore = usePrintersStore()
-const computerStore = useComputerProcurementStore()
-const phoneStore = usePhoneProcurementStore()
+import { fetchDashboardStats } from '../api/dashboard'
 const themeStore = useThemeStore()
 const auth = useAuthStore()
+
+// 首页卡片统计（通过单次 dashboard 接口加载）
+const serviceCount = ref(0)
+const manualCount = ref(0)
+const deviceCount = ref(0)
+const printerCount = ref(0)
+const computerCount = ref(0)
+const phoneCount = ref(0)
 const phoneTotal = ref(0)
 const phoneOnline = ref(0)
 const lmDeviceCount = ref(0)
@@ -143,29 +128,29 @@ function trackMouse(e: MouseEvent) {
   card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
 }
 
-onMounted(() => {
-  // 渐进式加载：各 store 独立加载，不互相阻塞
-  Promise.all([
-    servicesStore.loadServices(),
-    opsStore.loadFolders().then(() => opsStore.loadDocs()),
-    devicesStore.loadRacks(),
-    printersStore.loadPrinters(),
-    computerStore.loadComputers(),
-    phoneStore.loadPhones(),
-    fetchPhones().then(res => {
-      if (res.code === 200) {
-        phoneTotal.value = res.total
-        phoneOnline.value = res.online
-      }
-    }).catch((e: any) => console.warn('首页加载话机数据失败:', e.message)),
-    getConfig().then(cfg => { lmDeviceCount.value = cfg.devices?.length || 0 }).catch(() => {}),
-  ])
+onMounted(async () => {
+  try {
+    const stats = await fetchDashboardStats()
+    serviceCount.value = stats.services
+    manualCount.value = stats.manuals
+    deviceCount.value = stats.devices
+    printerCount.value = stats.printers
+    computerCount.value = stats.computers
+    phoneCount.value = stats.procurementPhones
+    phoneTotal.value = stats.phones
+    phoneOnline.value = stats.phonesOnline
+    lmDeviceCount.value = stats.lmDevices
+  } catch (e: any) {
+    console.warn('首页加载统计数据失败:', e.message)
+  }
 })
 const COLORS = ['#58a6ff','#3fb950','#a371f7','#d29922','#79c0ff','#7ee787','#bc8cff','#e3b341']
-function particleStyle(i: number) {
-  const color = COLORS[i % COLORS.length]; const size = 3 + Math.random() * 6
-  return { left: Math.random()*100+'%', top: 60+Math.random()*40+'%', width: size+'px', height: size+'px', background: color, boxShadow: `0 0 ${size*3}px ${color}44, 0 0 ${size*6}px ${color}22`, animationDelay: Math.random()*8+'s', animationDuration: 6+Math.random()*8+'s', opacity: 0 }
-}
+const particles = computed(() =>
+  Array.from({ length: 40 }, (_, i) => {
+    const color = COLORS[i % COLORS.length]; const size = 3 + Math.random() * 6
+    return { left: `${Math.random()*100}%`, top: `${60+Math.random()*40}%`, width: `${size}px`, height: `${size}px`, background: color, boxShadow: `0 0 ${size*3}px ${color}44, 0 0 ${size*6}px ${color}22`, animationDelay: `${Math.random()*8}s`, animationDuration: `${6+Math.random()*8}s`, opacity: 0 }
+  })
+)
 </script>
 
 <style scoped>
@@ -204,30 +189,39 @@ function particleStyle(i: number) {
 .big-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.10)}
 .light-theme .big-card{background:rgba(255,255,255,.80);border:1px solid rgba(0,0,0,.08)}
 .light-theme .big-card:hover{border-color:rgba(0,0,0,.15);box-shadow:0 0 40px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.08)}
+
+/* ---- 卡片颜色：CSS 自定义属性 ---- */
+.card-blue    { --cr: 88;  --cg: 166; --cb: 255; --icon-hex: #79c0ff; --bg-hex: #79c0ff }
+.card-green   { --cr: 63;  --cg: 185; --cb: 80;  --icon-hex: #7ee787; --bg-hex: #7ee787 }
+.card-purple  { --cr: 163; --cg: 113; --cb: 247; --icon-hex: #bc8cff; --bg-hex: #bc8cff }
+.card-pink    { --cr: 244; --cg: 114; --cb: 182; --icon-hex: #f472b6; --bg-hex: #f472b6 }
+.card-cyan    { --cr: 34;  --cg: 211; --cb: 238; --icon-hex: #22d3ee; --bg-hex: #22d3ee }
+.card-orange,
+.card-gold    { --cr: 210; --cg: 153; --cb: 34;  --icon-hex: #e3b341; --bg-hex: #e3b341 }
+.card-red     { --cr: 248; --cg: 81;  --cb: 73;  --icon-hex: #f85149; --bg-hex: #f85149 }
+
+.light-theme .card-blue   { --cr: 9;   --cg: 105; --cb: 218; --icon-hex: #0969da; --bg-hex: #0969da }
+.light-theme .card-green  { --cr: 26;  --cg: 127; --cb: 55;  --icon-hex: #1a7f37; --bg-hex: #1a7f37 }
+.light-theme .card-purple { --cr: 130; --cg: 80;  --cb: 223; --icon-hex: #8250df; --bg-hex: #8250df }
+.light-theme .card-pink   { --cr: 219; --cg: 39;  --cb: 119; --icon-hex: #db2777; --bg-hex: #db2777 }
+.light-theme .card-cyan   { --cr: 8;   --cg: 145; --cb: 178; --icon-hex: #0891b2; --bg-hex: #0891b2 }
+.light-theme .card-orange,
+.light-theme .card-gold   { --cr: 154; --cg: 103; --cb: 0;   --icon-hex: #9a6700; --bg-hex: #9a6700 }
+.light-theme .card-red    { --cr: 207; --cg: 34;  --cb: 46;  --icon-hex: #cf222e; --bg-hex: #cf222e }
+
+.card-glow{background:linear-gradient(135deg,rgba(var(--cr),var(--cg),var(--cb),.30),transparent 45%,rgba(var(--cr),var(--cg),var(--cb),.06))}
+.big-card:hover{border-color:rgba(var(--cr),var(--cg),var(--cb),.35);box-shadow:0 0 60px rgba(var(--cr),var(--cg),var(--cb),.08),0 0 120px rgba(var(--cr),var(--cg),var(--cb),.04),0 8px 32px rgba(0,0,0,.5)}
+.card-icon-wrap{background:linear-gradient(135deg,rgba(var(--cr),var(--cg),var(--cb),.18),rgba(var(--cr),var(--cg),var(--cb),.06));color:var(--icon-hex);box-shadow:0 0 20px rgba(var(--cr),var(--cg),var(--cb),.10)}
+.big-card:hover .card-icon-wrap{box-shadow:0 0 30px rgba(var(--cr),var(--cg),var(--cb),.25)}
+.stat-num{color:var(--bg-hex)}
 .card-top-line{position:absolute;top:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);opacity:0;transition:opacity .4s ease;z-index:1}
 .big-card:hover .card-top-line{opacity:1}
 .card-glow{position:absolute;inset:-1px;border-radius:inherit;opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:0}
 .big-card:hover .card-glow{opacity:1}
 .card-shine{position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at center,rgba(255,255,255,.03) 0%,transparent 60%);opacity:0;transition:opacity .4s ease;pointer-events:none;z-index:0;transform:rotate(-15deg)}
 .big-card:hover .card-shine{opacity:1}
-.card-blue .card-glow{background:linear-gradient(135deg,rgba(88,166,255,.30),transparent 45%,rgba(88,166,255,.06))}
-.card-blue:hover{border-color:rgba(88,166,255,.35);box-shadow:0 0 60px rgba(88,166,255,.08),0 0 120px rgba(88,166,255,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-green .card-glow{background:linear-gradient(135deg,rgba(63,185,80,.30),transparent 45%,rgba(63,185,80,.06))}
-.card-green:hover{border-color:rgba(63,185,80,.35);box-shadow:0 0 60px rgba(63,185,80,.08),0 0 120px rgba(63,185,80,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-purple .card-glow{background:linear-gradient(135deg,rgba(163,113,247,.30),transparent 45%,rgba(163,113,247,.06))}
-.card-purple:hover{border-color:rgba(163,113,247,.35);box-shadow:0 0 60px rgba(163,113,247,.08),0 0 120px rgba(163,113,247,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-orange .card-glow{background:linear-gradient(135deg,rgba(210,153,34,.30),transparent 45%,rgba(210,153,34,.06))}
-.card-orange:hover{border-color:rgba(210,153,34,.35);box-shadow:0 0 60px rgba(210,153,34,.08),0 0 120px rgba(210,153,34,.04),0 8px 32px rgba(0,0,0,.5)}
 .card-icon-wrap{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:transform .35s ease,box-shadow .35s ease}
 .big-card:hover .card-icon-wrap{transform:scale(1.08)}
-.card-blue .card-icon-wrap{background:linear-gradient(135deg,rgba(88,166,255,.18),rgba(88,166,255,.06));color:#79c0ff;box-shadow:0 0 20px rgba(88,166,255,.10)}
-.card-blue:hover .card-icon-wrap{box-shadow:0 0 30px rgba(88,166,255,.25)}
-.card-green .card-icon-wrap{background:linear-gradient(135deg,rgba(63,185,80,.18),rgba(63,185,80,.06));color:#7ee787;box-shadow:0 0 20px rgba(63,185,80,.10)}
-.card-green:hover .card-icon-wrap{box-shadow:0 0 30px rgba(63,185,80,.25)}
-.card-purple .card-icon-wrap{background:linear-gradient(135deg,rgba(163,113,247,.18),rgba(163,113,247,.06));color:#bc8cff;box-shadow:0 0 20px rgba(163,113,247,.10)}
-.card-purple:hover .card-icon-wrap{box-shadow:0 0 30px rgba(163,113,247,.25)}
-.card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(210,153,34,.18),rgba(210,153,34,.06));color:#e3b341;box-shadow:0 0 20px rgba(210,153,34,.10)}
-.card-orange:hover .card-icon-wrap{box-shadow:0 0 30px rgba(210,153,34,.25)}
 .card-body{position:relative;z-index:1}
 .card-body h3{font-size:16px;font-weight:700;color:#e6edf3;margin:0 0 5px 0;letter-spacing:.3px}
 .card-body p{font-size:13px;color:#8b949e;margin:0;line-height:1.55;letter-spacing:.2px}
@@ -239,38 +233,8 @@ function particleStyle(i: number) {
 .light-theme .stat-sub{color:#8b949e}
 .stat-num{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";line-height:1;transition:transform .3s ease}
 .big-card:hover .stat-num{transform:scale(1.05)}
-.card-blue .stat-num{color:#79c0ff}
-.card-green .stat-num{color:#7ee787}
-.card-purple .stat-num{color:#bc8cff}
-.card-orange .stat-num{color:#e3b341}
-.card-pink .card-glow{background:linear-gradient(135deg,rgba(244,114,182,.30),transparent 45%,rgba(244,114,182,.06))}
-.card-pink:hover{border-color:rgba(244,114,182,.35);box-shadow:0 0 60px rgba(244,114,182,.08),0 0 120px rgba(244,114,182,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-pink .card-icon-wrap{background:linear-gradient(135deg,rgba(244,114,182,.18),rgba(244,114,182,.06));color:#f472b6;box-shadow:0 0 20px rgba(244,114,182,.10)}
-.card-pink:hover .card-icon-wrap{box-shadow:0 0 30px rgba(244,114,182,.25)}
-.card-pink .stat-num{color:#f472b6}
-.card-cyan .card-glow{background:linear-gradient(135deg,rgba(34,211,238,.30),transparent 45%,rgba(34,211,238,.06))}
-.card-cyan:hover{border-color:rgba(34,211,238,.35);box-shadow:0 0 60px rgba(34,211,238,.08),0 0 120px rgba(34,211,238,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-cyan .card-icon-wrap{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(34,211,238,.06));color:#22d3ee;box-shadow:0 0 20px rgba(34,211,238,.10)}
-.card-cyan:hover .card-icon-wrap{box-shadow:0 0 30px rgba(34,211,238,.25)}
-.card-cyan .stat-num{color:#22d3ee}
-.card-gold .card-glow{background:linear-gradient(135deg,rgba(210,153,34,.30),transparent 45%,rgba(210,153,34,.06))}
-.card-gold:hover{border-color:rgba(210,153,34,.35);box-shadow:0 0 60px rgba(210,153,34,.08),0 0 120px rgba(210,153,34,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-gold .card-icon-wrap{background:linear-gradient(135deg,rgba(210,153,34,.18),rgba(210,153,34,.06));color:#e3b341;box-shadow:0 0 20px rgba(210,153,34,.10)}
-.card-gold:hover .card-icon-wrap{box-shadow:0 0 30px rgba(210,153,34,.25)}
-.card-gold .stat-num{color:#e3b341}
-.light-theme .card-pink .stat-num{color:#db2777}
-.light-theme .card-cyan .stat-num{color:#0891b2}
-.light-theme .card-pink .card-icon-wrap{background:linear-gradient(135deg,rgba(219,39,119,.12),rgba(219,39,119,.04));color:#db2777;box-shadow:0 0 20px rgba(219,39,119,.08)}
-.light-theme .card-cyan .card-icon-wrap{background:linear-gradient(135deg,rgba(8,145,178,.12),rgba(8,145,178,.04));color:#0891b2;box-shadow:0 0 20px rgba(8,145,178,.08)}
-.light-theme .card-blue .stat-num{color:#0969da}
-.light-theme .card-green .stat-num{color:#1a7f37}
-.light-theme .card-purple .stat-num{color:#8250df}
-.light-theme .card-orange .stat-num{color:#9a6700}
-.light-theme .card-blue .card-icon-wrap{background:linear-gradient(135deg,rgba(9,105,218,.12),rgba(9,105,218,.04));color:#0969da;box-shadow:0 0 20px rgba(9,105,218,.08)}
-.light-theme .card-green .card-icon-wrap{background:linear-gradient(135deg,rgba(26,127,55,.12),rgba(26,127,55,.04));color:#1a7f37;box-shadow:0 0 20px rgba(26,127,55,.08)}
-.light-theme .card-purple .card-icon-wrap{background:linear-gradient(135deg,rgba(130,80,223,.12),rgba(130,80,223,.04));color:#8250df;box-shadow:0 0 20px rgba(130,80,223,.08)}
-.light-theme .card-orange .card-icon-wrap{background:linear-gradient(135deg,rgba(154,103,0,.12),rgba(154,103,0,.04));color:#9a6700;box-shadow:0 0 20px rgba(154,103,0,.08)}
-.light-theme .card-gold .stat-num{color:#9a6700}
+.stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
+.stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 .top-right-actions {
   position: fixed; top: 24px; right: 24px;
   display: flex; align-items: center; gap: 16px;
@@ -287,12 +251,4 @@ function particleStyle(i: number) {
   font-size: 13px; color: #79c0ff;
   font-weight: 500;
 }
-.card-red:hover{border-color:rgba(248,81,73,.35);box-shadow:0 0 60px rgba(248,81,73,.08),0 0 120px rgba(248,81,73,.04),0 8px 32px rgba(0,0,0,.5)}
-.card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(248,81,73,.18),rgba(248,81,73,.06));color:#f85149;box-shadow:0 0 20px rgba(248,81,73,.10)}
-.card-red:hover .card-icon-wrap{box-shadow:0 0 30px rgba(248,81,73,.25)}
-.card-red .stat-num{color:#f85149}
-.light-theme .card-red .stat-num{color:#cf222e}
-.light-theme .card-red .card-icon-wrap{background:linear-gradient(135deg,rgba(207,34,46,.12),rgba(207,34,46,.04));color:#cf222e;box-shadow:0 0 20px rgba(207,34,46,.08)}
-.stat-label{font-size:12px;color:#8b949e;margin-right:auto;font-weight:500}
-.stat-sub{font-size:11px;color:#484f58;letter-spacing:.2px}
 </style>

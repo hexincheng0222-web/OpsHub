@@ -1,7 +1,7 @@
 <!-- src/components/devices/RackStats.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Rack } from '../../mock/devices'
+import type { Rack } from '../../types'
 import { buildOccupied } from '../../utils/rack-utils'
 
 const props = defineProps<{ rack: Rack }>()

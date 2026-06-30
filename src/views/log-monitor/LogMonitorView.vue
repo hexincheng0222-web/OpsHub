@@ -8,7 +8,7 @@
       </div>
       <div class="toolbar-right">
         <span class="toolbar-label">时间范围</span>
-        <el-select v-model="timeRange" size="small" style="width: 100px" @change="loadDashboard">
+        <el-select v-model="timeRange" size="small" style="width: 100px">
           <el-option label="5 分钟" value="5m" />
           <el-option label="15 分钟" value="15m" />
           <el-option label="1 小时" value="1h" />
@@ -107,7 +107,10 @@
               >
                 {{ device.analysis.has_abnormal ? '异常' : '正常' }}
               </div>
-              <div class="analysis-summary">{{ truncateSummary(device.analysis.summary) }}</div>
+              <div class="analysis-summary">{{ truncateText(device.analysis.summary) }}</div>
+              <div class="analysis-time" v-if="device.analysis.created_at">
+                {{ formatISOTime(device.analysis.created_at) }}
+              </div>
             </div>
             <div v-else class="no-data-box">暂无分析数据</div>
           </div>
@@ -123,12 +126,13 @@
       </el-col>
     </el-row>
 
-    <!-- 详情抽屉 -->
-    <el-drawer
+    <!-- 详情弹窗 -->
+    <el-dialog
       v-model="drawerVisible"
       :title="`设备详情 - ${drawerDevice?.device_name || ''}`"
-      direction="rtl"
-      size="600px"
+      width="95%"
+      top="2vh"
+      draggable
     >
       <template v-if="drawerDevice">
         <!-- 基本信息 -->
@@ -144,7 +148,18 @@
 
         <!-- AI 分析 -->
         <div class="drawer-section">
-          <div class="drawer-label">AI 分析结果</div>
+          <div class="drawer-section-header">
+            <div class="drawer-label">AI 分析结果</div>
+            <el-button
+              size="small"
+              type="warning"
+              plain
+              :loading="analyzing"
+              @click="handleAnalyze(drawerDevice)"
+            >
+              {{ analyzing ? '分析中...' : '手动 AI 分析' }}
+            </el-button>
+          </div>
           <el-alert
             v-if="drawerDevice.analysis"
             :title="drawerDevice.analysis.has_abnormal ? '检测到异常' : '设备正常'"
@@ -177,21 +192,27 @@
           <div v-else class="no-data">暂无日志数据</div>
         </div>
       </template>
-    </el-drawer>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import BackButton from '../../components/BackButton.vue'
 import {
-  getDashboard, startScheduler, stopScheduler,
+  getDashboard, startScheduler, stopScheduler, analyzeDevice,
   type DashboardData, type DashboardDevice,
 } from '../../api/log-monitor'
+import { formatISOTime, truncateText } from '../../utils/format'
 
 const timeRange = ref('1h')
+let timeRangeTimer: ReturnType<typeof setTimeout> | null = null
+watch(timeRange, () => {
+  if (timeRangeTimer) clearTimeout(timeRangeTimer)
+  timeRangeTimer = setTimeout(() => loadDashboard(), 300)
+})
 const autoRefresh = ref(0)
 const loading = ref(false)
 const dashData = ref<DashboardData | null>(null)
@@ -200,21 +221,50 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 // 抽屉
 const drawerVisible = ref(false)
 const drawerDevice = ref<DashboardDevice | null>(null)
+const analyzing = ref(false)
 
 function openDrawer(device: DashboardDevice) {
   drawerDevice.value = device
   drawerVisible.value = true
 }
 
+async function handleAnalyze(device: DashboardDevice) {
+  analyzing.value = true
+  try {
+    const res = await analyzeDevice(device.device_id, device.hostname, timeRange.value)
+    // 更新弹窗中的分析结果
+    if (drawerDevice.value) {
+      drawerDevice.value = {
+        ...drawerDevice.value,
+        analysis: {
+          summary: res.summary,
+          has_abnormal: res.has_abnormal,
+          llm_ms: res.llm_ms,
+          created_at: res.created_at,
+        },
+      }
+    }
+    // 同步更新仪表盘数据
+    const dev = dashData.value?.devices.find(d => d.device_id === device.device_id)
+    if (dev) {
+      dev.analysis = {
+        summary: res.summary,
+        has_abnormal: res.has_abnormal,
+        llm_ms: res.llm_ms,
+        created_at: res.created_at,
+      }
+    }
+    ElMessage.success('AI 分析完成')
+  } catch (e: any) {
+    ElMessage.error('AI 分析失败: ' + e.message)
+  } finally {
+    analyzing.value = false
+  }
+}
+
 function statusClass(device: DashboardDevice): string {
   if (!device.analysis) return 'dot-unknown'
   return device.analysis.has_abnormal ? 'dot-abnormal' : 'dot-normal'
-}
-
-function truncateSummary(text: string): string {
-  if (!text) return ''
-  if (text.length <= 80) return text
-  return text.slice(0, 80) + '...'
 }
 
 async function loadDashboard() {
@@ -411,6 +461,7 @@ onUnmounted(() => {
   font-size: 11px;
   line-height: 1.6;
   max-height: 140px;
+  min-height: 96px;
   overflow: hidden;
 }
 .log-line {
@@ -422,7 +473,7 @@ onUnmounted(() => {
 .log-time {
   color: var(--el-text-color-secondary);
   flex-shrink: 0;
-  width: 50px;
+  width: 140px;
 }
 .log-level {
   flex-shrink: 0;
@@ -479,6 +530,13 @@ onUnmounted(() => {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
+.analysis-time {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  flex-shrink: 0;
+  align-self: flex-end;
+  white-space: nowrap;
+}
 
 /* 无数据 */
 .no-data-box {
@@ -514,11 +572,16 @@ onUnmounted(() => {
 .drawer-section {
   margin-bottom: 24px;
 }
+.drawer-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
 .drawer-label {
   font-weight: 600;
   font-size: 14px;
   color: var(--el-text-color-primary);
-  margin-bottom: 10px;
 }
 .drawer-analysis-text {
   white-space: pre-wrap;
@@ -533,8 +596,8 @@ onUnmounted(() => {
   padding: 12px;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
-  line-height: 1.7;
-  max-height: 500px;
+  line-height: 1.8;
+  max-height: 65vh;
   overflow-y: auto;
 }
 </style>

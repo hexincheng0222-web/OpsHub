@@ -1,6 +1,8 @@
 # Logs
 logs
 *.log
+dev.log
+server.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -34,3 +36,6 @@ data/
 .env.local
 .env.development.local
 .env.production
+
+# AtomCode local-scope configs (machine-specific)
+.atomcode/local/

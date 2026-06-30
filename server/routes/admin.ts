@@ -11,6 +11,7 @@ interface TableConfig {
   listColumns: string     // 列表查询列
   module: string          // 操作日志模块名
   foreignKey?: { table: string; column: string; ref: string }
+  nameColumn?: string     // 用于日志显示的“名称”字段，默认 name
 }
 
 const tables: Record<string, TableConfig> = {
@@ -99,6 +100,13 @@ const tables: Record<string, TableConfig> = {
     columns: ['name', 'sort_order'],
     listColumns: 'id, name, sort_order, created_at, updated_at',
     module: '电脑型号',
+  },
+  'phone-locations': {
+    table: 'phone_locations',
+    columns: ['extension', 'location', 'notes', 'sort_order'],
+    listColumns: 'id, extension, location, notes, sort_order, created_at, updated_at',
+    module: '话机位置',
+    nameColumn: 'extension',
   },
 }
 
@@ -217,12 +225,13 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
   const config = tables[req.params.table]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
-  const existing = db.prepare(`SELECT name FROM ${config.table} WHERE id = ?`).get(req.params.id) as { name: string } | undefined
+  const nameCol = config.nameColumn || 'name'
+  const existing = db.prepare(`SELECT ${nameCol} FROM ${config.table} WHERE id = ?`).get(req.params.id) as any
   if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
   try {
     db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
-    logOperation(config.module, '删除', existing.name, '', req.user?.username || '')
+    logOperation(config.module, '删除', existing[nameCol] || `ID:${req.params.id}`, '', req.user?.username || '')
     res.status(204).send()
   } catch (err: any) {
     if (err.message?.includes('FOREIGN KEY')) {

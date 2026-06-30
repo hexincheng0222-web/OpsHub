@@ -71,7 +71,7 @@
           <el-form-item label="图标" style="flex: 1;">
             <el-select v-model="formData.icon" placeholder="选择图标" style="width: 100%">
               <el-option v-for="icon in iconOptions" :key="icon" :label="icon" :value="icon">
-                <el-icon style="margin-right: 8px;"><component :is="icon" /></el-icon>
+                <el-icon style="margin-right: 8px;"><component :is="resolveIcon(icon)" /></el-icon>
                 <span>{{ icon }}</span>
               </el-option>
             </el-select>
@@ -103,9 +103,11 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { fetchDict } from '../../api/admin'
-import { fetchServices, createService, updateService, deleteService } from '../../api/services'
+import { resolveIcon, iconKeys } from '../../utils/icons'
+import { useServicesStore } from '../../stores/services'
 
-const services = ref<any[]>([])
+const servicesStore = useServicesStore()
+const services = computed(() => servicesStore.services)
 const hosts = ref<any[]>([])
 const categories = ref<any[]>([])
 const loading = ref(false)
@@ -116,7 +118,7 @@ const isEdit = ref(false)
 const formRef = ref()
 const editingId = ref<number | null>(null)
 
-const iconOptions = ['Setting', 'FolderOpened', 'Box', 'Odometer', 'DataAnalysis', 'Document', 'Reading', 'Connection', 'Tools', 'Cloudy', 'Monitor', 'Cellphone', 'Printer']
+const iconOptions = iconKeys
 
 const formData = ref({
   name: '',
@@ -125,7 +127,7 @@ const formData = ref({
   notes: '',
   icon: 'Setting',
   category: '',
-  status: 'online',
+  status: 'online' as 'online' | 'offline' | 'maintenance',
   hostId: null as number | null,
 })
 
@@ -162,12 +164,11 @@ function getHostName(hostId: number | null) {
 async function loadData() {
   loading.value = true
   try {
-    const [svcData, hostData, catData] = await Promise.all([
-      fetchServices({ pageSize: 200 }),
+    const [hostData, catData] = await Promise.all([
       fetchDict('service-hosts').catch(() => []),
       fetchDict('service-categories').catch(() => []),
     ])
-    services.value = svcData.list || []
+    await servicesStore.loadServices()
     hosts.value = hostData || []
     categories.value = catData || []
   } catch (e: any) {
@@ -180,7 +181,7 @@ async function loadData() {
 function handleAdd() {
   isEdit.value = false
   editingId.value = null
-  formData.value = { name: '', url: '', description: '', notes: '', icon: 'Setting', category: '', status: 'online', hostId: null }
+  formData.value = { name: '', url: '', description: '', notes: '', icon: 'Setting', category: '', status: 'online' as 'online' | 'offline' | 'maintenance', hostId: null }
   dialogVisible.value = true
 }
 
@@ -206,10 +207,10 @@ async function handleSubmit() {
   saving.value = true
   try {
     if (isEdit.value && editingId.value) {
-      await updateService(editingId.value, formData.value)
+      await servicesStore.updateService(editingId.value, formData.value)
       ElMessage.success('修改成功')
     } else {
-      await createService(formData.value)
+      await servicesStore.addService(formData.value)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false
@@ -223,7 +224,7 @@ async function handleSubmit() {
 
 async function handleDelete(row: any) {
   try {
-    await deleteService(row.id)
+    await servicesStore.deleteService(row.id)
     ElMessage.success('删除成功')
     await loadData()
   } catch (e: any) {

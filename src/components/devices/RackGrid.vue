@@ -1,6 +1,6 @@
 <!-- src/components/devices/RackGrid.vue -->
 <script setup lang="ts">
-import type { Rack, Device } from '../../mock/devices'
+import type { Rack, Device } from '../../types'
 import { buildSlotData } from '../../utils/rack-utils'
 import type { SlotInfo } from '../../utils/rack-utils'
 import USlot from './USlot.vue'

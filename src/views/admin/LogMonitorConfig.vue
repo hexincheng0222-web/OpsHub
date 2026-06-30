@@ -4,16 +4,12 @@
       <BackButton to="/admin" />
     </div>
     <el-form ref="formRef" :model="form" label-width="130px" v-loading="loading">
-      <!-- 日志服务器 -->
-      <el-divider content-position="left">日志服务器</el-divider>
-      <el-form-item label="基础 URL" prop="log_server.base_url">
-        <el-input v-model="form.log_server.base_url" placeholder="http://127.0.0.1:8080" />
-      </el-form-item>
-      <el-form-item label="请求路径" prop="log_server.path">
-        <el-input v-model="form.log_server.path" placeholder="/api/v1/logs?device_id={device_id}&start_time={start_time}&end_time={end_time}" />
-      </el-form-item>
-      <el-form-item label="分页大小" prop="log_server.page_size">
-        <el-input-number v-model="form.log_server.page_size" :min="1" :max="10000" />
+      <!-- 日志服务器（Loki） -->
+      <el-divider content-position="left">Loki 日志源</el-divider>
+      <el-form-item label="Loki 地址" prop="log_server.base_url">
+        <el-input v-model="form.log_server.base_url" placeholder="http://10.3.0.143:3100（留空则使用模拟数据）" style="width: 380px; margin-right: 8px" />
+        <el-button size="default" :loading="testingLoki" @click="handleTestLoki">测试连接</el-button>
+        <div class="form-tip">填写 Loki 的 HTTP 地址，设备自动发现和日志拉取均通过此地址查询</div>
       </el-form-item>
       <el-form-item label="超时(秒)" prop="log_server.timeout">
         <el-input-number v-model="form.log_server.timeout" :min="1" :max="300" />
@@ -22,17 +18,22 @@
       <!-- 监控设备 -->
       <el-divider content-position="left">监控设备</el-divider>
       <div v-for="(device, idx) in form.devices" :key="idx" class="device-row">
-        <el-form-item :label="`设备 ${idx + 1}`" style="margin-bottom: 8px">
+        <el-form-item :label="`设备 ${Number(idx) + 1}`" style="margin-bottom: 8px">
           <el-input v-model="device.device_id" placeholder="device_id" style="width: 180px; margin-right: 8px" />
           <el-input v-model="device.name" placeholder="设备名称" style="width: 180px; margin-right: 8px" />
-          <el-button type="danger" text @click="removeDevice(idx)" :disabled="form.devices.length <= 1">
+          <el-button type="danger" text @click="removeDevice(Number(idx))" :disabled="form.devices.length <= 1">
             <el-icon><Delete /></el-icon>
           </el-button>
         </el-form-item>
       </div>
-      <el-button type="primary" text @click="addDevice" style="margin-bottom: 16px">
-        <el-icon><Plus /></el-icon> 添加设备
-      </el-button>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px">
+        <el-button type="primary" text @click="addDevice">
+          <el-icon><Plus /></el-icon> 添加设备
+        </el-button>
+        <el-button type="success" text :loading="discovering" @click="handleDiscover">
+          <el-icon><Refresh /></el-icon> 从 Loki 自动获取
+        </el-button>
+      </div>
 
       <!-- LLM 配置 -->
       <el-divider content-position="left">LLM 配置</el-divider>
@@ -90,8 +91,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Delete } from '@element-plus/icons-vue'
-import { getConfig, updateConfig } from '../../api/log-monitor'
+import { Plus, Delete, Refresh } from '@element-plus/icons-vue'
+import { getConfig, updateConfig, discoverDevices, testLokiConnection } from '../../api/log-monitor'
 import BackButton from '../../components/BackButton.vue'
 
 const form = ref<any>({
@@ -102,6 +103,8 @@ const form = ref<any>({
 })
 const loading = ref(false)
 const saving = ref(false)
+const discovering = ref(false)
+const testingLoki = ref(false)
 
 async function loadConfig() {
   loading.value = true
@@ -120,6 +123,47 @@ function addDevice() {
 
 function removeDevice(idx: number) {
   form.value.devices.splice(idx, 1)
+}
+
+async function handleDiscover() {
+  discovering.value = true
+  try {
+    const devices = await discoverDevices()
+    if (!devices.length) {
+      ElMessage.warning('未发现任何设备')
+      return
+    }
+    const newDevices = devices.map(d => ({ device_id: d.device_id, name: d.name }))
+    const newCount = newDevices.length
+    const addedCount = devices.filter(d => d.is_new).length
+    form.value.devices = newDevices
+    ElMessage.success(`已从 Loki 获取 ${newCount} 台设备${addedCount > 0 ? `（${addedCount} 台新发现）` : ''}`)
+  } catch (e: any) {
+    ElMessage.error('获取失败: ' + e.message)
+  } finally {
+    discovering.value = false
+  }
+}
+
+async function handleTestLoki() {
+  const url = form.value.log_server?.base_url
+  if (!url) {
+    ElMessage.warning('请先填写 Loki 地址')
+    return
+  }
+  testingLoki.value = true
+  try {
+    const res = await testLokiConnection(url)
+    if (res.success) {
+      ElMessage.success(`连接成功！延迟 ${res.latency_ms}ms，${res.label_count} 个标签可用`)
+    } else {
+      ElMessage.error(`连接失败${res.error ? '：' + res.error : ''}`)
+    }
+  } catch (e: any) {
+    ElMessage.error('测试失败: ' + e.message)
+  } finally {
+    testingLoki.value = false
+  }
 }
 
 async function handleSave() {
@@ -141,4 +185,5 @@ onMounted(loadConfig)
 .log-monitor-config { padding: 0; }
 .page-header { margin-bottom: 16px; }
 .device-row { display: flex; align-items: center; }
+.form-tip { font-size: 12px; color: var(--el-text-color-placeholder); margin-top: 4px; line-height: 1.4; }
 </style>

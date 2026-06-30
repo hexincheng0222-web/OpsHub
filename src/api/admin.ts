@@ -2,9 +2,18 @@ import { request } from '../utils/http'
 
 const BASE = '/api/v1/admin'
 
+// 字典缓存（60s TTL）
+const dictCache = new Map<string, { data: any; ts: number }>()
+const DICT_CACHE_TTL = 60_000
+
 // 通用 CRUD
 export async function fetchDict(table: string) {
-  return request(`${BASE}/${table}`)
+  const cached = dictCache.get(table)
+  if (cached && Date.now() - cached.ts < DICT_CACHE_TTL) return cached.data
+
+  const data = await request(`${BASE}/${table}`)
+  dictCache.set(table, { data, ts: Date.now() })
+  return data
 }
 
 export async function createDict(table: string, payload: Record<string, any>) {

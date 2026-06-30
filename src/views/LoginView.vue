@@ -1,33 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useLoginForm } from '../composables/useLoginForm'
 
-const router = useRouter()
-const auth = useAuthStore()
-
-const username = ref('')
-const password = ref('')
-const loading = ref(false)
-
-async function handleLogin() {
-  if (!username.value || !password.value) {
-    ElMessage.warning('请输入用户名和密码')
-    return
-  }
-
-  loading.value = true
-  try {
-    await auth.login(username.value, password.value)
-    ElMessage.success('登录成功')
-    router.push('/')
-  } catch (e: any) {
-    ElMessage.error(e.message || '登录失败')
-  } finally {
-    loading.value = false
-  }
-}
+const { form, formRef, rules, loading, rememberUsername, handleLogin } = useLoginForm()
+defineExpose({ formRef })
 </script>
 
 <template>
@@ -36,31 +11,34 @@ async function handleLogin() {
       <h1 class="login-title">OpsHub</h1>
       <p class="login-subtitle">运维管理平台</p>
 
-      <el-form @submit.prevent="handleLogin" class="login-form">
-        <el-form-item>
+      <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleLogin" class="login-form">
+        <el-form-item prop="username">
           <el-input
-            v-model="username"
+            v-model="form.username"
             placeholder="用户名"
             size="large"
           />
         </el-form-item>
 
-        <el-form-item>
+        <el-form-item prop="password">
           <el-input
-            v-model="password"
+            v-model="form.password"
             type="password"
             placeholder="密码"
             size="large"
             show-password
-            @keyup.enter="handleLogin"
           />
         </el-form-item>
+
+        <div class="remember-row">
+          <el-checkbox v-model="rememberUsername" size="small">记住账号</el-checkbox>
+        </div>
 
         <el-button
           type="primary"
           size="large"
           :loading="loading"
-          @click="handleLogin"
+          native-type="submit"
           style="width: 100%"
         >
           登录
@@ -106,5 +84,11 @@ async function handleLogin() {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.remember-row {
+  display: flex;
+  gap: 16px;
+  margin-top: -8px;
 }
 </style>
