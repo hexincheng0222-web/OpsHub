@@ -170,6 +170,7 @@ import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 import type { Service } from '../types'
 import { fetchDict } from '../api/admin'
 import { resolveIcon } from '../utils/icons'
+import { ElMessage } from 'element-plus'
 import BackButton from '../components/BackButton.vue'
 
 const servicesStore = useServicesStore()
