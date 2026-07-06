@@ -171,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
@@ -266,12 +266,29 @@ function toggleGroupAll(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids);
 function groupAllSelected(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); return ids.length > 0 && ids.every(id => selectedIds.value.has(id)) }
 async function batchDelete() {
   const count = selectedIds.value.size
+  const ids = [...selectedIds.value]
   try {
     await ElMessageBox.confirm(`确定删除选中的 ${count} 台打印机？`, '批量删除', { type: 'warning', confirmButtonText: '删除' })
-    await store.deletePrinters([...selectedIds.value])
-    selectedIds.value = new Set()
-    ElMessage.success(`已删除 ${count} 台打印机`)
-  } catch { /* 取消 */ }
+  } catch { return }
+  // 保存被删数据供撤销
+  const deletedData = store.printers.filter(p => ids.includes(p.id))
+  await store.deletePrinters(ids)
+  selectedIds.value = new Set()
+  ElMessage({
+    message: h('span', null, [
+      h('span', null, `已删除 ${count} 台打印机`),
+      h('span', {
+        style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
+        onClick: async () => {
+          for (const p of deletedData) {
+            await store.addPrinter(p as any)
+          }
+          ElMessage.success('已撤销删除')
+        }
+      }, '撤销')
+    ]),
+    duration: 5000,
+  })
 }
 
 const fileInput = ref<HTMLInputElement>()

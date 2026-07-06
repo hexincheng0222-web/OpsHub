@@ -174,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, h } from 'vue'
 import { useComputerProcurementStore } from '../../stores/procurement'
 import type { ComputerProcurement } from '../../stores/procurement'
 import { Search, Delete } from '@element-plus/icons-vue'
@@ -426,13 +426,30 @@ function batchExport() {
 
 async function batchDelete() {
   const count = selectedRows.value.length
+  const rows = [...selectedRows.value]
   try {
-    await ElMessageBox.confirm(`确定删除选中的 ${count} 条记录吗？`, '批量删除', { type: 'warning' })
-    await store.batchDelete(selectedRows.value.map(r => r.id))
+    await ElMessageBox.confirm(`确定删除选中的 ${count} 条记录吗？`, '批量删除', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  } catch { return }
+  try {
+    await store.batchDelete(rows.map(r => r.id))
     clearSelection()
-    ElMessage.success(`已删除 ${count} 条记录`)
+    ElMessage({
+      message: h('span', null, [
+        h('span', null, `已删除 ${count} 条记录`),
+        h('span', {
+          style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
+          onClick: async () => {
+            for (const r of rows) {
+              await store.addComputer(r)
+            }
+            ElMessage.success('已撤销删除')
+          }
+        }, '撤销')
+      ]),
+      duration: 5000,
+    })
   } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error(e.message || '批量删除失败')
+    ElMessage.error(e.message || '批量删除失败')
   }
 }
 

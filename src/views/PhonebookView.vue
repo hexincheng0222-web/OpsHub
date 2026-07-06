@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, ArrowDown } from '@element-plus/icons-vue'
@@ -206,12 +206,30 @@ async function handleAction(cmd: string) {
   if (cmd === 'import') fileInput.value?.click()
   else if (cmd === 'deploy') openDeploy()
   else if (cmd === 'batchDelete') {
+    const ids = [...selectedIds.value]
+    const count = ids.length
     try {
-      await ElMessageBox.confirm(`确定删除 ${selectedIds.value.length} 条联系人？`, '批量删除', { type: 'warning' })
+      await ElMessageBox.confirm(`确定删除 ${count} 条联系人？此操作不可恢复。`, '批量删除', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
     } catch { return }
+    const deletedData = contacts.value.filter(c => ids.includes(c.id))
     try {
-      await phonebookApi.batchDeleteContacts(selectedIds.value)
-      ElMessage.success('已删除')
+      await phonebookApi.batchDeleteContacts(ids)
+      ElMessage({
+        message: h('span', null, [
+          h('span', null, `已删除 ${count} 条联系人`),
+          h('span', {
+            style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
+            onClick: async () => {
+              for (const c of deletedData) {
+                await phonebookApi.createContact(c)
+              }
+              await loadContacts()
+              ElMessage.success('已撤销删除')
+            }
+          }, '撤销')
+        ]),
+        duration: 5000,
+      })
       loadContacts()
     } catch (e: any) { ElMessage.error(e.message || '批量删除失败') }
   }
