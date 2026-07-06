@@ -138,11 +138,4 @@ export const dictConfigs: Record<string, DictConfig> = {
       { prop: 'sort_order', label: '排序', type: 'number' },
     ],
   },
-  'phone-remarks': {
-    title: '话机备注',
-    columns: [
-      { prop: 'extension', label: '分机号', type: 'text', required: true },
-      { prop: 'remark', label: '备注', type: 'textarea' },
-    ],
-  },
 }

@@ -59,7 +59,6 @@ const menuItems: MenuItem[] = [
     key: 'atcom', label: 'ATCOM 话机', icon: Phone,
     children: [
       { key: 'atcom-config', label: '连接配置', route: '/admin/atcom-config' },
-      { key: 'phone-remarks', label: '话机备注', route: '/admin/phone-remarks' },
     ],
   },
   {
