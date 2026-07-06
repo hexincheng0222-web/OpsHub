@@ -100,6 +100,19 @@
           <div class="detail-row"><span class="detail-label">延迟</span><span class="detail-value">{{ selectedPhone?.delay || '—' }}</span></div>
         </div>
         <div class="detail-section">
+          <div class="detail-title">📝 备注 <el-button v-if="!remarkEditing" link type="primary" size="small" @click="startRemarkEdit">编辑</el-button></div>
+          <template v-if="remarkEditing">
+            <el-input v-model="remarkForm" type="textarea" :rows="2" maxlength="200" show-word-limit size="small" />
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <el-button type="primary" size="small" @click="saveRemark" :loading="remarkSaving">保存</el-button>
+              <el-button size="small" @click="remarkEditing = false">取消</el-button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="detail-row"><span class="detail-label">备注内容</span><span class="detail-value" :class="{ muted: !selectedPhone?.remark }">{{ selectedPhone?.remark || '—' }}</span></div>
+          </template>
+        </div>
+        <div class="detail-section">
           <div class="detail-title">📞 账号配置 <el-button v-if="!editing" link type="primary" size="small" @click="startEdit">编辑</el-button></div>
           <template v-if="editing">
             <div class="form-row"><span class="form-label">SIP 服务器</span><el-input v-model="editForm.sipServer" size="small" style="width:200px" /></div>
@@ -150,7 +163,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Refresh, Phone, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, rebootPhone as rebootPhoneApi } from '@/api/phones'
+import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, updatePhoneRemark, rebootPhone as rebootPhoneApi } from '@/api/phones'
 import { request } from '@/utils/http'
 import BackButton from '../components/BackButton.vue'
 
@@ -179,6 +192,35 @@ async function openDetail(phone: any) {
     detail.value = data
   } catch { detail.value = null }
   finally { detailLoading.value = false }
+}
+
+// 备注编辑
+const remarkEditing = ref(false)
+const remarkSaving = ref(false)
+const remarkForm = ref('')
+
+function startRemarkEdit() {
+  remarkForm.value = selectedPhone.value?.remark || ''
+  remarkEditing.value = true
+}
+
+async function saveRemark() {
+  remarkSaving.value = true
+  try {
+    await updatePhoneRemark(selectedPhone.value.id, remarkForm.value)
+    // 更新选中话机对象 + 表格对应行的 remark
+    selectedPhone.value.remark = remarkForm.value
+    const row = devices.value.find((d: any) => d.id === selectedPhone.value.id)
+    if (row) row.remark = remarkForm.value
+    remarkEditing.value = false
+    ElMessage.success('备注已保存')
+    // 记录操作日志（不影响主流程）
+    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'update_remark', detail: `话机 ${selectedPhone.value.extension} 备注已更新` }) }).catch(() => {})
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    remarkSaving.value = false
+  }
 }
 
 // 账号配置编辑
