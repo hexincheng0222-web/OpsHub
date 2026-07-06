@@ -31,6 +31,7 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('加载配置失败:', e)
+    ElMessage.warning('ATCOM 配置加载失败，请刷新重试')
   } finally {
     loading.value = false
   }

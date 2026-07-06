@@ -31,6 +31,7 @@ onMounted(async () => {
     deviceModelOptions.value = models
   } catch (e) {
     console.error('加载字典数据失败:', e)
+    ElMessage.warning('设备型号字典加载失败，请刷新重试')
   }
 })
 

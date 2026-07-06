@@ -501,6 +501,7 @@ onMounted(async () => {
     deviceModelMap.value = map
   } catch (e) {
     console.error('加载字典数据失败:', e)
+    ElMessage.warning('电脑型号字典加载失败，请刷新重试')
   }
 })
 </script>

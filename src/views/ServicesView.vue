@@ -183,8 +183,8 @@ onMounted(() => {
   servicesStore.loadServices()
   servicesStore.checkAllServices()
   // 加载字典
-  fetchDict('service-hosts').then(data => { hosts.value = data }).catch((e: any) => console.warn('加载主机列表失败:', e.message))
-  fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch((e: any) => console.warn('加载服务分类失败:', e.message))
+  fetchDict('service-hosts').then(data => { hosts.value = data }).catch((e: any) => { console.warn('加载主机列表失败:', e.message); ElMessage.warning('主机列表加载失败，请刷新重试') })
+  fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch((e: any) => { console.warn('加载服务分类失败:', e.message); ElMessage.warning('服务分类加载失败，请刷新重试') })
 })
 
 // 统计每个主机的服务数
