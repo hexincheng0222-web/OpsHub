@@ -162,7 +162,7 @@
           </div>
           <div class="df-footer">
             <button class="df-btn df-btn-cancel" @click="dialogVisible = false">取消</button>
-            <button class="df-btn df-btn-confirm" @click="savePrinter">保存</button>
+            <button class="df-btn df-btn-confirm" :disabled="saving" @click="savePrinter">{{ saving ? '保存中...' : '保存' }}</button>
           </div>
         </div>
       </div>
@@ -288,14 +288,17 @@ async function handleImport(e: Event) {
 }
 
 const dialogVisible = ref(false); const editingPrinter = ref<Printer | null>(null)
+const saving = ref(false)
 const form = reactive<Omit<Printer, 'id'>>({ floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' })
 function openAddDialog() { editingPrinter.value = null; Object.assign(form, { floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' as const }); dialogVisible.value = true }
 function openEditDialog(r: Printer) { editingPrinter.value = r; Object.assign(form, { ...r }); dialogVisible.value = true }
 async function savePrinter() {
+  if (saving.value) return
   if (!form.floor) { ElMessage.warning('请选择楼层'); return }
   if (!form.location.trim()) { ElMessage.warning('请输入位置'); return }
   if (!form.manufacturer) { ElMessage.warning('请选择厂商'); return }
   if (!form.model) { ElMessage.warning('请选择型号'); return }
+  saving.value = true
   try {
     if (editingPrinter.value) {
       await store.updatePrinter(editingPrinter.value.id, { ...form, status: form.status as "正常" | "缺墨" | "故障" })
@@ -307,6 +310,8 @@ async function savePrinter() {
     dialogVisible.value = false
   } catch (e: any) {
     ElMessage.error(e.message || '操作失败')
+  } finally {
+    saving.value = false
   }
 }
 </script>

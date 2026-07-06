@@ -10,7 +10,7 @@
       <div class="ed-header-right">
         <button v-if="isEdit" class="ed-btn-version" @click="showVersionHistory">📋 版本历史</button>
         <button v-if="!isEdit" class="ed-btn-cancel" @click="$router.push('/operations')">取消</button>
-        <button class="ed-btn-save" @click="save">💾 保存</button>
+        <button class="ed-btn-save" :disabled="saving" @click="save">{{ saving ? '保存中...' : '💾 保存' }}</button>
       </div>
     </div>
 
@@ -91,6 +91,7 @@ const store = useOperationsStore()
 
 const isEdit = computed(() => !!route.params.id)
 const saveError = ref('')
+const saving = ref(false)
 const draftKey = computed(() => isEdit.value ? `ops_draft_${route.params.id}` : 'ops_draft_new')
 
 const form = reactive({
@@ -246,9 +247,11 @@ async function handleRollback(v: any) {
 }
 
 async function save() {
+  if (saving.value) return
   saveError.value = ''
   if (!form.title.trim()) { saveError.value = '请输入标题'; return }
   if (!form.folderId) { saveError.value = '请选择文件夹'; return }
+  saving.value = true
   try {
     if (isEdit.value) {
       await store.updateDoc(Number(route.params.id), { ...form })
@@ -263,6 +266,8 @@ async function save() {
     router.push('/operations')
   } catch (e: any) {
     saveError.value = e.message || '保存失败'
+  } finally {
+    saving.value = false
   }
 }
 </script>

@@ -8,6 +8,8 @@ import { ElMessage } from 'element-plus'
 const props = defineProps<{ visible: boolean; rackId: string; rackTotalU: number; editDevice?: Device | null }>()
 const emit = defineEmits<{ close: []; submit: [data: Omit<Device, 'id'>] }>()
 
+const submitting = ref(false)
+
 const form = reactive({ name: '', type: 'server' as Device['type'], model: '', u: 1, ports: 24, status: '正常' as Device['status'], ip: '' })
 
 // 从 API 加载字典数据
@@ -50,9 +52,13 @@ watch(() => form.type, () => {
 })
 
 function handleSubmit() {
+  if (submitting.value) return
   if (!form.name) { ElMessage.warning('请输入设备名称'); return }
   if (!form.model) { ElMessage.warning('请选择设备型号'); return }
+  submitting.value = true
   emit('submit', { ...form })
+  // 由父组件 onDeviceSubmit 的成功/失败回调置 false；保险起见下一 tick 释放
+  setTimeout(() => { submitting.value = false }, 500)
 }
 </script>
 
@@ -73,7 +79,7 @@ function handleSubmit() {
         </div>
         <div class="df-footer">
           <button class="df-btn df-btn-cancel" @click="emit('close')">取消</button>
-          <button class="df-btn df-btn-confirm" @click="handleSubmit">确定</button>
+          <button class="df-btn df-btn-confirm" :disabled="submitting" @click="handleSubmit">确定</button>
         </div>
       </div>
     </div>
