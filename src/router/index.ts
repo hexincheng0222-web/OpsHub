@@ -128,21 +128,22 @@ const router = createRouter({
   ]
 })
 
-// 路由守卫 — 登录和权限检查
+// 路由守卫 — 登录和权限检查（唯一登录态校验入口）
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // 确保已验证过 token
+  // 确保已验证过 token（fetchMe 失败会触发 logout，由 logout 互斥锁保证不重复跳转）
   if (auth.token && !auth.user) {
     await auth.fetchMe()
   }
 
-  // 已登录访问登录页 → 跳转首页
+  // 已登录访问登录页 → 跳转首页（若带 redirect 且目标非首页则跳目标）
   if (auth.isLoggedIn && to.path === '/login') {
-    return '/'
+    const redirect = (to.query.redirect as string) || '/'
+    return redirect
   }
 
-  // 所有页面需要登录（登录页除外）
+  // 未登录访问受保护页 → 跳登录页带 redirect
   if (!auth.isLoggedIn && to.path !== '/login') {
     return { path: '/login', query: { redirect: to.fullPath } }
   }

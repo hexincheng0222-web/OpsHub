@@ -9,6 +9,9 @@ export const useAuthStore = defineStore('auth', () => {
   const router = useRouter()
   const route = useRoute()
 
+  // logout 互斥锁：防止 App.vue / router guard / http.ts 401 三处并发触发
+  let logoutInProgress = false
+
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'superadmin')
   const isSuperAdmin = computed(() => user.value?.role === 'superadmin')
@@ -21,6 +24,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    if (logoutInProgress) return
+    logoutInProgress = true
     token.value = ''
     user.value = null
     localStorage.removeItem('token')
@@ -31,6 +36,8 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       router.push('/login')
     }
+    // 跳转触发后释放锁（下一次 router guard 仍可调 logout）
+    setTimeout(() => { logoutInProgress = false }, 0)
   }
 
   async function fetchMe() {
