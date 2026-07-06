@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import crypto from 'crypto'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -23,7 +24,11 @@ const app = express()
 const PORT = parseInt(process.env.PORT || '3001')
 
 // 中间件
-app.use(cors())
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:5173', 'http://localhost:3001'],
+  credentials: true,
+}))
+app.use(helmet({ crossOriginResourcePolicy: false }))
 app.use(express.json({ limit: '10mb' }))
 
 // 健康检查
