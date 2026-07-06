@@ -426,6 +426,27 @@ router.post('/:id/reboot', async (req: Request, res: Response) => {
   }
 })
 
+// PUT /api/v1/phones/:id/remark — 修改话机备注（按分机号 UPSERT 到 phone_remarks）
+router.put('/:id/remark', async (req: Request, res: Response) => {
+  const devices = cache?.data || []
+  const phone = devices.find((d: any) => d.id === req.params.id)
+  if (!phone) return res.status(404).json({ code: 404, message: '话机不存在' })
+
+  const remark = (req.body?.remark ?? '').toString().slice(0, 500)
+  try {
+    db.prepare(
+      `INSERT INTO phone_remarks (extension, remark, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(extension) DO UPDATE SET remark = excluded.remark, updated_at = datetime('now')`
+    ).run(phone.extension, remark)
+    logOp('话机管理', '修改备注', phone.extension, remark ? `备注已更新：${remark.slice(0, 50)}` : '备注已清空')
+    res.json({ code: 200, data: { extension: phone.extension, remark } })
+  } catch (err: any) {
+    console.error('[server] 修改话机备注失败:', err.message)
+    res.status(500).json({ code: 500, message: err.message || '保存失败' })
+  }
+})
+
 // ATCOM 话机 API 封装（带 Digest Auth）
 function atcomGet(ip: string, command: string, username = 'admin', password = 'admin'): Promise<any> {
   return atcomRequest(ip, command, 'GET', '', username, password)
