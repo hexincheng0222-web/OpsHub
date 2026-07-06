@@ -40,7 +40,8 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
       useAuthStore().logout()
     } catch {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      const redirect = encodeURIComponent(location.pathname + location.search)
+      window.location.href = `/login?redirect=${redirect}`
     }
     throw new Error('登录已过期')
   }

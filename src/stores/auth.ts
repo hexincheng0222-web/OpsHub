@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { defineStore } from 'pinia'
 import { login as apiLogin, getMe, type UserInfo } from '../api/auth'
 
@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserInfo | null>(null)
   const token = ref<string>(localStorage.getItem('token') || '')
   const router = useRouter()
+  const route = useRoute()
 
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'superadmin')
@@ -23,7 +24,13 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     user.value = null
     localStorage.removeItem('token')
-    router.push('/login')
+    // 记录当前位置，登录后可跳回（避免落在 /login 上）
+    const from = route.fullPath
+    if (from && from !== '/login') {
+      router.push({ path: '/login', query: { redirect: from } })
+    } else {
+      router.push('/login')
+    }
   }
 
   async function fetchMe() {

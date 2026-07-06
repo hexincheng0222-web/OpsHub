@@ -1,5 +1,5 @@
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 
@@ -13,6 +13,7 @@ function validate(username: string, password: string): string | null {
 
 export function useLoginForm() {
   const router = useRouter()
+  const route = useRoute()
   const auth = useAuthStore()
 
   const form = reactive({
@@ -65,7 +66,7 @@ export function useLoginForm() {
     try {
       await auth.login(form.username, form.password)
       ElMessage.success('登录成功')
-      router.push('/')
+      router.push((route.query.redirect as string) || '/')
     } catch (e: any) {
       ElMessage.error(e.message || '登录失败')
     } finally {
