@@ -109,21 +109,32 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, ArrowDown } from '@element-plus/icons-vue'
 import * as phonebookApi from '../api/phonebook'
 import type { PhonebookContact } from '../api/phonebook'
 import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 
+const route = useRoute()
+const router = useRouter()
+
 const fileInput = ref<HTMLInputElement>()
 const loading = ref(false)
 const contacts = ref<PhonebookContact[]>([])
 const { searchInput, search } = useDebouncedSearch()
-const filterType = ref('')
+// 从 URL 恢复筛选状态
+searchInput.value = (route.query.search as string) || ''
+const filterType = ref((route.query.type as string) || '')
 const page = ref(1)
 const pageSize = ref(parseInt(localStorage.getItem('phonebook_pageSize') || '50'))
 function savePageSize(size: number) { localStorage.setItem('phonebook_pageSize', String(size)) }
 const selectedIds = ref<number[]>([])
+
+// 筛选同步到 URL
+watch([search, filterType], () => {
+  router.replace({ query: { search: search.value || undefined, type: filterType.value || undefined } })
+})
 
 watch([search, filterType], () => { page.value = 1 })
 

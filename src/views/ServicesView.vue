@@ -164,7 +164,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useServicesStore } from '../stores/services'
 import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 import type { Service } from '../types'
@@ -173,6 +174,8 @@ import { resolveIcon } from '../utils/icons'
 import { ElMessage } from 'element-plus'
 import BackButton from '../components/BackButton.vue'
 
+const route = useRoute()
+const router = useRouter()
 const servicesStore = useServicesStore()
 
 // 字典数据
@@ -194,8 +197,14 @@ function getHostServiceCount(hostId: number) {
 }
 
 const { searchInput, search } = useDebouncedSearch()
-const filterCategory = ref('')
-const filterStatus = ref('')
+searchInput.value = (route.query.search as string) || ''
+const filterCategory = ref((route.query.category as string) || '')
+const filterStatus = ref((route.query.status as string) || '')
+
+// 筛选同步到 URL
+watch([search, filterCategory, filterStatus], () => {
+  router.replace({ query: { search: search.value || undefined, category: filterCategory.value || undefined, status: filterStatus.value || undefined } })
+})
 
 const filteredServices = computed(() => {
   return servicesStore.services.filter(s => {

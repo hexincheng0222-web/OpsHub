@@ -160,20 +160,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Phone, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, updatePhoneRemark, rebootPhone as rebootPhoneApi } from '@/api/phones'
 import { request } from '@/utils/http'
 import BackButton from '../components/BackButton.vue'
 
+const route = useRoute()
+const router = useRouter()
+
 const loading = ref(false)
-const searchText = ref('')
+const searchText = ref((route.query.search as string) || '')
 const devices = ref<any[]>([])
 const errorMsg = ref('')
 const total = ref(0)
 const onlineCount = ref(0)
 const offlineCount = ref(0)
+
+// 筛选关键字同步到 URL query（刷新可恢复、可分享）
+watch(searchText, (v) => {
+  router.replace({ query: { ...route.query, search: v || undefined } })
+})
 
 // 详情抽屉
 const drawerVisible = ref(false)

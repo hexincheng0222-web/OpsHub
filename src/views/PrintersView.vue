@@ -172,6 +172,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
@@ -183,6 +184,8 @@ import { buildFloorGroups, floorWeight } from '../utils/printer-table-helper'
 import type { PrinterTableRow, FloorGroup } from '../utils/printer-table-helper'
 import BackButton from '../components/BackButton.vue'
 
+const route = useRoute()
+const router = useRouter()
 const store = usePrintersStore()
 
 // 加载打印机型号字典
@@ -234,6 +237,10 @@ function handleTopAction(command: string) {
 
 // 搜索
 const { searchInput, search: searchQuery } = useDebouncedSearch()
+searchInput.value = (route.query.search as string) || ''
+watch(searchQuery, (v) => {
+  router.replace({ query: { ...route.query, search: v || undefined } })
+})
 
 // 楼层排序权重 — 在 helper 中
 
