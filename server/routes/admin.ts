@@ -101,6 +101,13 @@ const tables: Record<string, TableConfig> = {
     listColumns: 'id, name, sort_order, created_at, updated_at',
     module: '电脑型号',
   },
+  'phone-remarks': {
+    table: 'phone_remarks',
+    columns: ['extension', 'remark'],
+    listColumns: 'id, extension, remark, created_at, updated_at',
+    module: '话机备注',
+    nameColumn: 'extension',
+  },
   'phone-locations': {
     table: 'phone_locations',
     columns: ['extension', 'location', 'notes', 'sort_order'],

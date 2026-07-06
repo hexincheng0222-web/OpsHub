@@ -1,5 +1,5 @@
 <template>
-  <el-drawer :model-value="visible" :title="device?.name || ''" size="400px" @close="$emit('close', drawerDevice)">
+  <el-drawer :model-value="visible" :title="device?.name || ''" size="400px" @close="$emit('close', device)">
     <div class="drawer-tag">{{ typeLabel }}</div>
     <div class="drawer-body">
       <div class="drawer-field"><span class="field-label">型号</span><span class="field-value">{{ device?.model }}</span></div>
@@ -20,7 +20,7 @@
       </div>
     </div>
     <template #footer>
-      <el-button type="danger" @click="$emit('delete', drawerDevice)">删除设备</el-button>
+      <el-button type="danger" @click="$emit('delete', device)">删除设备</el-button>
     </template>
   </el-drawer>
 </template>

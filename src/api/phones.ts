@@ -16,6 +16,7 @@ export interface PhoneDevice {
   online: boolean
   secret: string
   display_name: string
+  remark?: string
 }
 
 // 获取所有话机（优先走缓存）

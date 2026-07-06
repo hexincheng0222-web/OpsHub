@@ -33,13 +33,16 @@
         <el-table-column label="分机号" width="100" fixed>
           <template #default="{ row }"><span class="ext">{{ row.extension }}</span></template>
         </el-table-column>
-        <el-table-column label="IP 地址" width="140">
+        <el-table-column label="备注" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }"><span :class="{ muted: !row.remark }">{{ row.remark || '--' }}</span></template>
+        </el-table-column>
+        <el-table-column label="IP 地址" min-width="160">
           <template #default="{ row }"><span v-if="row.ip" class="mono">{{ row.ip }}</span><span v-else class="muted">--</span></template>
         </el-table-column>
-        <el-table-column label="上次IP" width="140">
+        <el-table-column label="上次IP" min-width="120">
           <template #default="{ row }">
             <span v-if="!row.ip && row.lastIp" class="mono" style="color:var(--ops-accent-yellow)">{{ row.lastIp }}</span>
-            <span v-else-if="row.lastIp && row.lastIp !== row.ip" class="mono" style="color:var(--ops-text-tertiary);font-size:11px">{{ row.lastIp }}</span>
+            <span v-else-if="row.lastIp && row.lastIp !== row.ip" class="mono muted small">{{ row.lastIp }}</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
@@ -62,11 +65,11 @@
         </el-table-column>
         <el-table-column label="延迟" width="90">
           <template #default="{ row }">
-            <span v-if="row.delay !== 'n/a'" class="mono" :class="{ yellow: parseFloat(row.delay) > 50 }">{{ row.delay }}ms</span>
+            <span v-if="row.delay && row.delay !== 'n/a' && !isNaN(parseFloat(row.delay))" class="mono" :class="{ yellow: parseFloat(row.delay) > 50 }">{{ row.delay }}ms</span>
             <span v-else class="muted">--</span>
           </template>
         </el-table-column>
-        <el-table-column label="" width="120" fixed="right">
+        <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" :disabled="!row.online" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" size="small" :disabled="!row.ip" @click="openWeb(row.ip)">访问</el-button>
@@ -322,6 +325,12 @@ onMounted(() => { loadDevices() })
 }
 .search-input { width: 170px; }
 
+/* 小屏幕响应式 */
+@media (max-width: 640px) {
+  .search-input { width: 120px; }
+  .top-right .el-button:last-child { display: none; }
+}
+
 /* 统计条 */
 .stats-bar {
   display: flex;
@@ -340,7 +349,7 @@ onMounted(() => { loadDevices() })
   background: var(--ops-bg-card);
   border: 1px solid var(--ops-border-card);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* 状态点 */

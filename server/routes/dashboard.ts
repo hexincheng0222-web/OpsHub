@@ -25,12 +25,17 @@ router.get('/stats', async (_req: Request, res: Response) => {
   } catch { /* ignore */ }
 
   // ATCOM 话机统计（缓存为空时自动触发首次发现）
+  // 限制超时，避免 PBX 不可达时阻塞整个首页
   let phones = 0
   let phonesOnline = 0
   try {
     let cached = getCachedPhones()
     if (!cached) {
-      await ensurePhoneCache()
+      const timeoutMs = 5000
+      await Promise.race([
+        ensurePhoneCache(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('pbx-timeout')), timeoutMs)),
+      ]).catch(() => {}) // 超时或失败都不影响首页其它统计
       cached = getCachedPhones()
     }
     if (cached) {

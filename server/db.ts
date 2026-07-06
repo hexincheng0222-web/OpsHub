@@ -355,6 +355,15 @@ db.exec(`
     CONSTRAINT uq_phone_locations_ext UNIQUE (extension)
   );
 
+  CREATE TABLE IF NOT EXISTS phone_remarks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    extension  TEXT NOT NULL UNIQUE,
+    remark     TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS system_config (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL DEFAULT '',
@@ -1279,6 +1288,13 @@ const olColumns = db.prepare("PRAGMA table_info(operation_logs)").all() as { nam
 if (olColumns.length > 0 && !olColumns.some(c => c.name === 'operator')) {
   db.exec("ALTER TABLE operation_logs ADD COLUMN operator TEXT NOT NULL DEFAULT ''")
   console.log('[db] 已添加 operation_logs.operator 列')
+}
+
+// 迁移：phone_remarks 表添加 sort_order 列
+const prColumns = db.prepare("PRAGMA table_info(phone_remarks)").all() as { name: string }[]
+if (prColumns.length > 0 && !prColumns.some(c => c.name === 'sort_order')) {
+  db.exec("ALTER TABLE phone_remarks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+  console.log('[db] 已添加 phone_remarks.sort_order 列')
 }
 
 // ========== 日志监控配置表 ==========

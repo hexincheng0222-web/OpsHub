@@ -1,3 +1,5 @@
+import { request } from '../utils/http'
+
 export interface DashboardStats {
   services: number
   manuals: number
@@ -10,10 +12,6 @@ export interface DashboardStats {
   phonesOnline: number
 }
 
-export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const res = await fetch('/api/v1/dashboard/stats')
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = await res.json()
-  if (json.code >= 400) throw new Error(json.message || `错误码 ${json.code}`)
-  return json.data
+export function fetchDashboardStats(): Promise<DashboardStats> {
+  return request<DashboardStats>('/api/v1/dashboard/stats')
 }

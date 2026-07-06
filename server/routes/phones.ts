@@ -305,10 +305,15 @@ router.get('/', async (_req: Request, res: Response) => {
     const locRows = db.prepare('SELECT extension, location FROM phone_locations').all() as any[]
     locRows.forEach(r => { locMap[r.extension] = r.location })
 
+    const remarkMap: Record<string, string> = {}
+    const remarkRows = db.prepare('SELECT extension, remark FROM phone_remarks').all() as any[]
+    remarkRows.forEach(r => { remarkMap[r.extension] = r.remark })
+
     const enriched = devices.map((d: any) => ({
       ...d,
       lastIp: ipMap[d.id] || '',
       location: locMap[d.extension] || '',
+      remark: remarkMap[d.extension] || '',
     }))
 
     res.json({
