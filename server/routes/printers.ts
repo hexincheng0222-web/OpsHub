@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
+import { validateRequired } from '../utils/validate'
 
 const router = Router()
 
@@ -74,10 +75,18 @@ router.get('/:id', (req: Request, res: Response) => {
 // POST /api/v1/printers  — 新增
 router.post('/', (req: Request, res: Response) => {
   try {
+    const err = validateRequired(req.body, [
+      { name: 'floor', label: '楼层', maxLength: 50 },
+      { name: 'location', label: '位置', maxLength: 100 },
+      { name: 'manufacturer', label: '厂商', maxLength: 100 },
+      { name: 'model', label: '型号', maxLength: 100 },
+    ])
+    if (err) return res.status(400).json({ code: 400, message: err })
+
     const { floor, location, manufacturer, model, tonerModel, notes, status } = req.body
     const result = db.prepare(
       'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(floor || '', location || '', manufacturer || '', model || '', tonerModel || '', notes || '', status || '正常')
+    ).run(floor, location, manufacturer, model, tonerModel || '', notes || '', status || '正常')
 
     const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(result.lastInsertRowid)
     res.status(201).json({ code: 201, data: toApi(row) })
