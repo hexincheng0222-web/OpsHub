@@ -191,7 +191,7 @@ async function handleSave() {
 
 async function handleDelete(row: PhonebookContact) {
   try {
-    await ElMessageBox.confirm(`确定删除联系人「${row.name}」？`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确定删除联系人「${row.name}」？此操作不可恢复。`, '确认删除', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
   } catch { return }
   try {
     await phonebookApi.deleteContact(row.id)

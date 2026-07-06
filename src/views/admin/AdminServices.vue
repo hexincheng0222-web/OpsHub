@@ -36,11 +36,7 @@
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-popconfirm :title="`确定删除「${row.name}」？`" @confirm="handleDelete(row)">
-            <template #reference>
-              <el-button type="danger" text size="small">删除</el-button>
-            </template>
-          </el-popconfirm>
+          <el-button type="danger" text size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -100,7 +96,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { fetchDict } from '../../api/admin'
 import { resolveIcon, iconKeys } from '../../utils/icons'
@@ -223,6 +219,9 @@ async function handleSubmit() {
 }
 
 async function handleDelete(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定删除服务「${row.name}」？此操作不可恢复。`, '确认删除', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' })
+  } catch { return }
   try {
     await servicesStore.deleteService(row.id)
     ElMessage.success('删除成功')
