@@ -183,7 +183,7 @@ async function onDeviceSubmit(data: Omit<Device, 'id'>) {
     }
   }
 
-  if (targetOffset < 0) return
+  if (targetOffset < 0) { ElMessage.warning('机柜剩余 U 不足，请选择其他位置'); return }
   try {
     await store.addDeviceToRackOnServer(addDeviceRackId.value, targetOffset, data)
     ElMessage.success('设备添加成功')
