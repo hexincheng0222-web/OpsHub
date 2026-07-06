@@ -334,10 +334,9 @@ router.get('/', async (_req: Request, res: Response) => {
   }
 })
 
-// GET /api/v1/phones/refresh — 强制刷新（清除缓存）
+// GET /api/v1/phones/refresh — 强制刷新
 router.get('/refresh', async (_req: Request, res: Response) => {
   try {
-    cache = null
     const devices = await discoverPhones()
     cache = { data: devices, ts: Date.now() }
     res.json({
