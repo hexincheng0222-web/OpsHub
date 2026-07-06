@@ -53,6 +53,10 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
       const errBody = await res.json()
       message = errBody.message || message
     } catch { /* 响应体非 JSON，使用默认消息 */ }
+    // 兜底替换英文 SQLite 错误
+    if (/SQLITE|HASH|constraint|FOREIGN KEY|UNIQUE constraint/i.test(message)) {
+      message = '操作失败，请稍后再试'
+    }
     throw new Error(message)
   }
 
@@ -60,7 +64,11 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
 
   // 业务层错误
   if (json.code >= 400) {
-    throw new Error(json.message || `错误码 ${json.code}`)
+    let message = json.message || `错误码 ${json.code}`
+    if (/SQLITE|HASH|constraint|FOREIGN KEY|UNIQUE constraint/i.test(message)) {
+      message = '操作失败，请稍后再试'
+    }
+    throw new Error(message)
   }
 
   return json.data

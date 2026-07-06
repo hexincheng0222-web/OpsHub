@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import crypto from 'crypto'
 import db from '../db'
 
 const router = Router()
@@ -199,7 +200,7 @@ router.post('/:table', (req: Request, res: Response) => {
     if (err.message?.includes('FOREIGN KEY')) {
       return res.status(409).json({ code: 409, message: '引用的关联数据不存在' })
     }
-    res.status(500).json({ code: 500, message: err.message })
+    res.status(500).json({ code: 500, message: '服务器内部错误', traceId: crypto.randomBytes(4).toString('hex') })
   }
 })
 
@@ -223,7 +224,7 @@ router.put('/:table/:id', (req: Request, res: Response) => {
     if (err.message?.includes('UNIQUE')) {
       return res.status(409).json({ code: 409, message: '名称已存在' })
     }
-    res.status(500).json({ code: 500, message: err.message })
+    res.status(500).json({ code: 500, message: '服务器内部错误', traceId: crypto.randomBytes(4).toString('hex') })
   }
 })
 
@@ -244,7 +245,7 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
     if (err.message?.includes('FOREIGN KEY')) {
       return res.status(409).json({ code: 409, message: '该记录被其他数据引用，无法删除' })
     }
-    res.status(500).json({ code: 500, message: err.message })
+    res.status(500).json({ code: 500, message: '服务器内部错误', traceId: crypto.randomBytes(4).toString('hex') })
   }
 })
 

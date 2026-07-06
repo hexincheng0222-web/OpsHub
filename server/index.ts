@@ -1,6 +1,9 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import crypto from 'crypto'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import servicesRouter from './routes/services'
 import racksRouter from './routes/racks'
 import devicesRouter from './routes/devices'
@@ -44,10 +47,26 @@ app.use('/api/v1/users', authRequired, usersRouter)
 app.use('/api/v1/log-monitor', authRequired, logMonitorRouter)
 app.use('/api/v1/dashboard', authRequired, dashboardRouter)
 
+// ========== 静态前端托管（生产模式） ==========
+// 托管同项目下的 dist/（Vue 构建产物），不存在时跳过（dev 模式下由 Vite 独立托管）
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const distPath = path.resolve(__dirname, '../dist')
+const fs = await import('fs')
+if (fs.existsSync(path.join(distPath, 'index.html'))) {
+  app.use(express.static(distPath, { maxAge: '1h', index: false }))
+  // SPA fallback：所有非 /api 非静态文件的 GET 请求回 index.html
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+  console.log(`[server] Serving static frontend from ${distPath}`)
+}
+
 // 全局错误处理
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[server] Error:', err.message)
-  res.status(500).json({ code: 500, message: '服务器内部错误' })
+  const traceId = crypto.randomBytes(4).toString('hex')
+  res.status(500).json({ code: 500, message: '服务器内部错误', traceId })
 })
 
 // 启动

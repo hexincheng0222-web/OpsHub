@@ -443,7 +443,7 @@ router.put('/:id/remark', async (req: Request, res: Response) => {
     res.json({ code: 200, data: { extension: phone.extension, remark } })
   } catch (err: any) {
     console.error('[server] 修改话机备注失败:', err.message)
-    res.status(500).json({ code: 500, message: err.message || '保存失败' })
+    res.status(500).json({ code: 500, message: '保存失败', traceId: crypto.randomBytes(4).toString('hex') })
   }
 })
 
@@ -486,7 +486,7 @@ router.post('/phonebook', (req: Request, res: Response) => {
     res.status(201).json({ code: 201, data: row })
   } catch (e: any) {
     if (e.message?.includes('UNIQUE')) return res.status(409).json({ code: 409, message: '联系人已存在' })
-    res.status(500).json({ code: 500, message: e.message })
+    res.status(500).json({ code: 500, message: '创建失败', traceId: crypto.randomBytes(4).toString('hex') })
   }
 })
 
