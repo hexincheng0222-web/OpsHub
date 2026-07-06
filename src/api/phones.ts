@@ -53,3 +53,11 @@ export async function rebootPhone(id: string) {
     body: JSON.stringify({}),
   })
 }
+
+/** 修改话机备注 */
+export async function updatePhoneRemark(id: string, remark: string) {
+  return request<any>(`${BASE}/${id}/remark`, {
+    method: 'PUT',
+    body: JSON.stringify({ remark }),
+  })
+}
