@@ -49,16 +49,12 @@ const router = createRouter({
     {
       path: '/computer-procurement',
       name: 'ComputerProcurement',
-      component: () => import('../views/procurement/ProcurementView.vue'),
-      meta: { title: '电脑采购' },
-      beforeEnter: () => ({ path: '/procurement', query: { tab: 'computer' }, replace: true })
+      redirect: () => ({ path: '/procurement', query: { tab: 'computer' } }),
     },
     {
       path: '/phone-procurement',
       name: 'PhoneProcurement',
-      component: () => import('../views/procurement/ProcurementView.vue'),
-      meta: { title: '手机采购' },
-      beforeEnter: () => ({ path: '/procurement', query: { tab: 'phone' }, replace: true })
+      redirect: () => ({ path: '/procurement', query: { tab: 'phone' } }),
     },
     {
       path: '/phones',

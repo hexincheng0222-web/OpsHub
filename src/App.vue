@@ -100,6 +100,7 @@ function onScrollThrottled() {
 }
 
 onMounted(async () => {
+  themeStore.initTheme()
   themeStore.watchSystemTheme()
 
   // 进入页面先验证 token 是否有效，恢复登录状态

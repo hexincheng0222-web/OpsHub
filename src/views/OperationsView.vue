@@ -171,7 +171,7 @@
 
     <!-- Rename Folder Dialog -->
     <Teleport to="body">
-      <div v-if="showRenameDialog" class="mo-overlay" @click.self="showRenameDialog = false">
+      <div v-if="showRenameDialog" class="mo-overlay" role="dialog" aria-modal="true" aria-label="重命名文件夹" @click.self="showRenameDialog = false">
         <div class="mo-dialog">
           <div class="mo-dlg-header">重命名文件夹</div>
           <div class="mo-body">
@@ -187,7 +187,7 @@
 
     <!-- Add Folder Dialog -->
     <Teleport to="body">
-      <div v-if="showAddFolder" class="mo-overlay" @click.self="showAddFolder = false">
+      <div v-if="showAddFolder" class="mo-overlay" role="dialog" aria-modal="true" aria-label="新建文件夹" @click.self="showAddFolder = false">
         <div class="mo-dialog">
           <div class="mo-dlg-header">新建文件夹</div>
           <div class="mo-body">
@@ -228,7 +228,7 @@
 
     <!-- Delete Confirm -->
     <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="mo-overlay" @click.self="showDeleteConfirm = false">
+      <div v-if="showDeleteConfirm" class="mo-overlay" role="dialog" aria-modal="true" aria-label="确认删除" @click.self="showDeleteConfirm = false">
         <div class="mo-dialog" style="width:360px">
           <div class="mo-dlg-header">确认删除</div>
           <div class="mo-body">

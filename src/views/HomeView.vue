@@ -6,7 +6,7 @@
       <div class="orb orb-3" />
     </div>
     <div class="particles">
-      <div v-for="i in 40" :key="i" class="particle" :style="particles[i - 1]" />
+      <div v-for="i in 12" :key="i" class="particle" :style="particles[i - 1]" />
     </div>
     <div class="hero">
       <div class="title-glow" />
