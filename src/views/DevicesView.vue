@@ -1,6 +1,7 @@
 <!-- src/views/DevicesView.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useDevicesStore } from '../stores/devices'
 import type { Device, Rack } from '../types'
 import type { SlotInfo } from '../utils/rack-utils'
@@ -19,6 +20,8 @@ import DeviceDrawer from '../components/devices/DeviceDrawer.vue'
 import BackButton from '../components/BackButton.vue'
 
 const store = useDevicesStore()
+const route = useRoute()
+const router = useRouter()
 
 // 设备型号详情
 const deviceModels = ref<any[]>([])
@@ -38,13 +41,17 @@ const activeFloor = computed({
 
 // --- Search & filter ---
 const searchQuery = ref('')
-const searchQueryInput = ref('')
+const searchQueryInput = ref((route.query.search as string) || '')
 let devSearchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchQueryInput, (v) => {
   if (devSearchTimer) clearTimeout(devSearchTimer)
   devSearchTimer = setTimeout(() => { searchQuery.value = v }, 300)
+  router.replace({ query: { ...route.query, search: v || undefined } })
 })
-const filterType = ref('')
+const filterType = ref((route.query.type as string) || '')
+watch(filterType, (v) => {
+  router.replace({ query: { ...route.query, type: v || undefined } })
+})
 const filteredDeviceCount = computed(() => {
   let count = 0
   for (const rack of store.floorRacks) {
