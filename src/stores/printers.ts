@@ -53,8 +53,13 @@ export const usePrintersStore = defineStore('printers', () => {
     return result
   }
 
+  async function restorePrinters(rows: Partial<Printer>[]) {
+    await api.batchCreatePrinters(rows)
+    await loadPrinters()
+  }
+
   return {
     printers, loading, total, normalCount, lowInkCount,
-    loadPrinters, addPrinter, updatePrinter, deletePrinter, deletePrinters, batchImport,
+    loadPrinters, addPrinter, updatePrinter, deletePrinter, deletePrinters, batchImport, restorePrinters,
   }
 })

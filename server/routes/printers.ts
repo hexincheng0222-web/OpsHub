@@ -183,4 +183,28 @@ router.post('/import', (req: Request, res: Response) => {
   res.json({ code: 200, data: { imported, errors } })
 })
 
+// POST /api/v1/printers/batch-create  — 原子批量新增（用于撤销恢复）
+router.post('/batch-create', (req: Request, res: Response) => {
+  const { rows } = req.body
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ code: 400, message: 'rows 必填' })
+  const insert = db.prepare(
+    'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  )
+  let imported = 0
+  const errors: string[] = []
+  const tx = db.transaction(() => {
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      try {
+        insert.run(r.floor || '', r.location || '', r.manufacturer || '',
+                  r.model || '', r.tonerModel || '', r.notes || '', r.status || '正常')
+        imported++
+      } catch (e: any) { errors.push(`第 ${i+1} 行: ${e.message}`) }
+    }
+  })
+  tx()
+  res.json({ code: 200, data: { imported, errors } })
+})
+
 export default router

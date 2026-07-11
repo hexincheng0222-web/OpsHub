@@ -270,8 +270,10 @@ async function batchDelete() {
   try {
     await ElMessageBox.confirm(`确定删除选中的 ${count} 台打印机？`, '批量删除', { type: 'warning', confirmButtonText: '删除' })
   } catch { return }
-  // 保存被删数据供撤销
-  const deletedData = store.printers.filter(p => ids.includes(p.id))
+  // 保存被删数据供撤销（剔除 id + 时间戳，避免恢复时主键冲突）
+  const deletedData = store.printers
+    .filter(p => ids.includes(p.id))
+    .map(({ id, createdAt, updatedAt, ...rest }) => rest)
   await store.deletePrinters(ids)
   selectedIds.value = new Set()
   ElMessage({
@@ -280,10 +282,12 @@ async function batchDelete() {
       h('span', {
         style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
         onClick: async () => {
-          for (const p of deletedData) {
-            await store.addPrinter(p as any)
+          try {
+            await store.restorePrinters(deletedData)
+            ElMessage.success('已撤销删除')
+          } catch (e: any) {
+            ElMessage.error('撤销失败：' + (e.message || ''))
           }
-          ElMessage.success('已撤销删除')
         }
       }, '撤销')
     ]),

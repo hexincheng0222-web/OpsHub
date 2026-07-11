@@ -60,3 +60,7 @@ export async function importPrinters(rows: Partial<Printer>[]): Promise<{ import
     body: JSON.stringify({ rows }),
   })
 }
+
+export async function batchCreatePrinters(rows: Partial<Printer>[]): Promise<{ imported: number; errors: string[] }> {
+  return request(`${BASE}/batch-create`, { method: 'POST', body: JSON.stringify({ rows }) })
+}
