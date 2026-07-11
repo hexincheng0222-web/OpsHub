@@ -1369,6 +1369,69 @@ if (lmConfigCount.cnt === 0) {
   console.log('[db] 已初始化日志监控默认配置')
 }
 
+// 服务健康历史（健康历史/告警/定时巡检/SLA 共用）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS service_health_logs (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+      status     TEXT NOT NULL,                -- online / offline / maintenance
+      latency_ms INTEGER,                     -- NULL 表示超时/失败
+      http_status INTEGER,                    -- HTTP 响应码（可空）
+      error      TEXT NOT NULL DEFAULT '',
+      checked_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_shl_service_time ON service_health_logs (service_id, checked_at DESC);
+  `)
+} catch {}
+
+// 告警事件
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS service_alerts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+      event      TEXT NOT NULL,                -- offline / online_recover
+      prev_status TEXT,
+      new_status  TEXT,
+      latency_ms INTEGER,
+      message    TEXT NOT NULL DEFAULT '',
+      acknowledged INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sa_created ON service_alerts (created_at DESC);
+  `)
+} catch {}
+
+// 收藏
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_service_favorites (
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, service_id)
+    );
+  `)
+} catch {}
+
+// 凭证保险柜
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS service_credentials (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+      label      TEXT NOT NULL,
+      username   TEXT NOT NULL DEFAULT '',
+      secret_enc TEXT NOT NULL,               -- AES-256-GCM 密文
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sc_service ON service_credentials (service_id);
+  `)
+} catch {}
+
 // 初始化：如果 users 表为空，创建默认超级管理员
 const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt
 if (userCount === 0) {
