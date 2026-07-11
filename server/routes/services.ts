@@ -115,6 +115,34 @@ router.get('/categories', (_req: Request, res: Response) => {
   res.json({ code: 200, data: { categories: getCategories() } })
 })
 
+// GET /api/v1/services/:id/history?hours=24（必须在 /:id 之前，否则被 id='history' 拦截）
+router.get('/:id/history', (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
+  const hours = Math.min(168, Math.max(1, parseInt(req.query.hours as string) || 24))
+  const rows = db.prepare(
+    `SELECT status, latency_ms, http_status, error, checked_at
+     FROM service_health_logs
+     WHERE service_id = ? AND checked_at >= datetime('now', ?)
+     ORDER BY checked_at ASC`
+  ).all(id, `-${hours} hours`)
+  res.json({ code: 200, data: { points: rows } })
+})
+
+// GET /api/v1/services/:id/uptime?days=7
+router.get('/:id/uptime', (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
+  const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7))
+  const row = db.prepare(
+    `SELECT COUNT(*) AS total, SUM(CASE WHEN status='online' THEN 1 ELSE 0 END) AS online
+     FROM service_health_logs
+     WHERE service_id = ? AND checked_at >= datetime('now', ?)`
+  ).get(id, `-${days} days`) as { total: number; online: number }
+  const uptimePct = row.total > 0 ? Math.round(row.online / row.total * 10000) / 100 : null
+  res.json({ code: 200, data: { uptimePct, total: row.total, online: row.online, days } })
+})
+
 // 3. 获取单个服务
 router.get('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
@@ -332,14 +360,19 @@ router.post('/check-all', async (_req: Request, res: Response) => {
   const results = await concurrentPool(services, 10, checkOne)
   const allResults: any[] = []
   const updateStmt = db.prepare("UPDATE services SET status = ?, updated_at = datetime('now') WHERE id = ?")
+  const insertLog = db.prepare(
+    'INSERT INTO service_health_logs (service_id, status, latency_ms, http_status, error) VALUES (?, ?, ?, ?, ?)'
+  )
 
   for (const r of results) {
     allResults.push(r)
     updateStmt.run(r.status, r.id)
+    insertLog.run(r.id, r.status, r.latencyMs, r.httpStatus || null, r.error || '')
   }
 
   for (const s of skipped) {
     allResults.push({ id: s.id, name: s.name, status: 'maintenance', latencyMs: null })
+    insertLog.run(s.id, 'maintenance', null, null, 'skipped')
   }
 
   const summary = {
@@ -362,6 +395,10 @@ router.post('/:id/check', async (req: Request, res: Response) => {
   if (!svc) return res.status(404).json({ code: 404, message: '服务不存在' })
   const r = await checkOne(svc)
   db.prepare("UPDATE services SET status = ?, updated_at = datetime('now') WHERE id = ?").run(r.status, r.id)
+  const insertLog = db.prepare(
+    'INSERT INTO service_health_logs (service_id, status, latency_ms, http_status, error) VALUES (?, ?, ?, ?, ?)'
+  )
+  insertLog.run(r.id, r.status, r.latencyMs, r.httpStatus || null, r.error || '')
   invalidateCheckAllCache()
   res.json({ code: 200, data: { id: r.id, status: r.status, latencyMs: r.latencyMs, httpStatus: r.httpStatus } })
 })

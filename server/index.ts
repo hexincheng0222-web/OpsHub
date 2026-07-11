@@ -18,6 +18,8 @@ import logMonitorRouter from './routes/log-monitor'
 import authRouter from './routes/auth'
 import usersRouter from './routes/users'
 import dashboardRouter from './routes/dashboard'
+import cron from 'node-cron'
+import db from './db'
 import { authRequired, requireRole } from './middleware/auth'
 
 const app = express()
@@ -77,4 +79,12 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // 启动
 app.listen(PORT, () => {
   console.log(`[server] OpsHub API running at http://localhost:${PORT}`)
+})
+
+// 每日 03:00 清理 30 天前健康日志
+cron.schedule('0 3 * * *', () => {
+  try {
+    const n = db.prepare("DELETE FROM service_health_logs WHERE checked_at < datetime('now', '-30 days')").run()
+    if (n.changes > 0) console.log(`[services] 清理健康日志 ${n.changes} 条`)
+  } catch (e) { console.warn('[services] 健康日志清理失败:', e) }
 })
