@@ -29,6 +29,20 @@ export async function fetchServices(params?: {
   return request<PaginatedList>(BASE + (qs ? '?' + qs : ''))
 }
 
+// 全量列表（走上限 100，前台/后台卡片不分页场景）
+export async function fetchAllServices(params?: {
+  keyword?: string; category?: string; status?: string; hostId?: number
+}): Promise<Service[]> {
+  const query = new URLSearchParams()
+  query.set('pageSize', '100')
+  if (params?.keyword) query.set('keyword', params.keyword)
+  if (params?.category) query.set('category', params.category)
+  if (params?.status) query.set('status', params.status)
+  if (params?.hostId) query.set('hostId', String(params.hostId))
+  const data = await request<PaginatedList>(`${BASE}?${query.toString()}`)
+  return data.list
+}
+
 // 2. 获取单个服务
 export async function fetchService(id: number): Promise<Service> {
   return request<Service>(`${BASE}/${id}`)

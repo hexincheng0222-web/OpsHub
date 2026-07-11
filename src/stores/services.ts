@@ -33,16 +33,14 @@ export const useServicesStore = defineStore('services', () => {
   const maintenanceCount = computed(() => services.value.filter(s => s.status === 'maintenance').length)
 
   async function loadServices() {
-    // 先读缓存立即显示
     const cached = readSvcCache()
     if (cached) {
       services.value = cached.list
-      if (Date.now() - cached.ts < SVC_TTL) return // 未过期，不请求
+      if (Date.now() - cached.ts < SVC_TTL) return
     }
-
     loading.value = true
     try {
-      const { list } = await api.fetchServices()
+      const list = await api.fetchAllServices()
       services.value = list
       writeSvcCache(list)
     } catch (e: any) {
@@ -85,9 +83,16 @@ export const useServicesStore = defineStore('services', () => {
     checking.value = true
     try {
       const data = await api.checkAllServices()
+      const map = new Map(data.results.map(r => [r.id, r]))
+      for (const s of services.value) {
+        const r = map.get(s.id)
+        if (r) s.status = r.status as Service['status']
+      }
       for (const r of data.results) {
         checkResults.value[r.id] = { status: r.status, latencyMs: r.latencyMs }
       }
+      // 同步缓存，避免下次 loadServices 命中旧缓存把状态冲回去
+      writeSvcCache(services.value)
     } catch (e: any) {
       console.warn('连通性检测失败:', e.message)
       ElMessage.warning(e.message || '连通性检测失败')
@@ -98,6 +103,11 @@ export const useServicesStore = defineStore('services', () => {
 
   async function checkService(id: number) {
     const result = await api.checkService(id)
+    const idx = services.value.findIndex(s => s.id === id)
+    if (idx !== -1) {
+      services.value[idx].status = result.status as Service['status']
+      writeSvcCache(services.value) // 同步缓存
+    }
     checkResults.value[id] = { status: result.status, latencyMs: result.latencyMs }
     return result
   }
