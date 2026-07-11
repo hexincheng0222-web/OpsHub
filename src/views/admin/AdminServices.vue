@@ -10,6 +10,12 @@
         <el-button type="warning" size="small" :loading="servicesStore.checking" @click="servicesStore.checkAllServices()">
           <el-icon><Refresh /></el-icon> 批量检测
         </el-button>
+        <el-button type="success" size="small" @click="handleExport">
+          <el-icon><Download /></el-icon> 导出 Excel
+        </el-button>
+        <el-upload :show-file-list="false" :before-upload="handleImport" accept=".xlsx,.csv">
+          <el-button type="warning" size="small"><el-icon><Upload /></el-icon> 导入</el-button>
+        </el-upload>
         <el-button type="primary" size="small" @click="handleAdd">
           <el-icon><Plus /></el-icon> 添加服务
         </el-button>
@@ -101,7 +107,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Refresh } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh, Download, Upload } from '@element-plus/icons-vue'
+import { downloadXlsx, parseXlsx } from '../../utils/excel'
+import * as XLSX from 'xlsx'
 import { fetchDict } from '../../api/admin'
 import { resolveIcon, iconKeys } from '../../utils/icons'
 import { useServicesStore } from '../../stores/services'
@@ -242,6 +250,80 @@ async function handleDelete(row: any) {
   } catch (e: any) {
     ElMessage.error(e.message || '删除失败')
   }
+}
+
+/**
+ * 解析 .csv 文件为首行表头 + 数据行（结构与 parseXlsx 一致）
+ * csv.ts 未提供解析函数，这里用 SheetJS string 模式读取 CSV。
+ */
+async function parseCsvFile(file: File): Promise<{ headers: string[]; rows: string[][] }> {
+  const text = await file.text()
+  const wb = XLSX.read(text, { type: 'string' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+  if (aoa.length === 0) return { headers: [], rows: [] }
+  const headers = (aoa[0] as unknown[]).map(c => String(c ?? '').trim())
+  const rows = aoa.slice(1).map(r => (r as unknown[]).map(c => String(c ?? '').trim()))
+  return { headers, rows }
+}
+
+/**
+ * 导出当前服务列表为 Excel
+ * downloadXlsx 签名：(headers, rows, filename, sheetName?)，filename 不含扩展名
+ */
+async function handleExport() {
+  const headers = ['名称', '地址', '分类', '主机', '状态', '描述', '备注', '图标']
+  const rows = services.value.map(s => [
+    s.name, s.url, s.category, getHostName(s.hostId),
+    s.status, s.description ?? '', s.notes ?? '', s.icon ?? '',
+  ])
+  downloadXlsx(headers, rows, '内网服务列表', '服务')
+  ElMessage.success('已导出')
+}
+
+/**
+ * 导入 Excel/CSV 文件，逐行创建服务
+ * parseXlsx/parseCsvFile 返回 {headers, rows}，rows 为 string[][]，需转成对象数组再按字段读取
+ */
+async function handleImport(file: File): Promise<boolean> {
+  try {
+    const { headers, rows } = file.name.toLowerCase().endsWith('.csv')
+      ? await parseCsvFile(file)
+      : await parseXlsx(file)
+    // 将 [["名称","地址",...], ["a","b",...]] 转成 [{名称:"a",地址:"b"}]
+    const records = rows.map(r => {
+      const obj: Record<string, string> = {}
+      headers.forEach((h, i) => { obj[h] = r[i] ?? '' })
+      return obj
+    }).filter(o => o['名称'] && o['名称'].trim()) // 跳过空行
+
+    let ok = 0, fail = 0
+    const failNames: string[] = []
+    for (const r of records) {
+      try {
+        await servicesStore.addService({
+          name: r['名称'].trim(),
+          url: r['地址'] ?? '',
+          category: r['分类'] ?? '',
+          status: (r['状态'] || 'online') as 'online' | 'offline' | 'maintenance',
+          description: r['描述'] ?? '',
+          notes: r['备注'] ?? '',
+          icon: r['图标'] || 'Setting',
+          hostId: null, // 主机名→id 解析超出范围，填 null，用户可后续手动编辑
+        })
+        ok++
+      } catch (e: any) {
+        fail++
+        failNames.push(`${r['名称']}: ${e.message || '失败'}`)
+      }
+    }
+    ElMessage.success(`导入完成：成功 ${ok} 条，失败 ${fail} 条`)
+    if (fail) ElMessage.warning('失败：' + failNames.slice(0, 5).join('；'))
+    await loadData()
+  } catch (e: any) {
+    ElMessage.error(e.message || '文件解析失败')
+  }
+  return false // 阻止 el-upload 自动上传
 }
 
 onMounted(loadData)
