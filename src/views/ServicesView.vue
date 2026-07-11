@@ -155,7 +155,7 @@
         </div>
       </div>
       <template #footer>
-        <el-button type="primary" @click="openService(selectedService!.url)">
+        <el-button type="primary" :disabled="!isSafeUrl(selectedService!.url)" @click="openService(selectedService!.url)">
           <el-icon><Position /></el-icon> 访问服务
         </el-button>
       </template>
@@ -231,8 +231,18 @@ function openDrawer(svc: Service) {
   drawerVisible.value = true
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch { return false }
+}
 function openService(url: string) {
-  window.open(url, '_blank')
+  if (!isSafeUrl(url)) {
+    ElMessage.warning('地址格式不合法（仅支持 http/https）')
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 function statusType(status: string) {

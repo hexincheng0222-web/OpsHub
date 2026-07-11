@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import { isIP } from 'node:net'
 import db from '../db'
 
 const router = Router()
@@ -8,6 +9,42 @@ function getCategories(): string[] {
   const rows = db.prepare('SELECT name FROM service_categories ORDER BY sort_order ASC, id ASC').all() as { name: string }[]
   return rows.length > 0 ? rows.map(r => r.name) : ['DevOps', '监控', '基础设施', '协作']
 }
+
+function validateUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch { return false }
+}
+
+const SSRF_BLACKLIST: Array<{ cidr: string; mask: number }> = [
+  { cidr: '169.254.0.0', mask: 16 },   // 链路本地（含云 metadata）
+  { cidr: '127.0.0.0', mask: 8 },       // 本机回环
+  { cidr: '0.0.0.0', mask: 8 },         // 未指定
+]
+
+function ipToInt(ip: string): number {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct), 0) >>> 0
+}
+
+function isBlacklisted(host: string): boolean {
+  if (!isIP(host)) return false
+  if (isIP(host) === 6) return false
+  for (const { cidr, mask } of SSRF_BLACKLIST) {
+    if ((ipToInt(cidr) >>> (32 - mask)) === (ipToInt(host) >>> (32 - mask))) return true
+  }
+  return false
+}
+
+function validateSsrfSafe(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+    if (isBlacklisted(u.hostname)) return false
+    return true
+  } catch { return false }
+}
+
 const STATUSES = ['online', 'offline', 'maintenance']
 
 function toApi(row: any) {
@@ -102,6 +139,9 @@ router.post('/', (req: Request, res: Response) => {
   if (!category || !getCategories().includes(category)) {
     return res.status(400).json({ code: 400, message: 'category 必须是已配置的服务分类之一' })
   }
+  if (!validateUrl(url) || !validateSsrfSafe(url)) {
+    return res.status(400).json({ code: 400, message: 'url 必须是 http/https 协议，且不能指向保留/内网地址' })
+  }
   if (status && !STATUSES.includes(status)) {
     return res.status(400).json({ code: 400, message: 'status 必须是 ' + STATUSES.join(', ') + ' 之一' })
   }
@@ -134,6 +174,9 @@ router.put('/:id', (req: Request, res: Response) => {
   if (!name || !url || !category) {
     return res.status(400).json({ code: 400, message: 'name、url、category 为必填项' })
   }
+  if (!validateUrl(url) || !validateSsrfSafe(url)) {
+    return res.status(400).json({ code: 400, message: 'url 必须是 http/https 协议，且不能指向保留/内网地址' })
+  }
 
   try {
     db.prepare(
@@ -157,6 +200,12 @@ router.patch('/:id', (req: Request, res: Response) => {
   const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!existing) {
     return res.status(404).json({ code: 404, message: '服务不存在' })
+  }
+
+  if (req.body.url !== undefined) {
+    if (typeof req.body.url !== 'string' || req.body.url.length > 500 || !validateUrl(req.body.url) || !validateSsrfSafe(req.body.url)) {
+      return res.status(400).json({ code: 400, message: 'url 必须是 1-500 字符 http/https 协议，且不能指向保留/内网地址' })
+    }
   }
 
   const allowedFields = ['status', 'notes', 'description', 'name', 'url', 'icon', 'category']
