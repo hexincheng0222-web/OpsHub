@@ -189,6 +189,8 @@ onMounted(() => {
   // 加载字典
   fetchDict('service-hosts').then(data => { hosts.value = data }).catch((e: any) => { console.warn('加载主机列表失败:', e.message); ElMessage.warning('主机列表加载失败，请刷新重试') })
   fetchDict('service-categories').then(data => { serviceCategories.value = data.map((c: any) => c.name) }).catch((e: any) => { console.warn('加载服务分类失败:', e.message); ElMessage.warning('服务分类加载失败，请刷新重试') })
+  selectedHostId.value = route.query.hostId ? Number(route.query.hostId) : null
+  servicesStore.refreshFavorites()
 })
 
 // 统计每个主机的服务数
@@ -202,8 +204,8 @@ const filterCategory = ref((route.query.category as string) || '')
 const filterStatus = ref((route.query.status as string) || '')
 
 // 筛选同步到 URL
-watch([search, filterCategory, filterStatus], () => {
-  router.replace({ query: { search: search.value || undefined, category: filterCategory.value || undefined, status: filterStatus.value || undefined } })
+watch([search, filterCategory, filterStatus, selectedHostId], () => {
+  router.replace({ query: { search: search.value || undefined, category: filterCategory.value || undefined, status: filterStatus.value || undefined, hostId: selectedHostId.value ?? undefined } })
 })
 
 const filteredServices = computed(() => {

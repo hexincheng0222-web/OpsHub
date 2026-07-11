@@ -32,6 +32,25 @@ export const useServicesStore = defineStore('services', () => {
   const offlineCount = computed(() => services.value.filter(s => s.status === 'offline').length)
   const maintenanceCount = computed(() => services.value.filter(s => s.status === 'maintenance').length)
 
+  const favorites = ref<Set<number>>(new Set())
+
+  async function refreshFavorites() {
+    try {
+      const list = await api.fetchFavorites()
+      favorites.value = new Set(list.map(s => s.id))
+    } catch { /* 非阻塞 */}
+  }
+  function isFavorite(id: number) { return favorites.value.has(id) }
+  async function toggleFavorite(id: number) {
+    if (favorites.value.has(id)) {
+      await api.removeFavorite(id)
+      favorites.value.delete(id)
+    } else {
+      await api.addFavorite(id)
+      favorites.value.add(id)
+    }
+  }
+
   async function loadServices() {
     const cached = readSvcCache()
     if (cached) {
@@ -117,5 +136,6 @@ export const useServicesStore = defineStore('services', () => {
     total, onlineCount, offlineCount, maintenanceCount,
     loadServices, addService, updateService, patchService, deleteService,
     checkAllServices, checkService,
+    favorites, refreshFavorites, isFavorite, toggleFavorite,
   }
 })
