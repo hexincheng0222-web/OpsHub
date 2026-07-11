@@ -20,6 +20,7 @@ import usersRouter from './routes/users'
 import dashboardRouter from './routes/dashboard'
 import cron from 'node-cron'
 import db from './db'
+import { startServicesScheduler } from './servicesScheduler'
 import { authRequired, requireRole } from './middleware/auth'
 
 const app = express()
@@ -80,6 +81,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 app.listen(PORT, () => {
   console.log(`[server] OpsHub API running at http://localhost:${PORT}`)
 })
+
+// 定时巡检调度器（生产模式或显式开启时启动，避免开发环境干扰）
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_SVC_CRON === '1') {
+  startServicesScheduler(parseInt(process.env.SVC_CRON_MIN || '10'))
+}
 
 // 每日 03:00 清理 30 天前健康日志
 cron.schedule('0 3 * * *', () => {
