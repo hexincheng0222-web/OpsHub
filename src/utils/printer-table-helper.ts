@@ -26,7 +26,9 @@ export function floorWeight(f: string): number {
   return 999
 }
 
-export function buildFloorGroups(
+const floorGroupsCache = new Map<string, FloorGroup[]>()
+
+function computeFloorGroups(
   printers: { id: number; manufacturer: string; model: string; location: string; floor: string; tonerModel: string; notes: string; status: string }[],
   selectedFloors: Set<string> | string | null,
   searchQuery: string,
@@ -42,13 +44,12 @@ export function buildFloorGroups(
     filtered = filtered.filter(p => p.floor === selectedFloors)
   }
 
-  const q = searchQuery.toLowerCase()
+  const q = searchQuery.trim()
   if (q) {
     filtered = filtered.filter(p =>
-      p.manufacturer.toLowerCase().includes(q) ||
-      p.model.toLowerCase().includes(q) ||
-      p.location.toLowerCase().includes(q) ||
-      p.tonerModel.toLowerCase().includes(q)
+      [p.manufacturer, p.model, p.location, p.tonerModel].some(v =>
+        (v && v.toLowerCase().includes(q.toLowerCase())) || v.includes(q)
+      )
     )
   }
 
@@ -94,4 +95,22 @@ export function buildFloorGroups(
       }
       return { floor, rows, totalCount: printers.length }
     })
+}
+
+export function buildFloorGroups(
+  printers: { id: number; manufacturer: string; model: string; location: string; floor: string; tonerModel: string; notes: string; status: string }[],
+  selectedFloors: Set<string> | string | null,
+  searchQuery: string,
+  statusFilter = ''
+): FloorGroup[] {
+  const hash = JSON.stringify([
+    printers.map(p => p.id + p.status).join(','),
+    selectedFloors instanceof Set ? [...selectedFloors].sort().join(',') : (selectedFloors || ''),
+    searchQuery,
+    statusFilter,
+  ])
+  if (floorGroupsCache.has(hash)) return floorGroupsCache.get(hash)!
+  const result = computeFloorGroups(printers, selectedFloors, searchQuery, statusFilter)
+  floorGroupsCache.set(hash, result)
+  return result
 }
