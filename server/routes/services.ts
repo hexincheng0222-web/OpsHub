@@ -208,6 +208,15 @@ router.patch('/:id', (req: Request, res: Response) => {
     }
   }
 
+  if (req.body.category !== undefined && !getCategories().includes(req.body.category)) {
+    return res.status(400).json({ code: 400, message: 'category 必须是已配置的服务分类之一' })
+  }
+  if (req.body.name !== undefined) {
+    if (typeof req.body.name !== 'string' || req.body.name.length < 1 || req.body.name.length > 100) {
+      return res.status(400).json({ code: 400, message: 'name 需 1-100 字符' })
+    }
+  }
+
   const allowedFields = ['status', 'notes', 'description', 'name', 'url', 'icon', 'category']
   const updates: string[] = []
   const values: any[] = []
@@ -281,7 +290,34 @@ async function concurrentPool<T, R>(
 
 // 7. 批量检测连通性（含缓存 + 并发控制）
 let checkAllCache: { timestamp: number; data: any } | null = null
+
+export function invalidateCheckAllCache() {
+  checkAllCache = null
+}
+
 const CHECK_CACHE_TTL = 60_000 // 60 秒
+
+// 单个服务检测（HEAD 优先，回退 GET，统一在 check-all 与 /:id/check 复用）
+const checkOne = async (svc: any): Promise<any> => {
+  const start = Date.now()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+  try {
+    const res = await fetch(svc.url, { method: 'HEAD', signal: controller.signal })
+    clearTimeout(timeout)
+    return { id: svc.id, name: svc.name, status: res.status < 500 ? 'online' : 'offline', latencyMs: Date.now() - start, httpStatus: res.status }
+  } catch (headErr) {
+    try {
+      const c2 = new AbortController()
+      const t2 = setTimeout(() => c2.abort(), 5000)
+      const res = await fetch(svc.url, { method: 'GET', signal: c2.signal, headers: { Range: 'bytes=0-0' } })
+      clearTimeout(t2)
+      return { id: svc.id, name: svc.name, status: res.status < 500 ? 'online' : 'offline', latencyMs: Date.now() - start, httpStatus: res.status }
+    } catch {
+      return { id: svc.id, name: svc.name, status: 'offline', latencyMs: null, error: '连接超时' }
+    }
+  }
+}
 
 router.post('/check-all', async (_req: Request, res: Response) => {
   // 缓存命中
@@ -291,19 +327,6 @@ router.post('/check-all', async (_req: Request, res: Response) => {
 
   const services = db.prepare("SELECT * FROM services WHERE status != 'maintenance'").all() as any[]
   const skipped = db.prepare("SELECT * FROM services WHERE status = 'maintenance'").all() as any[]
-
-  const checkOne = async (svc: any): Promise<any> => {
-    const start = Date.now()
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
-      await fetch(svc.url, { method: 'HEAD', signal: controller.signal })
-      clearTimeout(timeout)
-      return { id: svc.id, name: svc.name, status: 'online', latencyMs: Date.now() - start }
-    } catch {
-      return { id: svc.id, name: svc.name, status: 'offline', latencyMs: null, error: '连接超时' }
-    }
-  }
 
   // 并发控制：最多 10 个同时检测
   const results = await concurrentPool(services, 10, checkOne)
@@ -336,23 +359,11 @@ router.post('/:id/check', async (req: Request, res: Response) => {
   const id = parseInt(req.params.id)
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id) as any
-  if (!svc) {
-    return res.status(404).json({ code: 404, message: '服务不存在' })
-  }
-
-  const start = Date.now()
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 5000)
-    await fetch(svc.url, { method: 'HEAD', signal: controller.signal })
-    clearTimeout(timeout)
-    const latencyMs = Date.now() - start
-    db.prepare("UPDATE services SET status = 'online', updated_at = datetime('now') WHERE id = ?").run(id)
-    res.json({ code: 200, data: { id, status: 'online', latencyMs } })
-  } catch {
-    db.prepare("UPDATE services SET status = 'offline', updated_at = datetime('now') WHERE id = ?").run(id)
-    res.json({ code: 200, data: { id, status: 'offline', latencyMs: null, error: '连接超时' } })
-  }
+  if (!svc) return res.status(404).json({ code: 404, message: '服务不存在' })
+  const r = await checkOne(svc)
+  db.prepare("UPDATE services SET status = ?, updated_at = datetime('now') WHERE id = ?").run(r.status, r.id)
+  invalidateCheckAllCache()
+  res.json({ code: 200, data: { id: r.id, status: r.status, latencyMs: r.latencyMs, httpStatus: r.httpStatus } })
 })
 
 export default router
