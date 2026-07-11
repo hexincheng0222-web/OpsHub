@@ -7,6 +7,9 @@
       </div>
       <div class="header-actions">
         <el-input v-model="searchText" placeholder="搜索服务..." clearable size="small" :prefix-icon="Search" style="width: 200px" />
+        <el-button type="warning" size="small" :loading="servicesStore.checking" @click="servicesStore.checkAllServices()">
+          <el-icon><Refresh /></el-icon> 批量检测
+        </el-button>
         <el-button type="primary" size="small" @click="handleAdd">
           <el-icon><Plus /></el-icon> 添加服务
         </el-button>
@@ -33,9 +36,10 @@
           <span>{{ getHostName(row.hostId) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="success" text size="small" :loading="checkingId === row.id" @click="handleCheck(row)">检测</el-button>
           <el-button type="danger" text size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -97,7 +101,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Search, Plus, Refresh } from '@element-plus/icons-vue'
 import { fetchDict } from '../../api/admin'
 import { resolveIcon, iconKeys } from '../../utils/icons'
 import { useServicesStore } from '../../stores/services'
@@ -113,6 +117,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref()
 const editingId = ref<number | null>(null)
+const checkingId = ref<number | null>(null)
 
 const iconOptions = iconKeys
 
@@ -179,6 +184,14 @@ function handleAdd() {
   editingId.value = null
   formData.value = { name: '', url: '', description: '', notes: '', icon: 'Setting', category: '', status: 'online' as 'online' | 'offline' | 'maintenance', hostId: null }
   dialogVisible.value = true
+}
+
+async function handleCheck(row: any) {
+  checkingId.value = row.id
+  try {
+    const r = await servicesStore.checkService(row.id)
+    ElMessage.success(`${row.name} 当前 ${r.status === 'online' ? '在线' : '离线'}（${r.latencyMs ?? '--'}ms）`)
+  } catch (e: any) { ElMessage.error(e.message || '检测失败') } finally { checkingId.value = null }
 }
 
 function handleEdit(row: any) {
