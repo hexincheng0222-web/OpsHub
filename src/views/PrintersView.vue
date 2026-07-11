@@ -30,7 +30,7 @@
       <label class="import-auto-check">
         <input type="checkbox" v-model="importAutoCreateDict" /> 自动补录字典缺失项
       </label>
-      <input ref="fileInput" type="file" accept=".csv" style="display:none" @change="handleImport" />
+      <input ref="fileInput" type="file" accept=".csv,.xlsx" style="display:none" @change="handleImport" />
     </div>
 
     <!-- Toolbar -->
@@ -168,6 +168,23 @@
         <el-button type="primary" :loading="saving" @click="savePrinter">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入预览弹窗 -->
+    <el-dialog v-model="previewVisible" title="导入预览" width="800px">
+      <el-table :data="previewRows" max-height="400" size="small">
+        <el-table-column prop="floor" label="楼层" width="80" />
+        <el-table-column prop="location" label="位置" />
+        <el-table-column prop="manufacturer" label="厂商" width="100" />
+        <el-table-column prop="model" label="型号" width="160" />
+        <el-table-column prop="tonerModel" label="硒鼓" width="120" />
+        <el-table-column prop="notes" label="备注" />
+      </el-table>
+      <template #footer>
+        <el-checkbox v-model="importAutoCreateDict" style="margin-right:12px">自动补录字典缺失项</el-checkbox>
+        <el-button @click="previewVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmImport">确认导入 {{ previewRows.length }} 条</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -177,6 +194,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
+import { parseXlsx } from '../utils/excel'
 import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { fetchDict } from '../api/admin'
@@ -191,6 +209,8 @@ const store = usePrintersStore()
 
 // 导入相关状态
 const importAutoCreateDict = ref(false)
+const previewRows = ref<Partial<Printer>[]>([])
+const previewVisible = ref(false)
 
 // 加载打印机型号字典
 onMounted(async () => {
@@ -315,15 +335,23 @@ async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   try {
-    const text = await file.text()
-    const data = parsePrintersCSV(text)
-    if (data.length) {
-      await store.batchImport(data as Printer[], importAutoCreateDict.value)
-      ElMessage.success(`导入 ${data.length} 台打印机`)
-    }
+    const data = file.name.toLowerCase().endsWith('.csv')
+      ? parsePrintersCSV(await file.text())
+      : (await parseXlsx(file)).rows.map(r => {
+          const [floor, location, manufacturer, model, tonerModel, notes] = r.concat(Array(6).fill('')).slice(0, 6)
+          return { floor, location, manufacturer, model, tonerModel, notes, status: '正常' as const }
+        })
+    previewRows.value = data
+    previewVisible.value = true
   } catch (err: any) {
-    ElMessage.error(err.message || '导入失败')
+    ElMessage.error(err.message || '解析失败')
   }
+}
+
+async function confirmImport() {
+  await store.batchImport(previewRows.value as Printer[], importAutoCreateDict.value)
+  ElMessage.success(`导入 ${previewRows.value.length} 台打印机`)
+  previewVisible.value = false
   if (fileInput.value) fileInput.value.value = ''
 }
 

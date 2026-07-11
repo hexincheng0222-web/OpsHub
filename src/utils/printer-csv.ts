@@ -35,7 +35,10 @@ export function parsePrintersCSV(text: string): Partial<Printer>[] {
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
     if (cols.length === 0 || cols.every(c => !c)) continue
-    const [floor, location, manufacturer, model, tonerModel, notes] = cols
+    // 列数兜底：少列填空字符串，多列截断
+    const normalized = cols.slice(0, 6)
+    while (normalized.length < 6) normalized.push('')
+    const [floor, location, manufacturer, model, tonerModel, notes] = normalized
     result.push({
       floor: floor?.trim() || '',
       location: location?.trim() || '',
