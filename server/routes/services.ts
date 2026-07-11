@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { isIP } from 'node:net'
 import db from '../db'
+import { authRequired } from '../middleware/auth'
 
 const router = Router()
 
@@ -113,6 +114,31 @@ router.get('/', (req: Request, res: Response) => {
 // 2. 获取分类列表（必须在 /:id 之前）
 router.get('/categories', (_req: Request, res: Response) => {
   res.json({ code: 200, data: { categories: getCategories() } })
+})
+
+// 收藏路由（必须在 /:id 之前，避免 GET /favorites 被 /:id 拦截）
+router.post('/:id/favorite', authRequired, (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ code: 401 })
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
+  db.prepare('INSERT OR IGNORE INTO user_service_favorites (user_id, service_id) VALUES (?, ?)').run(req.user!.id, id)
+  res.json({ code: 200 })
+})
+
+router.delete('/:id/favorite', authRequired, (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ code: 401 })
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
+  db.prepare('DELETE FROM user_service_favorites WHERE user_id=? AND service_id=?').run(req.user!.id, id)
+  res.json({ code: 200 })
+})
+
+router.get('/favorites', authRequired, (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ code: 401 })
+  const rows = db.prepare(
+    `SELECT s.* FROM services s JOIN user_service_favorites f ON s.id=f.service_id WHERE f.user_id=? ORDER BY f.sort_order, f.created_at DESC`
+  ).all(req.user!.id)
+  res.json({ code: 200, data: (rows as any[]).map(toApi) })
 })
 
 // GET /api/v1/services/:id/history?hours=24（必须在 /:id 之前，否则被 id='history' 拦截）

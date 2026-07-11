@@ -89,3 +89,18 @@ export async function checkAllServices(): Promise<{
 export async function checkService(id: number): Promise<{ id: number; status: string; latencyMs: number | null }> {
   return request<any>(`${BASE}/${id}/check`, { method: 'POST' })
 }
+
+// 9. 收藏服务
+export async function addFavorite(serviceId: number): Promise<void> {
+  await request(`${BASE}/${serviceId}/favorite`, { method: 'POST' })
+}
+
+// 10. 取消收藏
+export async function removeFavorite(serviceId: number): Promise<void> {
+  await request(`${BASE}/${serviceId}/favorite`, { method: 'DELETE' })
+}
+
+// 11. 获取收藏列表
+export async function fetchFavorites(): Promise<Service[]> {
+  return request<Service[]>(`${BASE}/favorites`)
+}
