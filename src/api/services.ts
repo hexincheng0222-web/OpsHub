@@ -104,3 +104,8 @@ export async function removeFavorite(serviceId: number): Promise<void> {
 export async function fetchFavorites(): Promise<Service[]> {
   return request<Service[]>(`${BASE}/favorites`)
 }
+
+// 12. 获取健康历史
+export async function fetchHistory(id: number, hours = 24): Promise<{ points: any[] }> {
+  return request<any>(`${BASE}/${id}/history?hours=${hours}`)
+}

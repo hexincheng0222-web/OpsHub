@@ -131,11 +131,15 @@ export const useServicesStore = defineStore('services', () => {
     return result
   }
 
+  async function fetchHistory(id: number, hours: number) {
+    return api.fetchHistory(id, hours)
+  }
+
   return {
     services, checkResults, loading, checking,
     total, onlineCount, offlineCount, maintenanceCount,
     loadServices, addService, updateService, patchService, deleteService,
     checkAllServices, checkService,
-    favorites, refreshFavorites, isFavorite, toggleFavorite,
+    favorites, refreshFavorites, isFavorite, toggleFavorite, fetchHistory,
   }
 })

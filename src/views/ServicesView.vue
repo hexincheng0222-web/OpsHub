@@ -172,6 +172,10 @@
             {{ checkResults[selectedService.id] ? (checkResults[selectedService.id].latencyMs ?? '--') + 'ms' : '未检测' }}
           </div>
         </div>
+        <div class="drawer-section">
+          <div class="drawer-label">最近 24 小时</div>
+          <ServiceHealthChart :points="healthPoints" />
+        </div>
       </div>
       <template #footer>
         <el-button type="primary" :disabled="!isSafeUrl(selectedService!.url)" @click="openService(selectedService!.url)">
@@ -192,6 +196,7 @@ import { fetchDict } from '../api/admin'
 import { resolveIcon } from '../utils/icons'
 import { ElMessage } from 'element-plus'
 import BackButton from '../components/BackButton.vue'
+import ServiceHealthChart from '../components/ServiceHealthChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -254,6 +259,14 @@ function hostName(hostId: number | null): string {
 
 const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
+const healthPoints = ref<any[]>([])
+watch(selectedService, async (svc) => {
+  if (!svc) return
+  try {
+    const { points } = await servicesStore.fetchHistory(svc.id, 24)
+    healthPoints.value = points
+  } catch { healthPoints.value = [] }
+})
 
 function openDrawer(svc: Service) {
   selectedService.value = svc
