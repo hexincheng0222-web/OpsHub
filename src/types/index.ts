@@ -32,6 +32,7 @@ export interface Service {
   category: string
   status: 'online' | 'offline' | 'maintenance' | 'checking'
   hostId?: number | null
+  createdAt?: string
 }
 
 // ========== 运维手册类型 ==========

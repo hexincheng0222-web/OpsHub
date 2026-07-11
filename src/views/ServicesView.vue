@@ -153,6 +153,25 @@
           <div class="drawer-label">备注</div>
           <div class="drawer-notes">{{ selectedService.notes || '暂无备注' }}</div>
         </div>
+        <div class="drawer-section">
+          <div class="drawer-label">分类</div>
+          <div class="drawer-value">{{ selectedService.category || '—' }}</div>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-label">部署主机</div>
+          <div class="drawer-value">{{ hostName(selectedService.hostId) }}</div>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-label">创建时间</div>
+          <div class="drawer-value">{{ selectedService.createdAt }}</div>
+        </div>
+        <div class="drawer-section">
+          <div class="drawer-label">最后检测</div>
+          <div class="drawer-value">
+            <span class="status-dot" :class="'dot-' + (checkResults[selectedService.id]?.status || selectedService.status)" />
+            {{ checkResults[selectedService.id] ? (checkResults[selectedService.id].latencyMs ?? '--') + 'ms' : '未检测' }}
+          </div>
+        </div>
       </div>
       <template #footer>
         <el-button type="primary" :disabled="!isSafeUrl(selectedService!.url)" @click="openService(selectedService!.url)">
@@ -224,6 +243,14 @@ const filteredServices = computed(() => {
 })
 
 const filteredCount = computed(() => filteredServices.value.length)
+
+const checkResults = computed(() => servicesStore.checkResults)
+
+function hostName(hostId: number | null): string {
+  if (!hostId) return '—'
+  const h = hosts.value.find(x => x.id === hostId)
+  return h ? `${h.name} (${h.ip ?? ''})` : '—'
+}
 
 const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
