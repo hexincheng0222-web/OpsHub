@@ -138,17 +138,17 @@
           <el-input v-model="form.location" placeholder="如：东区茶水间旁" />
         </el-form-item>
         <el-form-item label="厂商">
-          <el-select v-model="form.manufacturer" filterable allow-create placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
-            <el-option v-for="m in manufacturers" :key="m" :label="m" :value="m" />
+          <el-select v-model="form.manufacturer" filterable placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
+            <el-option v-for="b in manufacturers" :key="b" :label="b" :value="b" />
           </el-select>
         </el-form-item>
         <el-form-item label="型号">
-          <el-select v-model="form.model" filterable allow-create placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
+          <el-select v-model="form.model" filterable placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
             <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
           </el-select>
         </el-form-item>
         <el-form-item label="硒鼓">
-          <el-select v-model="form.tonerModel" filterable allow-create placeholder="请选择硒鼓型号" style="width:100%">
+          <el-select v-model="form.tonerModel" filterable placeholder="请选择硒鼓型号" style="width:100%">
             <el-option v-for="t in allTonerModels" :key="t" :label="t" :value="t" />
           </el-select>
         </el-form-item>
