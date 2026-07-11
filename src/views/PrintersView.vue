@@ -127,54 +127,47 @@
     </div>
 
     <!-- Dialog -->
-    <Teleport to="body">
-      <div v-if="dialogVisible" class="df-overlay" @click.self="dialogVisible = false">
-        <div class="df-dialog">
-          <div class="df-header">{{ editingPrinter ? '编辑打印机' : '添加打印机' }}</div>
-          <div class="df-body">
-            <label class="df-field"><span class="df-label">楼层</span>
-              <el-select v-model="form.floor" filterable allow-create placeholder="请选择楼层" style="width:100%">
-                <el-option v-for="f in floors" :key="f" :label="f" :value="f" />
-              </el-select>
-            </label>
-            <div class="df-row"><label class="df-field"><span class="df-label">位置</span><input v-model="form.location" class="df-input" placeholder="如 东区茶水间旁" /></label></div>
-            <div class="df-row">
-              <label class="df-field" style="flex:1"><span class="df-label">厂商</span>
-                <el-select v-model="form.manufacturer" filterable allow-create placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
-                  <el-option v-for="m in manufacturers" :key="m" :label="m" :value="m" />
-                </el-select>
-              </label>
-            </div>
-            <div class="df-row">
-              <label class="df-field" style="flex:1"><span class="df-label">型号</span>
-                <el-select v-model="form.model" filterable allow-create placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
-                  <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
-                </el-select>
-              </label>
-            </div>
-            <label class="df-field"><span class="df-label">硒鼓型号</span>
-              <el-select v-model="form.tonerModel" filterable allow-create placeholder="请选择硒鼓型号" style="width:100%">
-                <el-option v-for="t in allTonerModels" :key="t" :label="t" :value="t" />
-              </el-select>
-            </label>
-            <label class="df-field"><span class="df-label">备注</span><input v-model="form.notes" class="df-input" placeholder="备注信息" /></label>
-            <div class="df-row">
-              <label class="df-field" style="flex:1">
-                <span class="df-label">状态</span>
-                <el-select v-model="form.status" style="width:100%">
-                  <el-option value="正常" /><el-option value="缺墨" /><el-option value="故障" />
-                </el-select>
-              </label>
-              <div style="flex:1" />
-            </div>
-          </div>
-          <div class="df-footer">
-            <button class="df-btn df-btn-cancel" @click="dialogVisible = false">取消</button>
-            <button class="df-btn df-btn-confirm" :disabled="saving" @click="savePrinter">{{ saving ? '保存中...' : '保存' }}</button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <el-dialog v-model="dialogVisible" :title="editingPrinter ? '编辑打印机' : '添加打印机'" width="560px" destroy-on-close>
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="楼层">
+          <el-select v-model="form.floor" filterable allow-create placeholder="请选择楼层" style="width:100%">
+            <el-option v-for="f in floors" :key="f" :label="f" :value="f" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="位置">
+          <el-input v-model="form.location" placeholder="如：东区茶水间旁" />
+        </el-form-item>
+        <el-form-item label="厂商">
+          <el-select v-model="form.manufacturer" filterable allow-create placeholder="请选择厂商" style="width:100%" @change="form.model = ''">
+            <el-option v-for="m in manufacturers" :key="m" :label="m" :value="m" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="型号">
+          <el-select v-model="form.model" filterable allow-create placeholder="请先选择厂商" :disabled="!form.manufacturer" style="width:100%">
+            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="硒鼓">
+          <el-select v-model="form.tonerModel" filterable allow-create placeholder="请选择硒鼓型号" style="width:100%">
+            <el-option v-for="t in allTonerModels" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="form.notes" type="textarea" :rows="3" placeholder="备注信息" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="form.status" style="width:100%">
+            <el-option label="正常" value="正常" />
+            <el-option label="缺墨" value="缺墨" />
+            <el-option label="故障" value="故障" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="savePrinter">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -468,20 +461,4 @@ async function savePrinter() {
 
 .row-btn { background: none; border: 1px solid transparent; color: var(--ops-text-tertiary); cursor: pointer; font-size: 11px; padding: 3px 8px; border-radius: 4px; transition: all 0.15s; font-family: inherit; }
 .row-btn:hover { background: var(--ops-bg-card-hover); color: var(--ops-accent-blue); }
-
-/* Dialog */
-.df-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-.df-dialog { background: var(--ops-bg-card); border: 1px solid var(--ops-border-card); border-radius: 10px; padding: 20px; width: 600px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
-.df-header { font-size: 16px; font-weight: 600; color: var(--ops-text-primary); margin-bottom: 16px; }
-.df-body { display: flex; flex-direction: column; gap: 10px; }
-.df-field { display: flex; flex-direction: column; gap: 3px; }
-.df-label { font-size: 12px; color: var(--ops-text-tertiary); }
-.df-input { background: var(--ops-bg-card-hover); border: 1px solid var(--ops-border-card); color: var(--ops-text-primary); border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
-.df-input:focus { border-color: var(--ops-accent-blue); }
-.df-row { display: flex; gap: 12px; }
-.df-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.df-btn { padding: 6px 16px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
-.df-btn-cancel { background: var(--ops-bg-card-hover); color: var(--ops-text-secondary); }
-.df-btn-confirm { background: rgba(88,166,255,0.12); color: var(--ops-accent-blue); border: 1px solid rgba(88,166,255,0.25); font-weight: 600; }
-.df-btn-confirm:hover { background: rgba(88,166,255,0.2); }
 </style>
