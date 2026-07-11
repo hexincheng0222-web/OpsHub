@@ -28,13 +28,18 @@ export function floorWeight(f: string): number {
 
 export function buildFloorGroups(
   printers: { id: number; manufacturer: string; model: string; location: string; floor: string; tonerModel: string; notes: string; status: string }[],
-  selectedFloor: string,
-  searchQuery: string
+  selectedFloors: Set<string> | string | null,
+  searchQuery: string,
+  statusFilter = ''
 ): FloorGroup[] {
   let filtered = printers
 
-  if (selectedFloor) {
-    filtered = filtered.filter(p => p.floor === selectedFloor)
+  if (statusFilter) filtered = filtered.filter(p => p.status === statusFilter)
+
+  if (selectedFloors instanceof Set && selectedFloors.size > 0) {
+    filtered = filtered.filter(p => selectedFloors.has(p.floor))
+  } else if (selectedFloors && typeof selectedFloors === 'string') {
+    filtered = filtered.filter(p => p.floor === selectedFloors)
   }
 
   const q = searchQuery.toLowerCase()

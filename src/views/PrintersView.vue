@@ -38,6 +38,11 @@
       <el-input v-model="searchInput" placeholder="搜索厂商/型号/位置..." clearable size="small" style="width:220px">
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
+      <el-select v-model="filterStatus" placeholder="全部状态" clearable size="small" style="width:120px">
+        <el-option label="正常" value="正常" />
+        <el-option label="缺墨" value="缺墨" />
+        <el-option label="故障" value="故障" />
+      </el-select>
       <span v-if="selectedIds.size > 0" class="sel-info">
         已选 <strong>{{ selectedIds.size }}</strong> 项
         <button class="sel-del-btn" @click="batchDelete">批量删除</button>
@@ -52,8 +57,8 @@
         v-for="floor in allFloors"
         :key="floor"
         class="floor-tab"
-        :class="{ active: selectedFloor === floor }"
-        @click="selectedFloor = floor"
+        :class="{ active: selectedFloors.has(floor) }"
+        @click="toggleFloor(floor)"
       >
         {{ floor }}
         <span class="floor-tab-count">{{ store.printers.filter(p => p.floor === floor).length }}</span>
@@ -255,15 +260,23 @@ const allFloors = computed(() => {
   return floors.sort((a, b) => floorWeight(a) - floorWeight(b))
 })
 
-const selectedFloor = ref('')
+const selectedFloors = ref(new Set<string>())
 watch(allFloors, (floors) => {
-  if (floors.length && !floors.includes(selectedFloor.value)) {
-    selectedFloor.value = floors[0]
+  if (floors.length && selectedFloors.value.size === 0) {
+    selectedFloors.value = new Set([floors[0]])
   }
 }, { immediate: true })
 
+function toggleFloor(f: string) {
+  const n = new Set(selectedFloors.value)
+  if (n.has(f)) n.delete(f); else n.add(f)
+  selectedFloors.value = n
+}
+
+const filterStatus = ref('')
+
 const floorGroups = computed(() =>
-  buildFloorGroups(store.printers as any, selectedFloor.value, searchQuery.value)
+  buildFloorGroups(store.printers as any, selectedFloors.value, searchQuery.value, filterStatus.value)
 )
 
 const selectedIds = ref(new Set<number>())
@@ -368,7 +381,9 @@ async function savePrinter() {
 .sel-info strong { font-weight: 700; color: var(--ops-text-primary); }
 
 /* 楼层标签栏 */
-.floor-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; flex-wrap: wrap; }
+.floor-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; flex-wrap: nowrap; }
+.floor-tabs::-webkit-scrollbar { height: 4px; }
+.floor-tabs::-webkit-scrollbar-thumb { background: var(--ops-border-card); border-radius: 2px; }
 .floor-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; background: var(--ops-bg-card); border: 1px solid var(--ops-border-card); color: var(--ops-text-secondary); transition: all 0.2s; font-family: inherit; white-space: nowrap; }
 .floor-tab:hover { border-color: var(--ops-accent-blue); color: var(--ops-text-primary); }
 .floor-tab.active { background: rgba(88,166,255,0.12); border-color: var(--ops-accent-blue); color: var(--ops-accent-blue); font-weight: 600; }
