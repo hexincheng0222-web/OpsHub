@@ -216,8 +216,28 @@ router.put('/:table/:id', (req: Request, res: Response) => {
   const values = [...cols.map(c => req.body[c]), req.params.id]
 
   try {
+    // 取旧 name（用于改名后同步 printers 表）
+    const oldNameRow = req.body.name !== undefined
+      ? db.prepare('SELECT name FROM ' + config.table + ' WHERE id = ?').get(req.params.id) as { name: string } | undefined
+      : undefined
+
     db.prepare(`UPDATE ${config.table} SET ${setClauses}, updated_at = datetime('now') WHERE id = ?`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(req.params.id)
+
+    // 字典改名后同步刷 printers 表（方案A）
+    if (oldNameRow && req.body.name !== oldNameRow.name) {
+      const newName = req.body.name
+      if (req.params.table === 'printer-brands') {
+        db.prepare('UPDATE printers SET manufacturer = ? WHERE manufacturer = ?').run(newName, oldNameRow.name)
+      } else if (req.params.table === 'printer-models') {
+        db.prepare('UPDATE printers SET model = ? WHERE model = ?').run(newName, oldNameRow.name)
+      } else if (req.params.table === 'toner-models') {
+        db.prepare('UPDATE printers SET toner_model = ? WHERE toner_model = ?').run(newName, oldNameRow.name)
+      } else if (req.params.table === 'printer-floors') {
+        db.prepare('UPDATE printers SET floor = ? WHERE floor = ?').run(newName, oldNameRow.name)
+      }
+    }
+
     logOperation(config.module, '修改', String(req.body.name || `ID:${req.params.id}`), JSON.stringify(req.body), req.user?.username || '')
     res.json({ code: 200, data: row })
   } catch (err: any) {

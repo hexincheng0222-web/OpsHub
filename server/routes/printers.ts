@@ -109,10 +109,20 @@ router.put('/:id', (req: Request, res: Response) => {
       model: 'model', tonerModel: 'toner_model', notes: 'notes', status: 'status',
     }
 
+    const lengthLimits: Record<string, number> = {
+      floor: 16, location: 255, manufacturer: 64, model: 128, toner_model: 128, notes: 10000, status: 16,
+    }
     for (const [key, col] of Object.entries(mapping)) {
       if (req.body[key] !== undefined) {
+        const val = req.body[key]
+        if (typeof val === 'string' && val.length > (lengthLimits[col] || 255)) {
+          return res.status(400).json({ code: 400, message: `${key} 不能超过 ${lengthLimits[col]} 字符` })
+        }
+        if (key === 'status' && !['正常', '缺墨', '故障'].includes(val)) {
+          return res.status(400).json({ code: 400, message: 'status 必须为 正常/缺墨/故障' })
+        }
         fields.push(col + ' = ?')
-        values.push(req.body[key])
+        values.push(val)
       }
     }
     if (fields.length === 0) return res.status(400).json({ code: 400, message: '至少提供一个更新字段' })
