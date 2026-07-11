@@ -34,6 +34,8 @@ router.get('/', (req: Request, res: Response) => {
     params.push(kw, kw, kw, kw, kw, kw)
   }
   if (department) { where += ' AND department = ?'; params.push(department) }
+  // 软删除：主列表只查未删除
+  where += ' AND deleted = 0'
 
   const total = (db.prepare('SELECT COUNT(*) as cnt FROM computer_procurement ' + where).get(...params) as any).cnt
   const rows = db.prepare('SELECT * FROM computer_procurement ' + where + ' ORDER BY id DESC LIMIT ? OFFSET ?')
@@ -41,9 +43,43 @@ router.get('/', (req: Request, res: Response) => {
   res.json({ code: 200, data: { list: rows.map(toApi), total } })
 })
 
+// ===== 回收站（#29 软删除）=====
+// 注意：必须放在 GET /:id 之前，避免 /trash 被 /:id 拦截
+// GET /trash — 回收站列表
+router.get('/trash', (_req: Request, res: Response) => {
+  const rows = db.prepare('SELECT * FROM computer_procurement WHERE deleted = 1 ORDER BY deleted_at DESC').all()
+  res.json({ code: 200, data: rows })
+})
+// POST /trash/restore — 恢复选中
+router.post('/trash/restore', (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+    const ph = ids.map(() => '?').join(',')
+    db.prepare(`UPDATE computer_procurement SET deleted = 0, deleted_at = NULL WHERE id IN (${ph})`).run(...ids)
+    logOperation('电脑采购', '恢复', `${ids.length} 条记录`, '', req.user?.username || '')
+    res.json({ code: 200, message: `已恢复 ${ids.length} 条` })
+  } catch (err: any) {
+    res.status(500).json({ code: 500, message: '恢复失败' })
+  }
+})
+// DELETE /trash/purge — 永久删除
+router.delete('/trash/purge', (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+    const ph = ids.map(() => '?').join(',')
+    db.prepare(`DELETE FROM computer_procurement WHERE id IN (${ph}) AND deleted = 1`).run(...ids)
+    logOperation('电脑采购', '永久删除', `${ids.length} 条记录`, '', req.user?.username || '')
+    res.json({ code: 200, message: `已永久删除 ${ids.length} 条` })
+  } catch (err: any) {
+    res.status(500).json({ code: 500, message: '永久删除失败' })
+  }
+})
+
 // GET /:id
 router.get('/:id', (req: Request, res: Response) => {
-  const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ?').get(req.params.id)
+  const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ? AND deleted = 0').get(req.params.id)
   if (!row) return res.status(404).json({ code: 404, message: '记录不存在' })
   res.json({ code: 200, data: toApi(row) })
 })
@@ -70,7 +106,7 @@ router.post('/', (req: Request, res: Response) => {
 // PUT /:id
 router.put('/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT id FROM computer_procurement WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT id FROM computer_procurement WHERE id = ? AND deleted = 0').get(req.params.id)
     if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
     const mapping: Record<string, string> = {
@@ -91,7 +127,7 @@ router.put('/:id', (req: Request, res: Response) => {
     fields.push("updated_at = datetime('now')")
     values.push(req.params.id)
     db.prepare('UPDATE computer_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
-    const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ?').get(req.params.id)
+    const row = db.prepare('SELECT * FROM computer_procurement WHERE id = ? AND deleted = 0').get(req.params.id)
     logOperation('电脑采购', '修改', (row as any).model || `ID:${req.params.id}`, '', req.user?.username || '')
     res.json({ code: 200, data: toApi(row) })
   } catch (err: any) {
@@ -103,10 +139,10 @@ router.put('/:id', (req: Request, res: Response) => {
 // DELETE /:id
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT model FROM computer_procurement WHERE id = ?').get(req.params.id) as any
+    const existing = db.prepare('SELECT model FROM computer_procurement WHERE id = ? AND deleted = 0').get(req.params.id) as any
     if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
-    db.prepare('DELETE FROM computer_procurement WHERE id = ?').run(req.params.id)
+    db.prepare('UPDATE computer_procurement SET deleted = 1, deleted_at = datetime(\'now\') WHERE id = ?').run(req.params.id)
     logOperation('电脑采购', '删除', existing.model || `ID:${req.params.id}`, '', req.user?.username || '')
     res.status(204).send()
   } catch (err: any) {
@@ -123,7 +159,7 @@ router.post('/batch-delete', (req: Request, res: Response) => {
     const validIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
     if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
     const ph = validIds.map(() => '?').join(',')
-    db.prepare(`DELETE FROM computer_procurement WHERE id IN (${ph})`).run(...validIds)
+    db.prepare(`UPDATE computer_procurement SET deleted = 1, deleted_at = datetime('now') WHERE id IN (${ph}) AND deleted = 0`).run(...validIds)
     logOperation('电脑采购', '批量删除', `${validIds.length} 条记录`, '', req.user?.username || '')
     res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
   } catch (err: any) {

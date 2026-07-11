@@ -20,8 +20,9 @@ export interface PhoneDevice {
 }
 
 // 获取所有话机（优先走缓存）
-export async function fetchPhones() {
-  const res = await request<any>(BASE)
+export async function fetchPhones(force = false) {
+  const url = force ? `${BASE}/refresh` : BASE
+  const res = await request<any>(url)
   // 后端返回 { code, data: [...], total, online, offline }
   // 统一转为 { devices, total, online, offline } 供前端使用
   const list: PhoneDevice[] = Array.isArray(res) ? res : (res.devices || [])
@@ -59,5 +60,18 @@ export async function updatePhoneRemark(id: string, remark: string) {
   return request<any>(`${BASE}/${id}/remark`, {
     method: 'PUT',
     body: JSON.stringify({ remark }),
+  })
+}
+
+/** 获取话机远程电话本配置 */
+export async function fetchRemotePhonebook(id: string) {
+  return request<any>(`${BASE}/${id}/remote-phonebook`)
+}
+
+/** 更新话机远程电话本配置 */
+export async function updateRemotePhonebook(id: string, data: { xmlUrl: string; name: string }) {
+  return request<any>(`${BASE}/${id}/remote-phonebook`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   })
 }

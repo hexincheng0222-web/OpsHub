@@ -389,6 +389,11 @@ db.exec(`
 // 兼容旧数据库：如果列不存在则添加
 try { db.prepare('ALTER TABLE users ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0').run() } catch {}
 try { db.prepare('ALTER TABLE users ADD COLUMN locked_until TEXT').run() } catch {}
+// 采购表软删除字段（#29 回收站）
+try { db.prepare('ALTER TABLE computer_procurement ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run() } catch {}
+try { db.prepare('ALTER TABLE computer_procurement ADD COLUMN deleted_at TEXT').run() } catch {}
+try { db.prepare('ALTER TABLE phone_procurement ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run() } catch {}
+try { db.prepare('ALTER TABLE phone_procurement ADD COLUMN deleted_at TEXT').run() } catch {}
 
 // 如果表为空，插入 mock 数据
 const count = db.prepare('SELECT COUNT(*) as cnt FROM services').get() as { cnt: number }

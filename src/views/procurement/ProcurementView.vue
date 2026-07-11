@@ -19,7 +19,7 @@
           <span>采购概览</span>
         </div>
       </div>
-      <div class="proc-topbar-right">
+      <div class="proc-topbar-right" v-if="activeTab !== 'overview' && canEdit">
         <el-button size="small" @click="triggerImport">
           <el-icon><Upload /></el-icon> 导入
         </el-button>
@@ -33,17 +33,18 @@
     <div class="proc-content">
       <ComputerProcurementTab v-if="activeTab === 'computer'" ref="computerTabRef" />
       <PhoneProcurementTab v-else-if="activeTab === 'phone'" ref="phoneTabRef" />
-      <ProcurementOverviewTab v-else-if="activeTab === 'overview'" />
+      <ProcurementOverviewTab v-else-if="activeTab === 'overview'" @jump="handleOverviewJump" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Plus, Upload } from '@element-plus/icons-vue'
 import { useComputerProcurementStore } from '../../stores/procurement'
 import { usePhoneProcurementStore } from '../../stores/procurement'
+import { useAuthStore } from '../../stores/auth'
 import ComputerProcurementTab from './ComputerProcurementTab.vue'
 import PhoneProcurementTab from './PhoneProcurementTab.vue'
 import ProcurementOverviewTab from './ProcurementOverviewTab.vue'
@@ -53,6 +54,8 @@ const route = useRoute()
 const router = useRouter()
 const computerStore = useComputerProcurementStore()
 const phoneStore = usePhoneProcurementStore()
+const authStore = useAuthStore()
+const canEdit = computed(() => authStore.isAdmin)
 
 const activeTab = ref<'computer' | 'phone' | 'overview'>(
   (route.query.tab as 'computer' | 'phone' | 'overview') || 'computer'
@@ -66,6 +69,11 @@ function switchTab(tab: 'computer' | 'phone' | 'overview') {
   // 切换时按需加载（仅首次）
   if (tab === 'computer' && computerStore.computers.length === 0) computerStore.loadComputers()
   else if (tab === 'phone' && phoneStore.phones.length === 0) phoneStore.loadPhones()
+  else if (tab === 'overview') {
+    // 概览依赖两边数据，缺哪边补哪边
+    if (computerStore.computers.length === 0) computerStore.loadComputers()
+    if (phoneStore.phones.length === 0) phoneStore.loadPhones()
+  }
   router.replace({ query: { ...route.query, tab } })
 }
 
@@ -79,10 +87,24 @@ function triggerImport() {
   else if (activeTab.value === 'phone') phoneTabRef.value?.importCSV()
 }
 
+// 概览最近记录跳转：切到对应 tab 并打开该条详情抽屉
+async function handleOverviewJump(rec: { id: number; type: 'computer' | 'phone' }) {
+  if (activeTab.value !== rec.type) {
+    switchTab(rec.type)
+    // 切换 tab 后子组件刚挂载，等下一帧 ref 就绪
+    await nextTick()
+  }
+  if (rec.type === 'computer') computerTabRef.value?.openRowDrawer(rec.id)
+  else phoneTabRef.value?.openRowDrawer(rec.id)
+}
+
 onMounted(() => {
   if (activeTab.value === 'computer') computerStore.loadComputers()
   else if (activeTab.value === 'phone') phoneStore.loadPhones()
-  // overview 不预加载
+  else if (activeTab.value === 'overview') {
+    computerStore.loadComputers()
+    phoneStore.loadPhones()
+  }
 })
 </script>
 

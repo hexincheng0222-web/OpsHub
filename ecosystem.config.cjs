@@ -5,7 +5,6 @@ module.exports = {
   apps: [
     {
       name: 'opshub',
-      // Windows 上 PM2 调 npm bin 脚本容易出问题，直接用 node 调 tsx 的 CJS 入口
       script: isWin
         ? path.join(__dirname, 'node_modules', 'tsx', 'dist', 'cli.mjs')
         : path.join(__dirname, 'node_modules', '.bin', 'tsx'),
@@ -17,6 +16,8 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+      error_file: path.join(__dirname, '.pm2', 'logs', 'error.log'),
+      out_file: path.join(__dirname, '.pm2', 'logs', 'out.log'),
       env: {
         NODE_ENV: 'production',
         PORT: '3001',

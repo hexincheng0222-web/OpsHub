@@ -11,7 +11,7 @@
         <el-button size="small" @click="loadDevices(true)" :loading="loading">
           <el-icon><Refresh /></el-icon> 刷新
         </el-button>
-        <el-button size="small" @click="$router.push('/phonebook')">电话簿</el-button>
+        <el-button size="small" type="primary" @click="openDeployDialog">批量下发通讯录</el-button>
       </div>
     </div>
 
@@ -113,6 +113,23 @@
           </template>
         </div>
         <div class="detail-section">
+          <div class="detail-title">📖 XML 远程电话本
+            <el-button v-if="!pbEditing" link type="primary" size="small" @click="startPbEdit">编辑</el-button>
+            <el-button v-else link type="default" size="small" @click="pbEditing = false">取消</el-button>
+          </div>
+          <template v-if="pbEditing">
+            <div class="form-row"><span class="form-label">XML URL</span><el-input v-model="pbForm.xmlUrl" size="small" style="width:280px" placeholder="http://服务器IP:端口/api/v1/phones/phonebook.xml" /></div>
+            <div class="form-row"><span class="form-label">名称</span><el-input v-model="pbForm.name" size="small" style="width:280px" placeholder="公司电话簿" /></div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <el-button type="primary" size="small" @click="savePbConfig" :loading="pbSaving">保存并同步</el-button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="detail-row"><span class="detail-label">远程 URL</span><span class="detail-value mono" style="font-size:12px">{{ pbUrl || '—' }}</span></div>
+            <div class="detail-row"><span class="detail-label">名称</span><span class="detail-value">{{ pbName || '—' }}</span></div>
+          </template>
+        </div>
+        <div class="detail-section">
           <div class="detail-title">📞 账号配置 <el-button v-if="!editing" link type="primary" size="small" @click="startEdit">编辑</el-button></div>
           <template v-if="editing">
             <div class="form-row"><span class="form-label">SIP 服务器</span><el-input v-model="editForm.sipServer" size="small" style="width:200px" /></div>
@@ -156,15 +173,102 @@
         </div>
       </template>
     </el-drawer>
+
+    <!-- 批量下发通讯录弹窗 -->
+    <el-dialog v-model="deployVisible" title="批量下发通讯录" width="640px" :close-on-click-modal="!deployRunning">
+      <!-- 配置态 -->
+      <template v-if="!deployRunning && !deployDone">
+        <div class="deploy-form-row"><span class="deploy-label">XML URL</span>
+          <el-input v-model="deployForm.xmlUrl" size="small" style="width:420px" placeholder="http://服务器IP:端口/api/v1/phones/phonebook.xml" />
+        </div>
+        <div class="deploy-form-row"><span class="deploy-label">名称</span>
+          <el-input v-model="deployForm.name" size="small" style="width:420px" placeholder="公司电话簿" />
+        </div>
+        <div class="deploy-form-row" style="align-items:flex-start"><span class="deploy-label">分机号选择</span>
+          <div class="deploy-picker">
+            <div class="deploy-picker-toolbar">
+              <el-button size="small" @click="toggleDeploySelectAll">{{ deploySelected.length === deployOnlineDevices.length && deployOnlineDevices.length > 0 ? '取消全选' : '全选在线' }}</el-button>
+              <span class="deploy-picker-count">{{ deploySelected.length }}/{{ deployOnlineDevices.length }} 在线可选</span>
+            </div>
+            <el-table :data="deployAllDevices" max-height="300" stripe size="small" @selection-change="onDeploySelectionChange" :row-key="(d: any) => d.id" ref="deployTableRef">
+              <el-table-column type="selection" width="46" :selectable="(d: any) => d.online" reserve-selection />
+              <el-table-column prop="extension" label="分机号" width="100" />
+              <el-table-column prop="ip" label="IP 地址" min-width="140">
+                <template #default="{ row }"><span class="mono">{{ row.ip || '--' }}</span></template>
+              </el-table-column>
+              <el-table-column label="状态" width="80" align="center">
+                <template #default="{ row }">
+                  <span class="deploy-picker-status" :class="row.online ? 'green' : 'gray'">{{ row.online ? '在线' : '离线' }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+        <div class="deploy-form-row"><span class="deploy-label">并发上限</span>
+          <el-radio-group v-model="deployForm.concurrency" size="small">
+            <el-radio-button :value="3">3 台</el-radio-button>
+            <el-radio-button :value="5">5 台</el-radio-button>
+            <el-radio-button :value="10">10 台</el-radio-button>
+            <el-radio-button :value="20">20 台</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+
+      <!-- 进度态 -->
+      <template v-else-if="deployRunning">
+        <div style="text-align:center;padding:20px 0">
+          <el-progress :percentage="deployProgress" :status="deployProgress < 100 ? '' : 'success'" :stroke-width="18" :text-inside="true" :format="() => `${deployDoneCount}/${deployTotalCount}`" />
+          <div class="deploy-progress-stats">
+            <span class="green">成功 {{ deploySuccessCount }}</span>
+            <span class="red">失败 {{ deployFailedCount }}</span>
+            <span class="gray">待推 {{ deployTotalCount - deployDoneCount }}</span>
+          </div>
+          <p style="margin-top:16px;color:var(--ops-text-tertiary);font-size:13px">正在推送中…已取消后续批次可停止</p>
+        </div>
+      </template>
+
+      <!-- 完成态 -->
+      <template v-else>
+        <div class="deploy-done-summary">
+          <el-icon :size="32" color="var(--ops-accent-green)"><SuccessFilled /></el-icon>
+          <p>推送完成</p>
+          <div class="deploy-done-stats">
+            <span class="green">成功 {{ deploySuccessCount }}</span>
+            <span class="red">失败 {{ deployFailedCount }}</span>
+          </div>
+          <div v-if="deployFailedList.length" class="deploy-done-detail">
+            <p class="deploy-done-detail-title">失败明细：</p>
+            <div v-for="f in deployFailedList" :key="f.id" class="deploy-done-fail-row">
+              <span>{{ f.extension }}</span><span class="muted">{{ f.error }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <template v-if="!deployRunning && !deployDone">
+          <el-button @click="deployVisible = false">取消</el-button>
+          <el-button type="primary" @click="startDeploy" :disabled="!deploySelected.length || !deployForm.xmlUrl">推送 ({{ deploySelected.length }} 台)</el-button>
+        </template>
+        <template v-else-if="deployRunning">
+          <el-button @click="deployCancelled = true">停止后续批次</el-button>
+        </template>
+        <template v-else>
+          <el-button v-if="deployFailedList.length" type="warning" @click="redeployFailed">重推失败 ({{ deployFailedList.length }})</el-button>
+          <el-button type="primary" @click="deployDone = false; deployVisible = false">关闭</el-button>
+        </template>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Refresh, Phone, Search } from '@element-plus/icons-vue'
+import { Refresh, Phone, Search, SuccessFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, updatePhoneRemark, rebootPhone as rebootPhoneApi } from '@/api/phones'
+import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, updatePhoneRemark, updateRemotePhonebook, rebootPhone as rebootPhoneApi } from '@/api/phones'
+import { deployPhonebook } from '@/api/phonebook'
 import { request } from '@/utils/http'
 import BackButton from '../components/BackButton.vue'
 
@@ -196,11 +300,25 @@ async function openDetail(phone: any) {
   detailLoading.value = true
   detail.value = null
   editing.value = false
+  pbEditing.value = false
   try {
     const data = await fetchPhoneDetail(phone.id)
     detail.value = data
-  } catch { detail.value = null }
-  finally { detailLoading.value = false }
+    // 解析远程电话本配置（ATCOM 返回 phonebook1_remote_url / phonebook1_display_name 等）
+    const rp = data.remotePhonebook
+    if (rp && typeof rp === 'object') {
+      pbUrl.value = rp.phonebook1_remote_url || rp.phonebook2_remote_url || ''
+      pbName.value = rp.phonebook1_display_name || rp.phonebook2_display_name || ''
+    } else {
+      pbUrl.value = ''
+      pbName.value = ''
+    }
+  } catch (e: any) {
+    detail.value = null
+    // 暴露真实错误，便于诊断；之前静默吞错导致前端只能笼统显示"无法获取详情"
+    console.error('[PhonesView] openDetail failed:', e)
+    ElMessage.error(`获取详情失败：${e?.message || e}`)
+  } finally { detailLoading.value = false }
 }
 
 // 备注编辑
@@ -221,6 +339,8 @@ async function saveRemark() {
     selectedPhone.value.remark = remarkForm.value
     const row = devices.value.find((d: any) => d.id === selectedPhone.value.id)
     if (row) row.remark = remarkForm.value
+    // 同步刷掉 localStorage 缓存，强制下次加载走后端拿最新备注（避免回退到旧快照）
+    try { localStorage.removeItem(CACHE_KEY) } catch {}
     remarkEditing.value = false
     ElMessage.success('备注已保存')
     // 记录操作日志（不影响主流程）
@@ -236,6 +356,40 @@ async function saveRemark() {
 const editing = ref(false)
 const saving = ref(false)
 const editForm = ref<any>({})
+
+// 远程电话本编辑
+const pbEditing = ref(false)
+const pbSaving = ref(false)
+const pbForm = ref({ xmlUrl: '', name: '' })
+const pbUrl = ref('')
+const pbName = ref('')
+
+function startPbEdit() {
+  pbForm.value = {
+    xmlUrl: pbUrl.value || `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`,
+    name: pbName.value || '公司电话簿',
+  }
+  pbEditing.value = true
+}
+
+async function savePbConfig() {
+  if (!pbForm.value.xmlUrl) {
+    ElMessage.warning('XML URL 不能为空')
+    return
+  }
+  pbSaving.value = true
+  try {
+    await updateRemotePhonebook(selectedPhone.value.id, pbForm.value)
+    ElMessage.success('远程电话本配置已同步到话机')
+    pbUrl.value = pbForm.value.xmlUrl
+    pbName.value = pbForm.value.name
+    pbEditing.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '同步失败')
+  } finally {
+    pbSaving.value = false
+  }
+}
 
 function startEdit() {
   const acc = detail.value?.account || {}
@@ -324,7 +478,7 @@ async function loadDevices(force = false) {
   errorMsg.value = ''
   try {
     // fetchPhones 返回 { devices, total, online, offline } 对象
-    const data = await fetchPhones()
+    const data = await fetchPhones(force)
     const list = data.devices || []
     devices.value = list
     total.value = data.total ?? list.length
@@ -346,6 +500,156 @@ function openWeb(ip: string) {
 }
 
 onMounted(() => { loadDevices() })
+
+// ========== 批量下发通讯录 ==========
+const deployVisible = ref(false)
+const deployRunning = ref(false)
+const deployDone = ref(false)
+const deployCancelled = ref(false)
+// 表单
+const deployForm = ref({
+  xmlUrl: `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`,
+  name: '公司电话簿',
+  concurrency: 5,
+})
+// 话机源数据（打开弹窗时一次性快照，避免推送过程中列表被刷新影响）
+const deployAllDevices = ref<any[]>([])
+const deployOnlineDevices = computed(() => deployAllDevices.value.filter((d: any) => d.online))
+// 分机号勾选（el-table selection）
+const deploySelected = ref<string[]>([])
+const deployTableRef = ref()
+function onDeploySelectionChange(rows: any[]) {
+  deploySelected.value = rows.map((r: any) => r.id)
+}
+function toggleDeploySelectAll() {
+  const table = deployTableRef.value
+  if (!table) return
+  const isAllSelected = deploySelected.value.length === deployOnlineDevices.value.length && deployOnlineDevices.value.length > 0
+  if (isAllSelected) {
+    table.clearSelection()
+  } else {
+    // 只选在线的
+    deployAllDevices.value.forEach((d: any) => {
+      if (d.online) table.toggleRowSelection(d, true)
+      else table.toggleRowSelection(d, false)
+    })
+  }
+}
+// 进度统计
+const deployTotalCount = ref(0)
+const deployDoneCount = ref(0)
+const deploySuccessCount = ref(0)
+const deployFailedCount = ref(0)
+const deployFailedList = ref<any[]>([])
+const deployProgress = computed(() => deployTotalCount.value === 0 ? 0 : Math.round(deployDoneCount.value / deployTotalCount.value * 100))
+
+// 打开弹窗：拍一份当前话机快照
+function openDeployDialog() {
+  if (!devices.value.length) {
+    ElMessage.warning('话机列表为空，请先刷新')
+    return
+  }
+  deployAllDevices.value = devices.value.slice()
+  deploySelected.value = []
+  deployRunning.value = false
+  deployDone.value = false
+  deployCancelled.value = false
+  deployTotalCount.value = 0
+  deployDoneCount.value = 0
+  deploySuccessCount.value = 0
+  deployFailedCount.value = 0
+  deployFailedList.value = []
+  // 默认填入当前 host 的 XML URL（若用户改过保留）
+  if (!deployForm.value.xmlUrl) {
+    deployForm.value.xmlUrl = `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`
+  }
+  deployVisible.value = true
+}
+
+// 开始推送：前端按 concurrency 切批，逐批调 deploy 接口
+async function startDeploy() {
+  if (!deploySelected.value.length) {
+    ElMessage.warning('请至少选择一台话机')
+    return
+  }
+  if (!deployForm.value.xmlUrl) {
+    ElMessage.warning('XML URL 不能为空')
+    return
+  }
+  // 二次确认
+  try {
+    await ElMessageBox.confirm(`将向 ${deploySelected.value.length} 台话机推送 XML 远程电话簿，确认开始？`, '批量下发确认', { type: 'warning', confirmButtonText: '开始推送', cancelButtonText: '取消' })
+  } catch { return }
+
+  deployRunning.value = true
+  deployDone.value = false
+  deployCancelled.value = false
+  const selected = [...deploySelected.value]
+  deployTotalCount.value = selected.length
+  deployDoneCount.value = 0
+  deploySuccessCount.value = 0
+  deployFailedCount.value = 0
+  deployFailedList.value = []
+
+  const concurrency = deployForm.value.concurrency || 5
+  // 切批
+  const batches: string[][] = []
+  for (let i = 0; i < selected.length; i += concurrency) {
+    batches.push(selected.slice(i, i + concurrency))
+  }
+
+  for (const batch of batches) {
+    if (deployCancelled.value) break
+    try {
+      const result = await deployPhonebook(batch, 'remote', { xmlUrl: deployForm.value.xmlUrl, name: deployForm.value.name })
+      deploySuccessCount.value += result.success || 0
+      if (result.failed) {
+        deployFailedCount.value += result.failed
+        const failedRows = (result.results || []).filter((r: any) => r.status === 'failed')
+        deployFailedList.value.push(...failedRows)
+      }
+    } catch (e: any) {
+      // 整批失败（网络/后端错误），整批计入失败
+      deployFailedCount.value += batch.length
+      deployFailedList.value.push(...batch.map(id => {
+        const dev = deployAllDevices.value.find((d: any) => d.id === id)
+        return { id, extension: dev?.extension || id, status: 'failed', error: e?.message || '批次请求失败' }
+      }))
+    }
+    deployDoneCount.value += batch.length
+  }
+
+  deployRunning.value = false
+  deployDone.value = true
+  // 记录操作日志（含失败明细，便于后台 /admin/logs 排查）
+  const failedDetail = deployFailedList.value.length
+    ? `，失败: ${deployFailedList.value.map(f => `${f.extension}(${f.error})`).join(', ')}`
+    : ''
+  request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({
+    module: '电话簿', action: '批量下发',
+    target: `${deploySuccessCount.value}/${selected.length} 台成功`,
+    detail: `URL: ${deployForm.value.xmlUrl}${failedDetail}`,
+  }) }).catch(() => {})
+}
+
+// 重推失败的话机：把失败明细的 id 重新作为选中态，直接走推送流程
+function redeployFailed() {
+  if (!deployFailedList.value.length) return
+  // 把失败话机的 id 重新塞回 deploySelected，并同步勾选态
+  const failedIds = deployFailedList.value.map((f: any) => f.id)
+  deploySelected.value = [...failedIds]
+  // 同步表格勾选态（只勾失败的话机）
+  const table = deployTableRef.value
+  if (table) {
+    table.clearSelection()
+    deployAllDevices.value.forEach((d: any) => {
+      if (failedIds.includes(d.id)) table.toggleRowSelection(d, true)
+    })
+  }
+  // 重置进度统计，重新走推送流程
+  deployDone.value = false
+  startDeploy()
+}
 </script>
 
 <style scoped>
@@ -489,4 +793,114 @@ onMounted(() => { loadDevices() })
   color: var(--ops-text-secondary);
   text-align: right;
 }
+
+/* 批量下发通讯录弹窗 */
+.deploy-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.deploy-label {
+  width: 90px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--ops-text-secondary);
+  text-align: right;
+}
+.deploy-picker {
+  flex: 1;
+  border: 1px solid var(--ops-border-card);
+  border-radius: 6px;
+  background: var(--ops-bg-card);
+  display: flex;
+  flex-direction: column;
+}
+.deploy-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ops-border-card);
+  background: var(--ops-bg-card-hover);
+}
+.deploy-picker-count {
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+}
+.deploy-picker-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.deploy-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.deploy-picker-item.offline {
+  opacity: 0.5;
+}
+.deploy-picker-ip {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ops-text-tertiary);
+}
+.deploy-picker-status {
+  font-size: 11px;
+}
+.deploy-picker-status.green { color: var(--ops-accent-green); }
+.deploy-picker-status.gray { color: var(--ops-text-tertiary); }
+
+.deploy-progress-stats {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.deploy-progress-stats .green { color: var(--ops-accent-green); }
+.deploy-progress-stats .red { color: var(--ops-accent-red); }
+.deploy-progress-stats .gray { color: var(--ops-text-tertiary); }
+
+.deploy-done-summary {
+  text-align: center;
+  padding: 16px 0;
+}
+.deploy-done-summary p {
+  margin: 12px 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.deploy-done-stats {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  font-size: 14px;
+}
+.deploy-done-stats .green { color: var(--ops-accent-green); }
+.deploy-done-stats .red { color: var(--ops-accent-red); }
+.deploy-done-detail {
+  margin-top: 20px;
+  border-top: 1px solid var(--ops-border-card);
+  padding-top: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.deploy-done-detail-title {
+  font-size: 13px;
+  color: var(--ops-text-secondary);
+  text-align: left;
+  margin: 0 0 8px;
+}
+.deploy-done-fail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.deploy-done-fail-row .muted { color: var(--ops-text-tertiary); }
 </style>

@@ -63,12 +63,6 @@ const router = createRouter({
       meta: { title: 'ATCOM话机管理' }
     },
     {
-      path: '/phonebook',
-      name: 'Phonebook',
-      component: () => import('../views/PhonebookView.vue'),
-      meta: { title: '电话簿管理' }
-    },
-    {
       path: '/printers',
       name: 'Printers',
       component: () => import('../views/PrintersView.vue'),

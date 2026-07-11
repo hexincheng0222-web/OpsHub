@@ -67,9 +67,15 @@ export async function fetchOnlinePhones(): Promise<any[]> {
 }
 
 // 推送电话簿到话机
-export async function deployPhonebook(phoneIds: string[], mode: string): Promise<{ success: number; failed: number }> {
+//   mode: 'remote' | 'local' | 'both'
+//   xmlUrl/name 可选，不传时后端 fallback 到服务器默认 URL + "公司电话簿"
+export async function deployPhonebook(
+  phoneIds: string[],
+  mode: string,
+  opts?: { xmlUrl?: string; name?: string }
+): Promise<{ success: number; failed: number; total?: number; results?: any[] }> {
   return request(`${BASE}/phonebook/deploy`, {
     method: 'POST',
-    body: JSON.stringify({ phoneIds, mode }),
+    body: JSON.stringify({ phoneIds, mode, ...opts }),
   })
 }

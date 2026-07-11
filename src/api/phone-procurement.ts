@@ -44,3 +44,14 @@ export async function batchDeletePhones(ids: number[]) {
 export async function importPhones(rows: Partial<PhoneProcurement>[]) {
   return request<{ imported: number; errors: string[] }>(`${BASE}/import`, { method: 'POST', body: JSON.stringify({ rows }) })
 }
+
+// ===== 回收站（#29 软删除）=====
+export async function fetchPhoneTrash() {
+  return request(`${BASE}/trash`)
+}
+export async function restorePhone(ids: number[]) {
+  return request(`${BASE}/trash/restore`, { method: 'POST', body: JSON.stringify({ ids }) })
+}
+export async function purgePhone(ids: number[]) {
+  return request(`${BASE}/trash/purge`, { method: 'DELETE', body: JSON.stringify({ ids }) })
+}

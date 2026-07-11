@@ -42,3 +42,14 @@ export async function batchDeleteComputers(ids: number[]) {
 export async function importComputers(rows: Partial<ComputerProcurement>[]) {
   return request<{ imported: number; errors: string[] }>(`${BASE}/import`, { method: 'POST', body: JSON.stringify({ rows }) })
 }
+
+// ===== 回收站（#29 软删除）=====
+export async function fetchComputerTrash() {
+  return request(`${BASE}/trash`)
+}
+export async function restoreComputer(ids: number[]) {
+  return request(`${BASE}/trash/restore`, { method: 'POST', body: JSON.stringify({ ids }) })
+}
+export async function purgeComputer(ids: number[]) {
+  return request(`${BASE}/trash/purge`, { method: 'DELETE', body: JSON.stringify({ ids }) })
+}

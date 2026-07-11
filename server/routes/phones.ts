@@ -366,11 +366,12 @@ router.get('/:id/details', async (req: Request, res: Response) => {
 
   try {
     // 通过 ATCOM API 获取话机详情
-    const [status, account] = await Promise.all([
+    const [status, account, remotePhonebook] = await Promise.all([
       atcomGet(phone.ip, 'status_get').catch(() => null),
       atcomGet(phone.ip, 'user_get_account_basic').catch(() => null),
+      atcomGet(phone.ip, 'user_get_xml_remote_phonebook').catch(() => null),
     ])
-    res.json({ code: 200, data: { phone, status, account } })
+    res.json({ code: 200, data: { phone, status, account, remotePhonebook } })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '获取详情失败' })
   }
@@ -404,6 +405,26 @@ router.put('/:id/account', async (req: Request, res: Response) => {
     const result = await atcomPost(phone.ip, 'user_set_account_basic', params.join('&'))
     logOp('话机配置', '修改', `${phone.extension} 账号配置`, params.join('&'))
     res.json({ code: 200, data: result, message: '配置已同步到话机' })
+  } catch (err: any) {
+    res.status(502).json({ code: 502, message: err.message || '同步失败' })
+  }
+})
+
+// PUT /api/v1/phones/:id/remote-phonebook — 更新话机远程电话本配置
+router.put('/:id/remote-phonebook', async (req: Request, res: Response) => {
+  const devices = cache?.data || []
+  const phone = devices.find((d: any) => d.id === req.params.id)
+  if (!phone) return res.status(404).json({ code: 404, message: '话机不存在' })
+  if (!phone.online) return res.status(400).json({ code: 400, message: '话机离线，无法修改配置' })
+
+  const { xmlUrl, name } = req.body
+  if (!xmlUrl) return res.status(400).json({ code: 400, message: 'XML 电话本 URL 必填' })
+
+  try {
+    const params = `phonebook1_remote_url=${encodeURIComponent(xmlUrl)}&phonebook1_display_name=${encodeURIComponent(name || '公司电话簿')}`
+    const result = await atcomPost(phone.ip, 'user_set_xml_remote_phonebook', params)
+    logOp('话机配置', '修改', `${phone.extension} 远程电话本`, `URL: ${xmlUrl}`)
+    res.json({ code: 200, data: result, message: '远程电话本配置已同步到话机' })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '同步失败' })
   }
@@ -613,25 +634,28 @@ ${contacts.map(c => `  <DirectoryEntry>
 })
 
 // POST /phonebook/deploy — 推送电话簿到选中话机
+//   body: { phoneIds, mode, xmlUrl?, name? }
+//   xmlUrl/name 可选，不传时 fallback 到服务器默认 URL + "公司电话簿"
 router.post('/phonebook/deploy', async (req: Request, res: Response) => {
-  const { phoneIds, mode } = req.body // mode: 'remote' | 'local' | 'both'
+  const { phoneIds, mode, xmlUrl: customXmlUrl, name: customName } = req.body // mode: 'remote' | 'local' | 'both'
   if (!Array.isArray(phoneIds) || !phoneIds.length) return res.status(400).json({ code: 400, message: '请选择话机' })
 
   const devices = cache?.data || []
   const targetPhones = devices.filter((d: any) => phoneIds.includes(d.id) && d.online)
   if (!targetPhones.length) return res.status(400).json({ code: 400, message: '选中的话机均不在线' })
 
-  // 获取本机 IP 构建 XML URL
-  const serverIp = _req.headers.host?.split(':')[0] || 'localhost'
-  const serverPort = _req.headers.host?.split(':')[1] || '3001'
-  const xmlUrl = `http://${serverIp}:${serverPort}/api/v1/phones/phonebook.xml`
+  // XML URL：优先用前端传入，否则用本机地址构建
+  const host = req.headers.host?.split(':')[0] || 'localhost'
+  const port = req.headers.host?.split(':')[1] || '3001'
+  const xmlUrl = customXmlUrl || `http://${host}:${port}/api/v1/phones/phonebook.xml`
+  const phonebookName = customName || '公司电话簿'
 
   const results: any[] = []
   for (const phone of targetPhones) {
     try {
       if (mode === 'remote' || mode === 'both') {
         // 设置远程电话簿 URL
-        await atcomPost(phone.ip, `user_set_xml_remote_phonebook`, `RemotePhoneBookAddress1=${encodeURIComponent(xmlUrl)}&RemotePhoneBookName1=公司电话簿`)
+        await atcomPost(phone.ip, `user_set_xml_remote_phonebook`, `phonebook1_remote_url=${encodeURIComponent(xmlUrl)}&phonebook1_display_name=${encodeURIComponent(phonebookName)}`)
       }
       if (mode === 'local' || mode === 'both') {
         // 推送本地联系人
