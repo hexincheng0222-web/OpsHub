@@ -157,29 +157,44 @@ router.post('/batch-delete', (req: Request, res: Response) => {
   }
 })
 
-// POST /api/v1/printers/import  — CSV 导入
+// POST /api/v1/printers/import  — CSV 导入（带厂商字典校验 + autoCreateDict）
 router.post('/import', (req: Request, res: Response) => {
-  const { rows } = req.body  // [{ floor, location, manufacturer, model, tonerModel, notes }]
-  if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ code: 400, message: 'rows 必填' })
+  const { rows, autoCreateDict = false } = req.body
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ code: 400, message: 'rows 必填' })
 
   const insert = db.prepare(
     'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
   )
+  const brandCache = new Map<string, number>()
   let imported = 0
   const errors: string[] = []
-
-  const batchImport = db.transaction(() => {
+  const tx = db.transaction(() => {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
-      try {
-        insert.run(r.floor || '', r.location || '', r.manufacturer || '', r.model || '', r.tonerModel || '', r.notes || '', '正常')
-        imported++
-      } catch (e: any) {
-        errors.push(`第 ${i + 1} 行: ${e.message}`)
+      // 厂商校验
+      if (r.manufacturer) {
+        if (!brandCache.has(r.manufacturer)) {
+          const b = db.prepare('SELECT id FROM printer_brands WHERE name=?').get(r.manufacturer) as any
+          if (b) brandCache.set(r.manufacturer, b.id)
+          else if (autoCreateDict) {
+            const nb = db.prepare('INSERT INTO printer_brands (name) VALUES (?)').run(r.manufacturer)
+            brandCache.set(r.manufacturer, nb.lastInsertRowid as number)
+          } else {
+            errors.push(`第 ${i+1} 行: 厂商「${r.manufacturer}」不在字典，请先在后台添加`)
+            continue
+          }
+        }
       }
+      // TODO: model / tonerModel 校验同模式（评审文档 v2 中形式如此；本任务暂不强制实现）
+      try {
+        insert.run(r.floor || '', r.location || '', r.manufacturer || '', r.model || '',
+                   r.tonerModel || '', r.notes || '', r.status || '正常')
+        imported++
+      } catch (e: any) { errors.push(`第 ${i+1} 行: ${e.message}`) }
     }
   })
-  batchImport()
+  tx()
   res.json({ code: 200, data: { imported, errors } })
 })
 

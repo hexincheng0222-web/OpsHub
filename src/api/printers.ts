@@ -54,10 +54,10 @@ export async function batchDeletePrinters(ids: number[]): Promise<void> {
   })
 }
 
-export async function importPrinters(rows: Partial<Printer>[]): Promise<{ imported: number; errors: string[] }> {
+export async function importPrinters(rows: Partial<Printer>[], autoCreateDict = false): Promise<{ imported: number; errors: string[] }> {
   return request(`${BASE}/import`, {
     method: 'POST',
-    body: JSON.stringify({ rows }),
+    body: JSON.stringify({ rows, autoCreateDict }),
   })
 }
 

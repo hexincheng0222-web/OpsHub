@@ -47,8 +47,8 @@ export const usePrintersStore = defineStore('printers', () => {
     printers.value = printers.value.filter(p => !ids.includes(p.id))
   }
 
-  async function batchImport(rows: Partial<Printer>[]) {
-    const result = await api.importPrinters(rows)
+  async function batchImport(rows: Partial<Printer>[], autoCreateDict = false) {
+    const result = await api.importPrinters(rows, autoCreateDict)
     await loadPrinters() // 重新加载以获取数据库分配的 id
     return result
   }

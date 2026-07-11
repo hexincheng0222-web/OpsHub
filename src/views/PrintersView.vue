@@ -27,6 +27,9 @@
           <el-icon><Plus /></el-icon> 添加打印机
         </el-button>
       </div>
+      <label class="import-auto-check">
+        <input type="checkbox" v-model="importAutoCreateDict" /> 自动补录字典缺失项
+      </label>
       <input ref="fileInput" type="file" accept=".csv" style="display:none" @change="handleImport" />
     </div>
 
@@ -188,6 +191,9 @@ const route = useRoute()
 const router = useRouter()
 const store = usePrintersStore()
 
+// 导入相关状态
+const importAutoCreateDict = ref(false)
+
 // 加载打印机型号字典
 onMounted(async () => {
   store.loadPrinters()
@@ -306,7 +312,7 @@ async function handleImport(e: Event) {
     const text = await file.text()
     const data = parsePrintersCSV(text)
     if (data.length) {
-      await store.batchImport(data as Printer[])
+      await store.batchImport(data as Printer[], importAutoCreateDict.value)
       ElMessage.success(`导入 ${data.length} 台打印机`)
     }
   } catch (err: any) {
@@ -351,6 +357,8 @@ async function savePrinter() {
 .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 0; border-bottom: 1px solid var(--ops-border-card); }
 .top-bar h3 { flex: 1; font-size: 16px; font-weight: 600; color: var(--ops-text-primary); margin: 0; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
+.import-auto-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ops-text-secondary); margin-left: 8px; white-space: nowrap; cursor: pointer; }
+.import-auto-check input { cursor: pointer; accent-color: var(--ops-accent-blue); }
 .top-count { font-size: 12px; font-weight: 400; color: var(--ops-text-tertiary); margin-left: 6px; }
 
 /* Toolbar */
