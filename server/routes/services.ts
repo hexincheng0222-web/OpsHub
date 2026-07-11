@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { isIP } from 'node:net'
 import db from '../db'
 import { authRequired } from '../middleware/auth'
+import { encryptSecret, decryptSecret, credKeyReady } from '../utils/crypto'
 
 const router = Router()
 
@@ -139,6 +140,19 @@ router.get('/favorites', authRequired, (req: Request, res: Response) => {
     `SELECT s.* FROM services s JOIN user_service_favorites f ON s.id=f.service_id WHERE f.user_id=? ORDER BY f.sort_order, f.created_at DESC`
   ).all(req.user!.id)
   res.json({ code: 200, data: (rows as any[]).map(toApi) })
+})
+
+// GET /api/v1/services/:id/credentials（必须在 /:id 之前，否则被 id='credentials' 拦截）
+router.get('/:id/credentials', authRequired, (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ code: 401 })
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
+  const rows = db.prepare('SELECT id, label, username, secret_enc FROM service_credentials WHERE service_id=?').all(id) as any[]
+  if ((req.user.role === 'admin' || req.user.role === 'superadmin') && credKeyReady()) {
+    res.json({ code: 200, data: rows.map((r: any) => ({ ...r, secret: decryptSecret(r.secret_enc) })) })
+  } else {
+    res.json({ code: 200, data: rows.map((r: any) => ({ id: r.id, label: r.label, username: r.username, hasSecret: !!r.secret_enc })) })
+  }
 })
 
 // GET /api/v1/services/:id/history?hours=24（必须在 /:id 之前，否则被 id='history' 拦截）
