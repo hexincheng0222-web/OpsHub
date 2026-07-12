@@ -2,8 +2,8 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  DataBoard, Document, Monitor, Printer,
-  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis, User, Building,
+  DataBoard, Document, Monitor, Printer, OfficeBuilding,
+  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis, User,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -18,7 +18,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { key: 'overview', label: '概览', icon: DataBoard },
-  { key: 'floors', label: '楼层管理', icon: Building },
+  { key: 'floors', label: '楼层管理', icon: OfficeBuilding },
   { key: 'logs', label: '操作日志', icon: Document },
   { key: 'users', label: '用户管理', icon: User },
   {
