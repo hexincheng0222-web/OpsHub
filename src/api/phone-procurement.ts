@@ -47,7 +47,8 @@ export async function importPhones(rows: Partial<PhoneProcurement>[]) {
 
 // ===== 回收站（#29 软删除）=====
 export async function fetchPhoneTrash() {
-  return request(`${BASE}/trash`)
+  const data = await request<{ list: any[]; total: number }>(`${BASE}/trash`)
+  return { list: data.list.map(fromApi), total: data.total }
 }
 export async function restorePhone(ids: number[]) {
   return request(`${BASE}/trash/restore`, { method: 'POST', body: JSON.stringify({ ids }) })

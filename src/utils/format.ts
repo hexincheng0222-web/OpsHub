@@ -1,13 +1,17 @@
 /**
  * 格式化时间字符串为本地化格式
- * @param time ISO 时间字符串或时间戳
- * @returns 格式化后的时间字符串
+ * @param time DB datetime('now') 存 UTC，格式 'YYYY-MM-DD HH:MM:SS'（无时区后缀）
+ * @returns 本地时区格式化后的时间字符串
  */
 export function formatTime(time: string | number | undefined | null): string {
   if (!time) return '—'
-  const d = new Date(time)
+  // DB 存 UTC 且无时区后缀。补 'Z' 让 Date 按 UTC 解析，再 toLocaleString 转本地时区显示
+  const iso = typeof time === 'string' && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(time)
+    ? time.replace(' ', 'T') + 'Z'
+    : time
+  const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString('zh-CN', { hour12: false })
+  return d.toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
 }
 
 /**

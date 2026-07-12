@@ -718,10 +718,14 @@ async function batchDelete() {
         h('span', {
           style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
           onClick: async () => {
-            for (const r of rows) {
-              await store.addComputer(r)
+            // 用后端 /trash/restore 恢复原记录（保持 id/资产号不变），而非 addComputer 新增
+            try {
+              await restoreComputer(rows.map(r => r.id))
+              ElMessage.success('已撤销删除')
+              await store.fetchComputers()
+            } catch (e: any) {
+              ElMessage.error('撤销失败：' + (e.message || ''))
             }
-            ElMessage.success('已撤销删除')
           }
         }, '撤销')
       ]),
@@ -846,8 +850,8 @@ const trashRows = ref<any[]>([])
 async function openTrash() {
   trashVisible.value = true
   try {
-    const data = await fetchComputerTrash() as any[]
-    trashRows.value = data || []
+    const data = await fetchComputerTrash()
+    trashRows.value = data.list || []
   } catch (e: any) {
     ElMessage.error(e.message || '加载回收站失败')
   }

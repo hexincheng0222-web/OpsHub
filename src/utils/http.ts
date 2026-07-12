@@ -60,7 +60,13 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
     throw new Error(message)
   }
 
-  const json: ApiResponse<T> = await res.json()
+  let json: ApiResponse<T>
+  try {
+    json = await res.json()
+  } catch (e: any) {
+    // 网关/反向代理回传 HTML 错误页但状态码 200 的兜底
+    throw new Error('响应格式异常（非 JSON），可能是网关错误页')
+  }
 
   // 业务层错误
   if (json.code >= 400) {

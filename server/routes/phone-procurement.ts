@@ -73,10 +73,10 @@ router.get('/', (req: Request, res: Response) => {
 
 // ===== 回收站（#29 软删除）=====
 // 注意：必须放在 GET /:id 之前，避免 /trash 被 /:id 拦截
-// GET /trash — 回收站列表
+// GET /trash — 回收站列表（与主列表 L71 保持同一契约：{ list: toApiRows, total }）
 router.get('/trash', (_req: Request, res: Response) => {
   const rows = db.prepare('SELECT * FROM phone_procurement WHERE deleted = 1 ORDER BY deleted_at DESC').all()
-  res.json({ code: 200, data: rows })
+  res.json({ code: 200, data: { list: rows.map(toApi), total: rows.length } })
 })
 router.post('/trash/restore', (req: Request, res: Response) => {
   try {

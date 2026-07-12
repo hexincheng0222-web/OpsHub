@@ -45,7 +45,8 @@ export async function importComputers(rows: Partial<ComputerProcurement>[]) {
 
 // ===== 回收站（#29 软删除）=====
 export async function fetchComputerTrash() {
-  return request(`${BASE}/trash`)
+  const data = await request<{ list: any[]; total: number }>(`${BASE}/trash`)
+  return { list: data.list.map(fromApi), total: data.total }
 }
 export async function restoreComputer(ids: number[]) {
   return request(`${BASE}/trash/restore`, { method: 'POST', body: JSON.stringify({ ids }) })

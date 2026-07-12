@@ -182,7 +182,7 @@
       <template #footer>
         <el-checkbox v-model="importAutoCreateDict" style="margin-right:12px">自动补录字典缺失项</el-checkbox>
         <el-button @click="previewVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmImport">确认导入 {{ previewRows.length }} 条</el-button>
+        <el-button type="primary" :loading="importing" @click="confirmImport">确认导入 {{ previewRows.length }} 条</el-button>
       </template>
     </el-dialog>
   </div>
@@ -301,6 +301,7 @@ function toggleRow(row: PrinterTableRow) { const all = row.ids.every(id => selec
 function toggleGroupAll(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); const all = ids.every(id => selectedIds.value.has(id)); const n = new Set(selectedIds.value); if (all) ids.forEach(id => n.delete(id)); else ids.forEach(id => n.add(id)); selectedIds.value = n }
 function groupAllSelected(g: FloorGroup) { const ids = g.rows.flatMap(r => r.ids); return ids.length > 0 && ids.every(id => selectedIds.value.has(id)) }
 async function batchDelete() {
+  if (batchDeleting.value) return  // 互斥，防重复提交
   const count = selectedIds.value.size
   const ids = [...selectedIds.value]
   try {
@@ -310,25 +311,32 @@ async function batchDelete() {
   const deletedData = store.printers
     .filter(p => ids.includes(p.id))
     .map(({ id, createdAt, updatedAt, ...rest }) => rest)
-  await store.deletePrinters(ids)
-  selectedIds.value = new Set()
-  ElMessage({
-    message: h('span', null, [
-      h('span', null, `已删除 ${count} 台打印机`),
-      h('span', {
-        style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
-        onClick: async () => {
-          try {
-            await store.restorePrinters(deletedData)
-            ElMessage.success('已撤销删除')
-          } catch (e: any) {
-            ElMessage.error('撤销失败：' + (e.message || ''))
+  batchDeleting.value = true
+  try {
+    await store.deletePrinters(ids)
+    selectedIds.value = new Set()
+    ElMessage({
+      message: h('span', null, [
+        h('span', null, `已删除 ${count} 台打印机`),
+        h('span', {
+          style: 'color:var(--ops-accent-blue);cursor:pointer;margin-left:12px;font-weight:600',
+          onClick: async () => {
+            try {
+              await store.restorePrinters(deletedData)
+              ElMessage.success('已撤销删除')
+            } catch (e: any) {
+              ElMessage.error('撤销失败：' + (e.message || ''))
+            }
           }
-        }
-      }, '撤销')
-    ]),
-    duration: 5000,
-  })
+        }, '撤销')
+      ]),
+      duration: 5000,
+    })
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除失败')
+  } finally {
+    batchDeleting.value = false
+  }
 }
 
 const fileInput = ref<HTMLInputElement>()
@@ -352,14 +360,24 @@ async function handleImport(e: Event) {
 }
 
 async function confirmImport() {
-  await store.batchImport(previewRows.value as Printer[], importAutoCreateDict.value)
-  ElMessage.success(`导入 ${previewRows.value.length} 台打印机`)
-  previewVisible.value = false
-  if (fileInput.value) fileInput.value.value = ''
+  if (importing.value) return  // 互斥，防重复提交
+  importing.value = true
+  try {
+    await store.batchImport(previewRows.value as Printer[], importAutoCreateDict.value)
+    ElMessage.success(`导入 ${previewRows.value.length} 台打印机`)
+    previewVisible.value = false
+    if (fileInput.value) fileInput.value.value = ''
+  } catch (e: any) {
+    ElMessage.error(e.message || '导入失败')
+  } finally {
+    importing.value = false
+  }
 }
 
 const dialogVisible = ref(false); const editingPrinter = ref<Printer | null>(null)
 const saving = ref(false)
+const importing = ref(false)
+const batchDeleting = ref(false)
 const form = reactive<Omit<Printer, 'id'>>({ floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' })
 function openAddDialog() { editingPrinter.value = null; Object.assign(form, { floor: '', location: '', manufacturer: '', model: '', tonerModel: '', notes: '', status: '正常' as const }); dialogVisible.value = true }
 function openEditDialog(r: Printer) { editingPrinter.value = r; Object.assign(form, { ...r }); dialogVisible.value = true }
