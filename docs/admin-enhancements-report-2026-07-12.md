@@ -133,3 +133,39 @@
 | 字典表 | `src/views/admin/AdminDictTable.vue` + `server/routes/admin.ts` + `src/utils/admin-dict-config.ts` |
 | 日志增强 | `server/db.ts`（迁移）+ 所有 routes/*.ts 的 `logOperation` 调用点 |
 | 菜单/路由 | `src/views/admin/AdminView.vue` + `src/router/index.ts` |
+
+---
+
+## 九、实施期间修复的 bug（非计划内，已解决）
+
+| Commit | 问题 | 根因 | 修复 |
+|--------|------|------|------|
+| `e4e6d7d` | AdminView.vue 渲染报错 | 使用了不存在的 `Building` 图标导出 | 改为 `OfficeBuilding` |
+| `106bd8b` | AdminFloors.vue 模板编译失败 | `<template #label>` 误写为 `</el-tab-pane>` | 改为 `>` |
+| `298378d` | 楼层 tab 切换时工具栏/表格 DOM 重复 | toolbar+table 写在 `v-for` 内 | 移到 `el-tabs` 下方单次渲染 |
+| `eab426e` | LogMonitorAudit.vue 加载 500 | `import TrendChart` 路径少一层 `../` | 改为 `../../components/TrendChart.vue` |
+| `419c071` | 后端 502 + esbuild 编译失败 | 迁移代码误插入巨型模板字符串 SQL 内，esbuild 把 JS 当 SQL 解析；后续又出现重复声明 | 迁移代码移到模板字符串之后并去重 |
+
+---
+
+## 十、全部 Commits（自基线 `35899ce`）
+
+```
+419c071 fix(db): operation_logs migration moved outside template string + dedup
+fab1e25 docs: add log retention to Phase 4 report
+be309ca feat(admin): 30-day log retention auto-cleanup cron
+523a591 docs: admin enhancement plan + final report
+e1ac966 feat(admin): dict table selection + batch delete + API (Phase 6)
+d7dfef0 feat(admin): enhance operation logs with IP/UA/status/error + DB migration (Phase 5)
+3f2866b feat(admin): log date range filter + dynamic module select (Phase 4)
+3cea282 feat(admin): user management with search, role filter, pagination (Phase 3)
+5969dd4 feat(admin): clickable overview cards + 7/14/30 day operation trend chart (Phase 2)
+4d204d3 refactor(admin): move toolbar+table outside el-tab-pane v-for
+298378d fix(admin): AdminFloors Building → OfficeBuilding icon
+106bd8b fix(admin): AdminFloors template closing tag (</template> not </el-tab-pane>)
+eab426e fix(log-monitor): TrendChart import path (../ → ../../)
+e4e6d7d fix(admin): use OfficeBuilding icon (Building not exported)
+7ca8ff8 refactor(admin): unify device/printer floors into single 楼层管理 entry (Phase 1)
+```
+
+**合计 14 commits（其中 10 个功能 + 文档，4 个 bug 修复），2026-07-12。**
