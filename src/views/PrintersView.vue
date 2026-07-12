@@ -5,6 +5,12 @@
       <BackButton to="/" />
       <h3>打印机管理 <span class="top-count">{{ store.total }} 台</span></h3>
       <div class="top-actions">
+        <el-button type="success" size="small" @click="handleExportXlsx">
+          <el-icon><Download /></el-icon> 导出 Excel
+        </el-button>
+        <el-button size="small" @click="downloadPrinterTemplateFromExport">
+          <el-icon><Download /></el-icon> 下载模板
+        </el-button>
         <el-dropdown @command="handleTopAction" trigger="click">
           <el-button size="small">
             操作 <el-icon><arrow-down /></el-icon>
@@ -194,6 +200,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
+import { exportPrintersXlsx, downloadPrinterTemplate as downloadPrinterTemplateFromExport } from '../utils/printer-export'
 import { parseXlsx } from '../utils/excel'
 import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -257,6 +264,10 @@ function handleTopAction(command: string) {
   if (command === 'template') downloadTemplate()
   else if (command === 'import') triggerImport()
   else if (command === 'export') exportCSV()
+}
+
+async function handleExportXlsx() {
+  await exportPrintersXlsx(store.printers)
 }
 
 // 搜索
