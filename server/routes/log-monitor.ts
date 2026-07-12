@@ -265,4 +265,30 @@ router.get('/discover', async (_req: Request, res: Response) => {
   }
 })
 
+// 11. 异常趋势（按设备 + 日期聚合）
+router.get('/trend', (req: Request, res: Response) => {
+  const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7))
+  const rows = db.prepare(`
+    SELECT
+      device_id,
+      device_name,
+      DATE(created_at) AS date,
+      SUM(has_abnormal) AS abnormal_count,
+      COUNT(*) AS total_count
+    FROM log_audit
+    WHERE created_at >= datetime('now', ?)
+    GROUP BY device_id, DATE(created_at)
+    ORDER BY device_id, DATE(created_at) ASC
+  `).all(`-${days} days`) as any[]
+
+  const deviceMap = new Map<string, { device_id: string; device_name: string; daily: any[] }>()
+  for (const r of rows) {
+    if (!deviceMap.has(r.device_id)) {
+      deviceMap.set(r.device_id, { device_id: r.device_id, device_name: r.device_name, daily: [] })
+    }
+    deviceMap.get(r.device_id)!.daily.push({ date: r.date, abnormal_count: r.abnormal_count, total_count: r.total_count })
+  }
+  res.json({ code: 200, data: { devices: Array.from(deviceMap.values()), days } })
+})
+
 export default router

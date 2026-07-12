@@ -149,3 +149,14 @@ export function testLokiConnection(url: string) {
     body: JSON.stringify({ url }),
   })
 }
+
+// 异常趋势（按设备 + 日期聚合）
+export interface TrendDevice {
+  device_id: string
+  device_name: string
+  daily: { date: string; abnormal_count: number; total_count: number }[]
+}
+
+export function getTrend(days: number = 7) {
+  return request<{ devices: TrendDevice[]; days: number }>(`${BASE}/trend?days=${days}`)
+}

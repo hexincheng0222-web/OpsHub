@@ -4,6 +4,20 @@
     <div class="page-header">
       <BackButton to="/log-monitor" />
     </div>
+    <!-- 异常趋势 -->
+    <el-card shadow="never" class="trend-card">
+      <template #header>
+        <div class="trend-header">
+          <span>异常趋势（近 {{ trendDays }} 天）</span>
+          <el-select v-model="trendDays" size="small" style="width: 100px" @change="loadTrend">
+            <el-option label="7 天" :value="7" />
+            <el-option label="14 天" :value="14" />
+            <el-option label="30 天" :value="30" />
+          </el-select>
+        </div>
+      </template>
+      <TrendChart :devices="trendDevices" />
+    </el-card>
     <!-- 筛选栏 -->
     <el-card shadow="never" class="filter-card">
       <el-form :inline="true" :model="filter" size="default">
@@ -104,7 +118,8 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, View } from '@element-plus/icons-vue'
-import { getAuditList } from '../../api/log-monitor'
+import TrendChart, { type TrendDevice } from '../components/TrendChart.vue'
+import { getAuditList, getTrend } from '../../api/log-monitor'
 import { request } from '../../utils/http'
 import BackButton from '../../components/BackButton.vue'
 
@@ -118,6 +133,8 @@ const pageSize = ref(20)
 const loading = ref(false)
 const detailVisible = ref(false)
 const detail = ref<any>({})
+const trendDays = ref(7)
+const trendDevices = ref<TrendDevice[]>([])
 
 // 审计日志兜底 + 分页
 const logParseError = ref(false)
@@ -185,12 +202,26 @@ function showDetail(row: any) {
   detailVisible.value = true
 }
 
-onMounted(loadData)
+async function loadTrend() {
+  try {
+    const res = await getTrend(trendDays.value)
+    trendDevices.value = res.devices.sort((a, b) =>
+      b.daily.reduce((x, y) => x + y.abnormal_count, 0) - a.daily.reduce((x, y) => x + y.abnormal_count, 0)
+    )
+  } catch (e: any) { ElMessage.error('趋势加载失败: ' + e.message) }
+}
+
+onMounted(() => {
+  loadData()
+  loadTrend()
+})
 </script>
 
 <style scoped>
 .log-monitor-audit { padding: 0; }
 .page-header { margin-bottom: 16px; }
+.trend-card { margin-bottom: 16px; }
+.trend-header { display: flex; align-items: center; justify-content: space-between; }
 .filter-card { margin-bottom: 16px; }
 .pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
 .detail-section { margin-bottom: 20px; }
