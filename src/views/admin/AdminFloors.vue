@@ -119,7 +119,7 @@ async function handleSubmit() {
         <template #label>
           <el-icon class="tab-icon"><component :is="tab.icon" /></el-icon>
           {{ tab.label }}
-        </el-tab-pane>
+        </template>
 
         <div class="toolbar">
           <el-button type="primary" size="small" @click="handleAdd">新增楼层</el-button>
