@@ -1,9 +1,13 @@
 import db from './db'
-import cron, { ScheduledTask } from 'node-cron'
 import fs from 'node:fs'
 import path from 'node:path'
 
 // ========== 类型定义 ==========
+
+export interface LokiResult {
+  logs: LogEntry[]
+  error?: string
+}
 
 export interface LogServerConfig {
   base_url: string
@@ -398,21 +402,22 @@ export async function discoverDevices(): Promise<DiscoveredDevice[]> {
 // ========== 调度器 ==========
 
 let cronTask: ScheduledTask | null = null
+let intervalTimer: NodeJS.Timeout | null = null
 let lastRunTime: Date | null = null
 
 export function startScheduler(): void {
-  if (cronTask) return
+  if (intervalTimer) return
 
   const cfg = loadConfig()
-  const interval = cfg.scheduler?.interval || 300
-  const cronExpr = `*/${interval} * * * *`
+  const intervalSec = cfg.scheduler?.interval || 300
+  lastRunTime = new Date()
 
-  cronTask = cron.schedule(cronExpr, async () => {
+  intervalTimer = setInterval(async () => {
     lastRunTime = new Date()
     const config = loadConfig()
     // 从 Loki 自动发现设备，回退到配置列表
     let deviceList: DeviceConfig[]
-    const discovered = await discoverDevices()
+    const discovered = await getCachedDevices()
     if (discovered.length > 0) {
       const nameMap = new Map(config.devices.map(d => [d.device_id, d.name]))
       deviceList = discovered.map(d => ({
@@ -428,23 +433,23 @@ export function startScheduler(): void {
       try {
         const endTime = new Date()
         const startTime = new Date(endTime.getTime() - (config.scheduler.window * 1000))
-        const logs = await fetchLokiLogs((device as any).hostname || device.device_id, startTime, endTime, 10000)
+        const { logs } = await fetchLokiLogsCached((device as any).hostname || device.device_id, startTime, endTime, 10000)
         const result = await analyzeLogs(logs, config.llm.system_prompt)
         saveAudit(device, logs, result)
       } catch (e: any) {
         console.error(`[scheduler] 分析设备 ${device.device_id} 失败: ${e.message}`)
       }
     }
-  })
+  }, intervalSec * 1000)
 
   setConfig('scheduler_running', true)
-  console.log(`[scheduler] 调度器已启动, 间隔=${interval}s`)
+  console.log(`[scheduler] 调度器已启动, 间隔=${intervalSec}s`)
 }
 
 export function stopScheduler(): void {
-  if (cronTask) {
-    cronTask.stop()
-    cronTask = null
+  if (intervalTimer) {
+    clearInterval(intervalTimer)
+    intervalTimer = null
   }
   setConfig('scheduler_running', false)
   console.log('[scheduler] 调度器已停止')
@@ -452,7 +457,7 @@ export function stopScheduler(): void {
 
 export function getSchedulerStatus(): { running: boolean; lastRun: string | null } {
   return {
-    running: cronTask !== null,
+    running: intervalTimer !== null,
     lastRun: lastRunTime?.toISOString() || null,
   }
 }
@@ -477,6 +482,7 @@ interface DashboardDevice {
   hostname: string
   log_count: number
   logs: DashboardLog[]
+  loki_error?: string
   analysis: {
     summary: string
     has_abnormal: boolean
@@ -500,25 +506,25 @@ function parseLogLevel(line: string): string {
 }
 
 // 日志查询节流（P0-1：同时间窗口内重复请求复用结果）
-const logQueryCache = new Map<string, { logs: LogEntry[]; ts: number }>()
+const logQueryCache = new Map<string, { result: LokiResult; ts: number }>()
 const LOG_CACHE_TTL = 10_000  // 10 秒
 
-export async function fetchLokiLogsCached(hostname: string, start: Date, end: Date, limit?: number) {
+export async function fetchLokiLogsCached(hostname: string, start: Date, end: Date, limit?: number): Promise<LokiResult> {
   const key = `${hostname}|${start.getTime()}|${end.getTime()}`
   const cached = logQueryCache.get(key)
-  if (cached && Date.now() - cached.ts < LOG_CACHE_TTL) return cached.logs
-  const logs = await fetchLokiLogs(hostname, start, end, limit)
-  logQueryCache.set(key, { logs, ts: Date.now() })
+  if (cached && Date.now() - cached.ts < LOG_CACHE_TTL) return cached.result
+  const result = await fetchLokiLogs(hostname, start, end, limit)
+  logQueryCache.set(key, { result, ts: Date.now() })
   // 清理过期 key
   if (logQueryCache.size > 100) {
     for (const [k, v] of logQueryCache) {
       if (Date.now() - v.ts > LOG_CACHE_TTL) logQueryCache.delete(k)
     }
   }
-  return logs
+  return result
 }
 
-export async function fetchLokiLogs(hostname: string, start: Date, end: Date, limit: number = 2000): Promise<LogEntry[]> {
+export async function fetchLokiLogs(hostname: string, start: Date, end: Date, limit: number = 2000): Promise<LokiResult> {
   const query = `{job="syslog", host="${hostname}"}`
   const params = new URLSearchParams({
     query,
@@ -531,7 +537,7 @@ export async function fetchLokiLogs(hostname: string, start: Date, end: Date, li
   try {
     const url = `${getLokiUrl()}/loki/api/v1/query_range?${params}`
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
-    if (!res.ok) return []
+    if (!res.ok) return { logs: [], error: `Loki HTTP ${res.status}` }
     const data = await res.json() as any
     const results: LogEntry[] = []
     for (const stream of (data.data?.result || [])) {
@@ -546,9 +552,9 @@ export async function fetchLokiLogs(hostname: string, start: Date, end: Date, li
         })
       }
     }
-    return results
-  } catch {
-    return []
+    return { logs: results }
+  } catch (e: any) {
+    return { logs: [], error: e.message || 'Loki 查询超时' }
   }
 }
 
@@ -598,7 +604,7 @@ export async function getDashboardData(timeRange: string): Promise<DashboardData
 
   // 并行查询所有设备
 const devicePromises = discoveredDevices.map(async (device) => {
-  const logs = await fetchLokiLogsCached(device.hostname, startTime, now)
+  const { logs, error: lokiError } = await fetchLokiLogsCached(device.hostname, startTime, now)
 
   // 未启动调度器时不显示历史分析数据，除非手动分析过
   let analysis = null
@@ -622,6 +628,7 @@ const devicePromises = discoveredDevices.map(async (device) => {
     hostname: device.hostname,
     log_count: logs.length,
     logs: logs.map(l => ({ ...l })),
+    loki_error: lokiError,
     analysis,
   } as DashboardDevice
 })

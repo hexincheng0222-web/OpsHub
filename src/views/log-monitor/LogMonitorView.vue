@@ -239,6 +239,7 @@ const autoRefresh = ref(0)
 const loading = ref(false)
 const dashData = ref<DashboardData | null>(null)
 let refreshTimer: ReturnType<typeof setInterval> | null = null
+let requestId = 0
 
 // 抽屉
 const drawerVisible = ref(false)
@@ -303,13 +304,16 @@ function statusClass(device: DashboardDevice): string {
 }
 
 async function loadDashboard() {
+  const myId = ++requestId
   loading.value = true
   try {
-    dashData.value = await getDashboard(timeRange.value)
+    const data = await getDashboard(timeRange.value)
+    if (myId !== requestId) return  // 已被新请求取代，丢弃
+    dashData.value = data
   } catch (e: any) {
-    ElMessage.error('加载失败: ' + e.message)
+    if (myId === requestId) ElMessage.error('加载失败: ' + e.message)
   } finally {
-    loading.value = false
+    if (myId === requestId) loading.value = false
   }
 }
 

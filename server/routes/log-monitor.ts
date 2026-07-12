@@ -102,7 +102,7 @@ router.post('/run-once', async (req: Request, res: Response) => {
 
     for (const device of deviceList) {
       const queryTarget = (device as any).hostname || device.device_id
-      const logs = await fetchLokiLogs(queryTarget, startTime, endTime, 200)
+      const { logs } = await fetchLokiLogs(queryTarget, startTime, endTime, 200)
       const result = await analyzeLogs(logs, config.llm.system_prompt)
       const id = saveAudit(device, logs, result)
       results.push({ id, device_id: device.device_id, has_abnormal: result.has_abnormal })
@@ -138,7 +138,7 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
 
     // 用 fetchLokiLogs 从 Loki 查真实日志（不限量，取时间窗口内全部日志）
     const queryTarget = hostname || device_id
-    const logs = await fetchLokiLogs(queryTarget, startTime, endTime, 10000)
+    const { logs } = await fetchLokiLogs(queryTarget, startTime, endTime, 10000)
     if (!logs.length) {
       return res.json({ code: 0, data: { summary: '无日志可分析', has_abnormal: false, llm_ms: 0 } })
     }
