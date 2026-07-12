@@ -309,6 +309,19 @@ export interface DiscoveredDevice {
   hostname: string
 }
 
+// 设备发现缓存（P0-1：避免每次刷新都查 Loki 7 天日志建映射）
+let deviceCache: { devices: DiscoveredDevice[]; ts: number } | null = null
+const DEVICE_CACHE_TTL = 5 * 60 * 1000  // 5 分钟
+
+export async function getCachedDevices(): Promise<DiscoveredDevice[]> {
+  if (deviceCache && Date.now() - deviceCache.ts < DEVICE_CACHE_TTL) {
+    return deviceCache.devices
+  }
+  const devices = await discoverDevices()
+  deviceCache = { devices, ts: Date.now() }
+  return devices
+}
+
 export async function discoverDevices(): Promise<DiscoveredDevice[]> {
   const start = new Date(Date.now() - 7 * 86400000).toISOString()
   const end = new Date().toISOString()
@@ -456,6 +469,25 @@ function parseLogLevel(line: string): string {
   return 'INFO'
 }
 
+// 日志查询节流（P0-1：同时间窗口内重复请求复用结果）
+const logQueryCache = new Map<string, { logs: LogEntry[]; ts: number }>()
+const LOG_CACHE_TTL = 10_000  // 10 秒
+
+export async function fetchLokiLogsCached(hostname: string, start: Date, end: Date, limit?: number) {
+  const key = `${hostname}|${start.getTime()}|${end.getTime()}`
+  const cached = logQueryCache.get(key)
+  if (cached && Date.now() - cached.ts < LOG_CACHE_TTL) return cached.logs
+  const logs = await fetchLokiLogs(hostname, start, end, limit)
+  logQueryCache.set(key, { logs, ts: Date.now() })
+  // 清理过期 key
+  if (logQueryCache.size > 100) {
+    for (const [k, v] of logQueryCache) {
+      if (Date.now() - v.ts > LOG_CACHE_TTL) logQueryCache.delete(k)
+    }
+  }
+  return logs
+}
+
 export async function fetchLokiLogs(hostname: string, start: Date, end: Date, limit: number = 2000): Promise<LogEntry[]> {
   const query = `{job="syslog", host="${hostname}"}`
   const params = new URLSearchParams({
@@ -525,7 +557,7 @@ export async function getDashboardData(timeRange: string): Promise<DashboardData
   const startTime = new Date(now.getTime() - ms)
 
   // 从 Loki 自动发现设备
-  let discoveredDevices = await discoverDevices()
+  let discoveredDevices = await getCachedDevices()
 
   // 如果配置页有设备列表，则过滤只显示已配置的设备
   const nameMap = new Map(config.devices.map(d => [d.device_id, d.name]))
@@ -536,7 +568,7 @@ export async function getDashboardData(timeRange: string): Promise<DashboardData
 
   // 并行查询所有设备
 const devicePromises = discoveredDevices.map(async (device) => {
-  const logs = await fetchLokiLogs(device.hostname, startTime, now)
+  const logs = await fetchLokiLogsCached(device.hostname, startTime, now)
 
   // 未启动调度器时不显示历史分析数据，除非手动分析过
   let analysis = null
