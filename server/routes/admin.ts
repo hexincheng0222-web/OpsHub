@@ -186,13 +186,41 @@ router.put('/config', (req: Request, res: Response) => {
 
 // ========== 通用 CRUD（/:table 路由） ==========
 
-// GET /api/v1/admin/:table  — 列表
+// GET /api/v1/admin/:table  — 列表（支持分页）
 router.get('/:table', (req: Request, res: Response) => {
   const config = tables[req.params.table]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
-  const rows = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} ORDER BY sort_order ASC, id ASC`).all()
-  res.json({ code: 200, data: rows })
+  const page = Math.max(1, parseInt(req.query.page as string) || 0)
+  const pageSize = Math.min(200, Math.max(0, parseInt(req.query.pageSize as string) || 0))
+
+  // 无分页参数 → 返回全量（向后兼容）
+  if (!page && !pageSize) {
+    const rows = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} ORDER BY sort_order ASC, id ASC`).all()
+    return res.json({ code: 200, data: rows })
+  }
+
+  const offset = (page - 1) * pageSize
+  const total = (db.prepare(`SELECT COUNT(*) as cnt FROM ${config.table}`).get() as { cnt: number }).cnt
+  const rows = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?`).all(pageSize, offset)
+  res.json({ code: 200, data: { rows, total, page, pageSize } })
+})
+
+// DELETE /api/v1/admin/:table/batch  — 批量删除
+router.delete('/:table/batch', (req: Request, res: Response) => {
+  const config = tables[req.params.table]
+  if (!config) return res.status(404).json({ code: 404, message: '未知表' })
+  const { ids } = req.body
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+  const ph = ids.map(() => '?').join(',')
+  try {
+    const n = db.prepare(`DELETE FROM ${config.table} WHERE id IN (${ph})`).run(...ids)
+    logOperation({ module: config.module, action: '批量删除', target: `${ids.length} 条记录`, detail: '', operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    res.json({ code: 200, message: `已删除 ${n.changes} 条` })
+  } catch (err: any) {
+    if (err.message?.includes('FOREIGN KEY')) return res.status(409).json({ code: 409, message: '部分记录被引用，无法删除' })
+    res.status(500).json({ code: 500, message: '批量删除失败' })
+  }
 })
 
 // POST /api/v1/admin/:table  — 新增

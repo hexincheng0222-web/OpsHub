@@ -7,13 +7,25 @@ const dictCache = new Map<string, { data: any; ts: number }>()
 const DICT_CACHE_TTL = 60_000
 
 // 通用 CRUD
-export async function fetchDict(table: string) {
+export async function fetchDict(table: string, params: { page?: number; pageSize?: number } = {}) {
   const cached = dictCache.get(table)
-  if (cached && Date.now() - cached.ts < DICT_CACHE_TTL) return cached.data
+  if (!params.page && !params.pageSize && cached) return cached.data
 
-  const data = await request(`${BASE}/${table}`)
-  dictCache.set(table, { data, ts: Date.now() })
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.pageSize) qs.set('pageSize', String(params.pageSize))
+  const q = qs.toString()
+  const data = await request(`${BASE}/${table}${q ? '?' + q : ''}`)
+  if (!params.page && !params.pageSize) dictCache.set(table, { data, ts: Date.now() })
   return data
+}
+
+export async function fetchAllDict(table: string) {
+  return request(`${BASE}/${table}`) as Promise<any[]>
+}
+
+export async function batchDeleteDict(table: string, ids: number[]) {
+  return request(`${BASE}/${table}/batch`, { method: 'DELETE', body: JSON.stringify({ ids }) })
 }
 
 export async function createDict(table: string, payload: Record<string, any>) {

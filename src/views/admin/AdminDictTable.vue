@@ -84,14 +84,15 @@ function getOptionLabel(colProp: string, value: any): string {
 async function loadData() {
   loading.value = true
   try {
-    tableData.value = await fetchDict(dictKey.value)
+    const data = await fetchDict(dictKey.value)
+    tableData.value = Array.isArray(data) ? data : (data.rows || [])
 
     // 通用依赖加载：替换掉 5 个 if-else 分支
     const deps = config.value.dependencies || []
     for (const dep of deps) {
       const optionsData = await fetchDict(dep.dict)
       const col = config.value.columns.find(c => c.prop === dep.targetColumn)
-      if (col) {
+      if (col && Array.isArray(optionsData)) {
         col.options = optionsData.map((item: any) => ({
           label: item[dep.labelKey || 'name'],
           value: item[dep.valueKey || 'id'],
@@ -102,6 +103,25 @@ async function loadData() {
     ElMessage.error(e.message || '加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+const selectedRows = ref<any[]>([])
+
+function handleSelectionChange(rows: any[]) { selectedRows.value = rows }
+
+async function handleBatchDelete() {
+  if (!selectedRows.value.length) return
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 条记录？`, '确认删除', {
+      confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning',
+    })
+    await api.batchDeleteDict(dictKey.value, selectedRows.value.map(r => r.id))
+    ElMessage.success('批量删除成功')
+    selectedRows.value = []
+    loadData()
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error(e.message || '批量删除失败')
   }
 }
 
@@ -185,6 +205,7 @@ function getColWidth(col: ColumnConfig): number | undefined {
       </div>
       <div class="header-actions">
         <el-input v-model="searchText" placeholder="搜索..." clearable size="small" :prefix-icon="Search" style="width: 200px" />
+        <el-button type="danger" size="small" :disabled="!selectedRows.length" @click="handleBatchDelete">批量删除 ({{ selectedRows.length }})</el-button>
         <el-button type="primary" size="small" @click="handleAdd">新增</el-button>
       </div>
     </div>
@@ -202,7 +223,8 @@ function getColWidth(col: ColumnConfig): number | undefined {
       </div>
     </div>
 
-    <el-table :data="filteredData" v-loading="loading" style="width: 100%" size="small">
+    <el-table :data="filteredData" v-loading="loading" style="width: 100%" size="small" @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="40" />
       <el-table-column prop="id" label="ID" width="60" />
 
       <template v-for="col in config.columns" :key="col.prop">
