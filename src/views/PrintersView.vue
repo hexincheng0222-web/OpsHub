@@ -8,7 +8,7 @@
         <el-button type="success" size="small" @click="handleExportXlsx">
           <el-icon><Download /></el-icon> 导出 Excel
         </el-button>
-        <el-button size="small" @click="downloadPrinterTemplateFromExport">
+        <el-button size="small" @click="downloadPrinterTemplate">
           <el-icon><Download /></el-icon> 下载模板
         </el-button>
         <el-dropdown @command="handleTopAction" trigger="click">
@@ -17,9 +17,6 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="template">
-                <el-icon><document /></el-icon> 下载模板
-              </el-dropdown-item>
               <el-dropdown-item command="import">
                 <el-icon><upload /></el-icon> 批量导入
               </el-dropdown-item>
@@ -200,9 +197,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
-import { exportPrintersXlsx, downloadPrinterTemplate as downloadPrinterTemplateFromExport } from '../utils/printer-export'
+import { exportPrintersXlsx } from '../utils/printer-export'
 import { parseXlsx } from '../utils/excel'
-import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, Download, Upload, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { fetchDict } from '../api/admin'
 import { useDebouncedSearch } from '../composables/useDebouncedSearch'
@@ -261,8 +258,7 @@ const modelOptions = computed(() => {
 })
 
 function handleTopAction(command: string) {
-  if (command === 'template') downloadTemplate()
-  else if (command === 'import') triggerImport()
+  if (command === 'import') triggerImport()
   else if (command === 'export') exportCSV()
 }
 
@@ -341,7 +337,6 @@ async function batchDelete() {
 const fileInput = ref<HTMLInputElement>()
 function triggerImport() { fileInput.value?.click() }
 function exportCSV() { exportPrintersCSV(store.printers) }
-function downloadTemplate() { downloadPrinterTemplate() }
 async function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
