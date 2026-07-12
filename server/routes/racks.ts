@@ -244,6 +244,7 @@ router.post('/', (req: Request, res: Response) => {
 
   if (!name) return res.status(400).json({ code: 400, message: 'name 为必填项' })
   if (!floor || !getFloors().includes(floor)) return res.status(400).json({ code: 400, message: 'floor 必须是已配置的楼层之一' })
+  if (!Number.isInteger(totalU) || totalU < 1 || totalU > 50) return res.status(400).json({ code: 400, message: 'totalU 必须为 1-50 的整数' })
 
   const rackId = id || 'rack-' + Date.now()
 

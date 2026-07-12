@@ -69,9 +69,9 @@ export const useComputerProcurementStore = defineStore('computerProcurement', ()
   }
 
   async function updateComputer(id: number, data: Partial<ComputerProcurement>) {
-    await computerApi.updateComputer(id, data)
+    const updated = await computerApi.updateComputer(id, data)  // 拿后端 toApi 响应
     const idx = computers.value.findIndex(c => c.id === id)
-    if (idx !== -1) computers.value[idx] = { ...computers.value[idx], ...data }
+    if (idx !== -1) computers.value[idx] = updated  // 用后端响应而非请求体
   }
 
   async function deleteComputer(id: number) {
@@ -118,9 +118,9 @@ export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
   }
 
   async function updatePhone(id: number, data: Partial<PhoneProcurement>) {
-    await phoneApi.updatePhone(id, data)
+    const updated = await phoneApi.updatePhone(id, data)  // 拿后端 toApi 响应
     const idx = phones.value.findIndex(p => p.id === id)
-    if (idx !== -1) phones.value[idx] = { ...phones.value[idx], ...data }
+    if (idx !== -1) phones.value[idx] = updated  // 用后端响应而非请求体
   }
 
   async function deletePhone(id: number) {

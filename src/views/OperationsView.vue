@@ -602,11 +602,16 @@ const renderedContent = computed(() => {
 })
 
 // ---- Word count & reading time ----
+// 统计中文字 + 英文单词数（中文按字，英文按空格分词），不删 markdown 符号
 const wordCount = computed(() => {
   if (!selectedDoc.value) return 0
-  // Strip HTML tags for word count
-  const text = selectedDoc.value.content.replace(/<[^>]*>/g, '')
-  return text.replace(/[`\-\[\]()>#]/g, '').length
+  // 先 strip HTML 标签，再解析 markdown 为纯文本
+  const raw = selectedDoc.value.content.replace(/<[^>]*>/g, '')
+  const html = marked.parseInline(raw) as string
+  const text = html.replace(/<[^>]*>/g, '')
+  const cjk = (text.match(/[一-龥]/g) || []).length
+  const en = (text.match(/[a-zA-Z]+/g) || []).length
+  return cjk + en
 })
 const readTime = computed(() => Math.max(1, Math.ceil(wordCount.value / 400)))
 

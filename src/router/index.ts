@@ -137,8 +137,8 @@ router.beforeEach(async (to) => {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
 
-  // /admin/** 需要管理员权限
-  if (to.path.startsWith('/admin') && !auth.isAdmin) {
+  // /admin/** 需要管理员权限（精确匹配 /admin 或 /admin/xxx，避免误匹配 /adminxxx）
+  if ((to.path === '/admin' || to.path.startsWith('/admin/')) && !auth.isAdmin) {
     return '/'
   }
 })

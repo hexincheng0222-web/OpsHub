@@ -30,13 +30,21 @@ export function downloadXlsx(
  */
 export async function parseXlsx(file: File): Promise<{ headers: string[]; rows: string[][] }> {
   const buf = await file.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array' })
+  // cellDates: 让日期单元格返回 Date 对象；raw: false 让日期按 cellText 格式化（YYYY-MM-DD）
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true })
   const ws = wb.Sheets[wb.SheetNames[0]]
-  const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+  const aoa: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false })
   if (aoa.length === 0) return { headers: [], rows: [] }
   const headers = (aoa[0] as unknown[]).map(c => String(c ?? '').trim())
-  const rows = aoa.slice(1).map(r =>
-    (r as unknown[]).map(c => String(c ?? '').trim()),
-  )
+  const colCount = headers.length
+  const rows = aoa.slice(1).map(r => {
+    const arr = (r as unknown[]).map(c => {
+      if (c instanceof Date) return c.toISOString().slice(0, 10)  // Date → YYYY-MM-DD
+      return String(c ?? '').trim()
+    })
+    // 补齐长度不足 header 的行
+    while (arr.length < colCount) arr.push('')
+    return arr.slice(0, colCount)
+  })
   return { headers, rows }
 }

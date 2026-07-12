@@ -26,7 +26,8 @@ export function floorWeight(f: string): number {
   return 999
 }
 
-const floorGroupsCache = new Map<string, FloorGroup[]>()
+const floorGroupsCache = new Map<string, { result: FloorGroup[]; ts: number }>()
+const CACHE_TTL = 30_000  // 30 秒
 
 function computeFloorGroups(
   printers: { id: number; manufacturer: string; model: string; location: string; floor: string; tonerModel: string; notes: string; status: string }[],
@@ -103,14 +104,22 @@ export function buildFloorGroups(
   searchQuery: string,
   statusFilter = ''
 ): FloorGroup[] {
+  // key 加入全部参与排序分组的字段，避免编辑打印机后命中旧缓存
   const hash = JSON.stringify([
-    printers.map(p => p.id + p.status).join(','),
+    printers.map(p => `${p.id}|${p.status}|${p.manufacturer}|${p.model}|${p.location}|${p.tonerModel}|${p.notes}`).join(','),
     selectedFloors instanceof Set ? [...selectedFloors].sort().join(',') : (selectedFloors || ''),
     searchQuery,
     statusFilter,
   ])
-  if (floorGroupsCache.has(hash)) return floorGroupsCache.get(hash)!
+  const cached = floorGroupsCache.get(hash)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.result
   const result = computeFloorGroups(printers, selectedFloors, searchQuery, statusFilter)
-  floorGroupsCache.set(hash, result)
+  floorGroupsCache.set(hash, { result, ts: Date.now() })
+  // 清理过期 key（避免内存泄漏）
+  if (floorGroupsCache.size > 100) {
+    for (const [k, v] of floorGroupsCache) {
+      if (Date.now() - v.ts > CACHE_TTL) floorGroupsCache.delete(k)
+    }
+  }
   return result
 }

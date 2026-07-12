@@ -94,7 +94,11 @@ router.post('/:id/move', (req: Request, res: Response) => {
     if (!currentSlot) return res.status(409).json({ code: 409, message: '设备未放置在任何机柜中' })
 
     const sourceRackId = currentSlot.rack_id
-    const uSize = device.u
+    // 优先用 currentSlot.u_size（槽位历史值）做一致性检查，回退到 device.u
+    const uSize = currentSlot.u_size || device.u
+    if (!uSize || uSize < 1) {
+      return res.status(400).json({ code: 400, message: '设备 U 数无效，请先修正设备 u 字段' })
+    }
 
     // 检查目标位置是否有足够空间
     const conflict = db.prepare(`

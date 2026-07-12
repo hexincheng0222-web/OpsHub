@@ -260,12 +260,17 @@ function hostName(hostId: number | null): string {
 const drawerVisible = ref(false)
 const selectedService = ref<Service | null>(null)
 const healthPoints = ref<any[]>([])
+let historyReqId = 0
 watch(selectedService, async (svc) => {
   if (!svc) return
+  const myId = ++historyReqId
   try {
     const { points } = await servicesStore.fetchHistory(svc.id, 24)
+    if (myId !== historyReqId) return  // 已被新请求取代，丢弃
     healthPoints.value = points
-  } catch { healthPoints.value = [] }
+  } catch {
+    if (myId === historyReqId) healthPoints.value = []
+  }
 })
 
 function openDrawer(svc: Service) {
