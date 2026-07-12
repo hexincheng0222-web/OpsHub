@@ -20,9 +20,6 @@
               <el-dropdown-item command="export-csv" divided>
                 <el-icon><download /></el-icon> 导出 CSV
               </el-dropdown-item>
-              <el-dropdown-item command="export-xlsx">
-                <el-icon><download /></el-icon> 导出 Excel
-              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -197,7 +194,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePrintersStore } from '../stores/printers'
 import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
-import { exportPrintersXlsx } from '../utils/printer-export'
 import { parseXlsx } from '../utils/excel'
 import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -261,7 +257,6 @@ function handleTopAction(command: string) {
   if (command === 'template') downloadPrinterTemplate()
   else if (command === 'import') triggerImport()
   else if (command === 'export-csv') exportCSV()
-  else if (command === 'export-xlsx') handleExportXlsx()
 }
 
 async function handleExportXlsx() {
