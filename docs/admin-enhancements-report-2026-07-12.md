@@ -15,7 +15,7 @@
 | Phase 1 | 楼层合并（方案 B） | `7ca8ff8` + `e4e6d7d` + `106bd8b` + `298378d` + `4d204d3` | ✅ |
 | Phase 2 | 概览卡片可点击 + 趋势图 | `5969dd4` | ✅ |
 | Phase 3 | 用户管理增强（搜索/筛选/分页） | `3cea282` | ✅ |
-| Phase 4 | 日志日期筛选 + 模块动态 | `3f2866b` | ✅ |
+| Phase 4 | 日志日期筛选 + 模块动态 + **保留期 30 天** | `3f2866b` + `be309ca` | ✅ |
 | Phase 5 | 用户操作详情增强 + DB 迁移 | `d7dfef0` | ✅ |
 | Phase 6 | 字典表多选 + 批量删除 | `e1ac966` | ✅ |
 
@@ -67,14 +67,15 @@
   - 角色筛选下拉
   - 底部分页器
 
-### Phase 4：日志日期筛选 + 模块动态
+### Phase 4：日志日期筛选 + 模块动态 + 保留期
 
 **改动**：
-- `server/routes/admin.ts`：`GET /logs/list` 支持 `startDate` / `endDate` 双端闭区间筛选；新增 `GET /logs/modules` 动态返回去重模块列表
+- `server/routes/admin.ts`：`GET /logs/list` 支持 `startDate` / `endDate` 双端闭区间筛选；新增 `GET /logs/modules` 动态返回去重模块列表；**启动时注册 cron 每日 02:00 自动清理 30 天前操作日志**
 - `src/api/admin.ts`：`fetchLogs` 增加日期参数；新增 `fetchLogModules()`
 - `src/views/admin/AdminLogs.vue`：
   - `el-date-picker` type=daterange
   - 模块筛选改为动态选项（从接口拉取）
+  - 清空按钮文案改为「清空全部（30 天自动清理）」
 
 ### Phase 5：用户操作详情增强
 
