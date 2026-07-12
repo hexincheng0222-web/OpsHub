@@ -4,20 +4,19 @@
 > **分支**：`hxc`
 > **范围**：后端 13 个路由 + 全部 stores/apis/utils/类型定义/路由配置（共 50+ 文件）
 > **方法**：4 路并行只读审查，覆盖采购/话机/服务/日志监控/认证/操作手册/设备打印机/数据库基础设施
-> **计数**：🔴 高 6 个 / 🟡 中 12 个 / 🟢 低 7 个
+> **计数**：🔴 高 5 个 / 🟡 中 12 个 / 🟢 低 7 个
 
 ---
 
-## 一、🔴 高严重度（6 个，必修）
+## 一、🔴 高严重度（5 个，必修）
 
 | # | 位置 | 问题 | 触发场景 |
 |---|------|------|----------|
 | 1 | `server/routes/phones.ts:361` vs `:486` | `/:id/details` 拦截整组 `/phonebook` 路由（Express 按定义顺序匹配，前端请求 `/api/v1/phones/phonebook` 会先命中 `/:id/details`，`id="phonebook"` 找不到 → 404）。电话簿 CRUD + 通讯录下发全部失效 | 打开电话簿 / 推送通讯录 |
-| 2 | `src/views/procurement/ComputerProcurementTab.vue:676` | `XLSX_HEADERS[4]` 误写成 `'MAC 地址'`（`[3]` 已是），实为 `'设备型号'`。Excel 表头从第 4 列起整体错位（CSV 用独立字符串头故不受影响） | 导出全部 Excel / 导出筛选 Excel |
-| 3 | `server/logMonitor.ts:591-598` | LogQL 字符串拼接 `{host="${hostname}"}` 未做白名单校验，调用方 `routes/log-monitor.ts:120` 把 `req.body.hostname` 直传。可注入跨设备读日志（LogQL 注入 = 数据泄漏） | 攻击者对 `POST /analyze-device` 传恶意 hostname |
-| 4 | `src/views/OperationsView.vue:433`、`:486` | 打印 / 导出 `.doc` 时 `doc.title` 未 HTML 转义直接拼进 `document.write` → XSS | 文档标题含 `<img src=x onerror=...>` 时点「打印」 |
-| 5 | `src/views/ManDocEditor.vue:47` | `v-html="versionPreview.content"` 直接渲染 DB 内容，无 sanitize（同页面阅读视图用了 `sanitizeHtml`，版本预览漏了）→ 次生 XSS | 点开含恶意脚本的版本「预览」 |
-| 6 | `server/db.ts` | **双重问题**：①全文只有 `PRAGMA table_info` 从无 `PRAGMA foreign_keys = ON`，better-sqlite3 默认关闭外键 → 建表声明的 `REFERENCES ... ON DELETE CASCADE/SET NULL` 全部失效，删机柜后 `rack_slots` orphan 永久残留、`printer_models`/`phone_models`/`toner_models`/`manual_docs` 等级联均不生效；②`device_types` 迁移（行 560）在无 `key` 列时 `DROP TABLE device_types` 重建为空表，而字典 seed（行 681）嵌在 `if (floorCount.cnt === 0)` 块内，若 `device_floors` 已有历史数据则整个 seed 块被跳过 → 设备类型字典永久清空且不重填 | ①删除机柜 ②持旧库升级 |
+| 2 | `server/logMonitor.ts:591-598` | LogQL 字符串拼接 `{host="${hostname}"}` 未做白名单校验，调用方 `routes/log-monitor.ts:120` 把 `req.body.hostname` 直传。可注入跨设备读日志（LogQL 注入 = 数据泄漏） | 攻击者对 `POST /analyze-device` 传恶意 hostname |
+| 3 | `src/views/OperationsView.vue:433`、`:486` | 打印 / 导出 `.doc` 时 `doc.title` 未 HTML 转义直接拼进 `document.write` → XSS | 文档标题含 `<img src=x onerror=...>` 时点「打印」 |
+| 4 | `src/views/ManDocEditor.vue:47` | `v-html="versionPreview.content"` 直接渲染 DB 内容，无 sanitize（同页面阅读视图用了 `sanitizeHtml`，版本预览漏了）→ 次生 XSS | 点开含恶意脚本的版本「预览」 |
+| 5 | `server/db.ts` | **双重问题**：①全文只有 `PRAGMA table_info` 从无 `PRAGMA foreign_keys = ON`，better-sqlite3 默认关闭外键 → 建表声明的 `REFERENCES ... ON DELETE CASCADE/SET NULL` 全部失效，删机柜后 `rack_slots` orphan 永久残留、`printer_models`/`phone_models`/`toner_models`/`manual_docs` 等级联均不生效；②`device_types` 迁移（行 560）在无 `key` 列时 `DROP TABLE device_types` 重建为空表，而行 681 的 `INSERT INTO device_types` 整个嵌在 `if (floorCount.cnt === 0)`（行 673） seed 块内。**仅当两个条件同时成立才会触发清空不重填**：库中 `device_types` 尚无 `key` 列（触发 DROP 重建为空）**且** `device_floors` 已有历史数据（seed 块被跳过）。一次性迁移——成功加上 key 列后不会再进 DROP 分支 | ①删除机柜 ②持"无 key 列旧库"升级且 device_floors 已有数据 |
 
 ---
 
@@ -69,11 +68,10 @@
 
 | 优先级 | 修复项 | 理由 |
 |--------|--------|------|
-| P0 | **🔴#6 外键 + device_types 迁移（db.ts）** | 数据完整性兜底。`device_types` 本次 session 已踩过，现在一并加 `PRAGMA foreign_keys = ON` 把级联真正生效 |
+| P0 | **🔴#5 外键 + device_types 迁移（db.ts）** | 数据完整性兜底。外键未启用导致级联全部失效，加 `PRAGMA foreign_keys = ON` 即可；device_types 迁移需把 seed 判断从 `floorCount` 改为独立（seed 字典不应依赖 device_floors 是否为空） |
 | P0 | **🔴#1 phonebook 路由（phones.ts）** | 整个电话簿 CRUD + 通讯录下发功能不可用，一组路由提前定义就修好（与采购 trash 路由同手法） |
-| P0 | **🔴#3 LogQL 注入（logMonitor.ts）** | 数据安全问题，hostname 加白名单正则（`/^[a-zA-Z0-9._-]+$/`）即可挡 |
-| P1 | **🔴#2 Excel 表头（ComputerProcurementTab.vue:676）** | 字符串复制笔误，改一个字面量 |
-| P1 | **🔴#4/5 XSS（OperationsView + ManDocEditor）** | 标题转义 + v-html 过 `sanitizeHtml` |
+| P0 | **🔴#2 LogQL 注入（logMonitor.ts）** | 数据安全问题，hostname 加白名单正则（`/^[a-zA-Z0-9._-]+$/`）即可挡 |
+| P1 | **🔴#3/4 XSS（OperationsView + ManDocEditor）** | 标题转义 + v-html 过 `sanitizeHtml` |
 | P2 | **🟡#8 formatTime 时区（format.ts）** | 影响面最大——所有时间戳偏差 8 小时，影响操作日志/审计/采购/话机等全系统时间判断 |
 | P2 | **🟡#1 调度器互斥 / #2 磁盘泄漏 / #3 dashboard 限流（logMonitor.ts）** | 规模部署下会稳定触发，修一处受益多处 |
 | P3 | 其余中/低项 | 按迭代排期处理 |
@@ -92,4 +90,4 @@
 
 ---
 
-**合计：6 高 + 12 中 + 7 低 = 25 项发现。2026-07-12。**
+**合计：5 高 + 12 中 + 7 低 = 24 项发现。2026-07-12。**
