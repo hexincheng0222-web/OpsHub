@@ -100,7 +100,7 @@ function getActionType(action: string): string {
         <span class="page-title">操作日志</span>
         <span class="total-text">共 {{ total }} 条</span>
       </div>
-      <el-button type="danger" text size="small" @click="handleClear">清空</el-button>
+      <el-button type="danger" text size="small" @click="handleClear">清空全部（30 天自动清理）</el-button>
     </div>
 
     <div class="filter-bar">

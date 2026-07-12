@@ -354,6 +354,16 @@ router.delete('/logs/clear', (req: Request, res: Response) => {
   res.json({ code: 200, message: '日志已清空' })
 })
 
+// 启动时注册：每日 02:00 清理 30 天前操作日志（保留期管理）
+import cron from 'node-cron'
+const LOG_RETENTION_DAYS = 30
+cron.schedule('0 2 * * *', () => {
+  try {
+    const n = db.prepare(`DELETE FROM operation_logs WHERE created_at < datetime('now', '-${LOG_RETENTION_DAYS} days')`).run()
+    if (n.changes > 0) console.log(`[logs] 已自动清理 ${n.changes} 条 ${LOG_RETENTION_DAYS} 天前操作日志`)
+  } catch (e) { console.warn('[logs] 自动清理失败:', e) }
+})
+
 // ========== 概览统计 ==========
 
 // GET /api/v1/admin/overview  — 各模块数据统计
