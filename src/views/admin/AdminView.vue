@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   DataBoard, Document, Monitor, Printer,
-  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis, User,
+  FolderOpened, HomeFilled, ShoppingBag, Phone, DataAnalysis, User, Building,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -18,12 +18,12 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { key: 'overview', label: '概览', icon: DataBoard },
+  { key: 'floors', label: '楼层管理', icon: Building },
   { key: 'logs', label: '操作日志', icon: Document },
   { key: 'users', label: '用户管理', icon: User },
   {
     key: 'devices', label: '设备管理', icon: Monitor,
     children: [
-      { key: 'devices/floors', label: '楼层管理', route: '/admin/devices/floors' },
       { key: 'devices/types', label: '设备类型', route: '/admin/devices/types' },
       { key: 'devices/models', label: '设备型号库', route: '/admin/devices/models' },
     ],
@@ -31,7 +31,6 @@ const menuItems: MenuItem[] = [
   {
     key: 'printers', label: '打印机管理', icon: Printer,
     children: [
-      { key: 'printers/floors', label: '楼层管理', route: '/admin/printers/floors' },
       { key: 'printers/brands', label: '品牌管理', route: '/admin/printers/brands' },
       { key: 'printers/models', label: '型号管理', route: '/admin/printers/models' },
       { key: 'printers/toners', label: '墨粉型号', route: '/admin/printers/toners' },
