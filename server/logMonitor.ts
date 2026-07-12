@@ -288,6 +288,16 @@ export function saveAudit(device: DeviceConfig, logs: LogEntry[], result: LLMRes
 
 export function cleanupAudit(retentionDays: number): number {
   if (retentionDays <= 0) return 0
+  // 先查出待删行的 log_file_path，删磁盘文件
+  const rows = db.prepare(
+    'SELECT log_file_path FROM log_audit WHERE created_at < datetime(\'now\', ?)'
+  ).all(`-${retentionDays} days`) as { log_file_path: string }[]
+  for (const r of rows) {
+    if (r.log_file_path) {
+      try { fs.unlinkSync(r.log_file_path) } catch { /* 文件可能已删，忽略 */ }
+    }
+  }
+  // 再删 DB 行
   const row = db.prepare(
     'DELETE FROM log_audit WHERE created_at < datetime(\'now\', ?)'
   ).run(`-${retentionDays} days`)
@@ -410,6 +420,7 @@ export async function discoverDevices(): Promise<DiscoveredDevice[]> {
 let cronTask: ScheduledTask | null = null
 let intervalTimer: NodeJS.Timeout | null = null
 let lastRunTime: Date | null = null
+let schedulerRunning = false  // 互斥标志：防上一轮未结束下一轮并发进入
 
 // ========== 异常告警推送 ==========
 
@@ -472,7 +483,14 @@ export function startScheduler(): void {
   lastRunTime = new Date()
 
   intervalTimer = setInterval(async () => {
+    if (schedulerRunning) {
+      console.warn('[scheduler] 上一轮未结束，跳过本轮')
+      lastRunTime = new Date()
+      return
+    }
+    schedulerRunning = true
     lastRunTime = new Date()
+    try {
     const config = loadConfig()
     // 从 Loki 自动发现设备，回退到配置列表
     let deviceList: DeviceConfig[]
@@ -503,6 +521,7 @@ export function startScheduler(): void {
         console.error(`[scheduler] 分析设备 ${device.device_id} 失败: ${e.message}`)
       }
     }
+    } finally { schedulerRunning = false }
   }, intervalSec * 1000)
 
   setConfig('scheduler_running', true)
@@ -643,6 +662,20 @@ function extractSummary(text: string): string {
   return lines.slice(-2).join(' ').replace(/[*#]/g, '').trim().slice(0, 200) || text.slice(0, 200)
 }
 
+// 并发池工具：限定最大并发数，避免设备多时洪峰打挂 Loki
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let idx = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) || 1 }, async () => {
+    while (idx < items.length) {
+      const i = idx++
+      results[i] = await fn(items[i])
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
 export async function getDashboardData(timeRange: string): Promise<DashboardData> {
   const config = loadConfig()
 
@@ -669,9 +702,9 @@ export async function getDashboardData(timeRange: string): Promise<DashboardData
     discoveredDevices = discoveredDevices.filter(d => configuredIds.has(d.ip))
   }
 
-  // 并行查询所有设备
-const devicePromises = discoveredDevices.map(async (device) => {
-  const { logs, error: lokiError } = await fetchLokiLogsCached(device.hostname, startTime, now)
+  // 并发查询所有设备（限流 5，避免设备多时洪峰打挂 Loki）
+  const devices = await mapWithConcurrency(discoveredDevices, 5, async (device) => {
+    const { logs, error: lokiError } = await fetchLokiLogsCached(device.hostname, startTime, now)
 
   // 未启动调度器时不显示历史分析数据，除非手动分析过
   let analysis = null
@@ -699,8 +732,6 @@ const devicePromises = discoveredDevices.map(async (device) => {
     analysis,
   } as DashboardDevice
 })
-
-const devices = await Promise.all(devicePromises)
 
   // 最后一次分析时间
   const lastAudit = db.prepare(
