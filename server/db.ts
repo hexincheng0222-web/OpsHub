@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import bcrypt from 'bcryptjs'
+import cron from 'node-cron'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1327,6 +1328,33 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_log_audit_created  ON log_audit(created_at);
 `)
 
+// log_audit 新增外置文件路径列（P0-3 文件外置 + 7 天滚动，raw_logs 改为文件存储）
+try {
+  const auditCols = db.prepare("PRAGMA table_info(log_audit)").all() as { name: string }[]
+  if (auditCols.length > 0 && !auditCols.some(c => c.name === 'log_file_path')) {
+    db.exec("ALTER TABLE log_audit ADD COLUMN log_file_path TEXT NOT NULL DEFAULT ''")
+    console.log('[db] 已添加 log_audit.log_file_path 列')
+  }
+} catch (e: any) {
+  console.warn('[db] log_file_path 迁移失败（可能已存在）:', e.message)
+}
+
+// 异常告警推送去重表（新功能 异常告警推送）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS log_alert_sent (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id  TEXT NOT NULL,
+      audit_id   INTEGER NOT NULL REFERENCES log_audit(id) ON DELETE CASCADE,
+      pushed_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      CONSTRAINT uq_alert_sent UNIQUE (device_id, audit_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_las_device ON log_alert_sent(device_id);
+  `)
+} catch (e: any) {
+  console.warn('[db] log_alert_sent 建表失败:', e.message)
+}
+
 // 初始化日志监控默认配置
 const lmConfigCount = db.prepare('SELECT COUNT(*) as cnt FROM log_monitor_config').get() as { cnt: number }
 if (lmConfigCount.cnt === 0) {
@@ -1440,6 +1468,23 @@ if (userCount === 0) {
     "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)"
   ).run('admin', hash, '超级管理员', 'superadmin')
   console.log('[db] 已创建默认超级管理员账号：admin / admin123')
+}
+
+// 启动时注册：每日凌晨 4 点清理 7 天前的 data/log-audit/ 目录（P0-3）
+try {
+  cron.schedule('0 4 * * *', () => {
+    const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+    const baseDir = path.join('data', 'log-audit')
+    if (!fs.existsSync(baseDir)) return
+    for (const d of fs.readdirSync(baseDir)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d < cutoff) {
+        fs.rmSync(path.join(baseDir, d), { recursive: true, force: true })
+        console.log(`[log-audit] 已清理 7 天前目录: ${d}`)
+      }
+    }
+  })
+} catch (e: any) {
+  console.warn('[db] log-audit 清理 cron 注册失败:', e.message)
 }
 
 export default db
