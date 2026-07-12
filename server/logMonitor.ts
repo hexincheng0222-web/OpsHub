@@ -154,11 +154,29 @@ export async function fetchLogs(deviceId: string, startTime: Date, endTime: Date
 
 // ========== LLM 分析 ==========
 
+function sampleEvenly(logs: LogEntry[], target: number): LogEntry[] {
+  if (logs.length <= target) return logs
+  const step = Math.ceil(logs.length / target)
+  const result: LogEntry[] = []
+  for (let i = 0; i < logs.length; i += step) result.push(logs[i])
+  return result
+}
+
 export async function analyzeLogs(logs: LogEntry[], systemPrompt: string): Promise<LLMResult> {
   const cfg = loadConfig().llm
   if (!logs.length) return { summary: '本批次无日志。', has_abnormal: false, _llm_ms: 0 }
 
-  const compact = JSON.stringify(logs, null, 0)
+  // 智能采样：error 全保留，warning 最多 50 条，其他按时间均匀采样到 100 条，总上限 200 条
+  const errorLogs = logs.filter(l => l.level === 'error' || l.level === 'ERROR')
+  const warningLogs = logs.filter(l => l.level === 'warning' || l.level === 'WARN')
+  const otherLogs = logs.filter(l => !errorLogs.includes(l) && !warningLogs.includes(l))
+  const sampled = [
+    ...errorLogs,
+    ...warningLogs.slice(0, 50),
+    ...sampleEvenly(otherLogs, 100),
+  ].slice(0, 200)
+
+  const compact = JSON.stringify(sampled, null, 0)
   const truncated = compact.length > 60000 ? compact.slice(0, 60000) + '\n...[truncated]' : compact
 
   const payload = {
