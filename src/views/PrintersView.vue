@@ -5,23 +5,23 @@
       <BackButton to="/" />
       <h3>打印机管理 <span class="top-count">{{ store.total }} 台</span></h3>
       <div class="top-actions">
-        <el-button type="success" size="small" @click="handleExportXlsx">
-          <el-icon><Download /></el-icon> 导出 Excel
-        </el-button>
-        <el-button size="small" @click="downloadPrinterTemplate">
-          <el-icon><Download /></el-icon> 下载模板
-        </el-button>
         <el-dropdown @command="handleTopAction" trigger="click">
           <el-button size="small">
             操作 <el-icon><arrow-down /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item command="template">
+                <el-icon><document /></el-icon> 下载模板
+              </el-dropdown-item>
               <el-dropdown-item command="import">
                 <el-icon><upload /></el-icon> 批量导入
               </el-dropdown-item>
-              <el-dropdown-item command="export" divided>
+              <el-dropdown-item command="export-csv" divided>
                 <el-icon><download /></el-icon> 导出 CSV
+              </el-dropdown-item>
+              <el-dropdown-item command="export-xlsx">
+                <el-icon><download /></el-icon> 导出 Excel
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -199,7 +199,7 @@ import type { Printer } from '../mock/printers'
 import { exportPrintersCSV, downloadPrinterTemplate, parsePrintersCSV } from '../utils/printer-csv'
 import { exportPrintersXlsx } from '../utils/printer-export'
 import { parseXlsx } from '../utils/excel'
-import { Plus, ArrowDown, Download, Upload, Search } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, Download, Upload, Document, Search } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { fetchDict } from '../api/admin'
 import { useDebouncedSearch } from '../composables/useDebouncedSearch'
@@ -258,8 +258,10 @@ const modelOptions = computed(() => {
 })
 
 function handleTopAction(command: string) {
-  if (command === 'import') triggerImport()
-  else if (command === 'export') exportCSV()
+  if (command === 'template') downloadPrinterTemplate()
+  else if (command === 'import') triggerImport()
+  else if (command === 'export-csv') exportCSV()
+  else if (command === 'export-xlsx') handleExportXlsx()
 }
 
 async function handleExportXlsx() {
