@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchLogs, clearLogs } from '../../api/admin'
+import { fetchLogs, clearLogs, fetchLogModules } from '../../api/admin'
 import { Search } from '@element-plus/icons-vue'
 import { formatTime } from '../../utils/format'
 
@@ -12,12 +12,17 @@ const page = ref(1)
 const pageSize = ref(20)
 const filterModule = ref('')
 const searchText = ref('')
+const dateRange = ref<[string, string] | null>(null)
+const moduleOptions = ref<string[]>([])
 
-const moduleOptions = [
-  '设备楼层', '设备类型', '设备型号',
-  '打印机品牌', '打印机型号', '墨粉型号',
-  '服务分类', '系统',
-]
+async function loadModules() {
+  try {
+    moduleOptions.value = await fetchLogModules()
+  } catch {
+    // 失败时使用空数组，模块筛选不可用但不影响列表
+    moduleOptions.value = []
+  }
+}
 
 const filteredLogs = computed(() => {
   if (!searchText.value) return logs.value
@@ -37,6 +42,8 @@ async function loadLogs() {
       page: page.value,
       pageSize: pageSize.value,
       module: filterModule.value || undefined,
+      startDate: dateRange.value?.[0] || undefined,
+      endDate: dateRange.value?.[1] || undefined,
     })
     logs.value = data.rows
     total.value = data.total
@@ -47,9 +54,17 @@ async function loadLogs() {
   }
 }
 
-onMounted(loadLogs)
+onMounted(() => {
+  loadModules()
+  loadLogs()
+})
 
 watch(filterModule, () => {
+  page.value = 1
+  loadLogs()
+})
+
+watch(dateRange, () => {
   page.value = 1
   loadLogs()
 })
@@ -98,6 +113,16 @@ function getActionType(action: string): string {
       >
         <el-option v-for="m in moduleOptions" :key="m" :label="m" :value="m" />
       </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        size="small"
+        style="width: 260px"
+      />
       <el-input v-model="searchText" placeholder="搜索..." clearable size="small" :prefix-icon="Search" style="width: 220px" />
     </div>
 
@@ -134,64 +159,18 @@ function getActionType(action: string): string {
 </template>
 
 <style scoped>
-.logs-page {
-  width: 100%;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.page-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ops-text-primary);
-}
-
-.total-text {
-  font-size: 12px;
-  color: var(--ops-text-tertiary);
-}
-
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.cell-module {
-  font-size: 12px;
-  color: var(--ops-text-tertiary);
-}
-
-.cell-action {
-  font-size: 12px;
-  font-weight: 500;
-}
+.logs-page { width: 100%; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.header-left { display: flex; align-items: baseline; gap: 12px; }
+.page-title { font-size: 16px; font-weight: 500; color: var(--ops-text-primary); }
+.total-text { font-size: 12px; color: var(--ops-text-tertiary); }
+.filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.cell-module { font-size: 12px; color: var(--ops-text-tertiary); }
+.cell-action { font-size: 12px; font-weight: 500; }
 .cell-action.success { color: var(--ops-accent-green); }
 .cell-action.warning { color: var(--ops-accent-yellow); }
 .cell-action.danger { color: var(--ops-accent-red); }
 .cell-action.info { color: var(--ops-text-tertiary); }
-
-.cell-time {
-  font-size: 12px;
-  color: var(--ops-text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin-top: 16px;
-}
+.cell-time { font-size: 12px; color: var(--ops-text-tertiary); font-variant-numeric: tabular-nums; }
+.pagination { display: flex; justify-content: center; margin-top: 16px; }
 </style>

@@ -35,16 +35,23 @@ export async function deleteDict(table: string, id: number) {
 }
 
 // 操作日志
-export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string } = {}) {
+export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; startDate?: string; endDate?: string } = {}) {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.pageSize) qs.set('pageSize', String(params.pageSize))
   if (params.module) qs.set('module', params.module)
+  if (params.startDate) qs.set('startDate', params.startDate)
+  if (params.endDate) qs.set('endDate', params.endDate)
   return request(`${BASE}/logs/list?${qs}`)
 }
 
 export async function clearLogs() {
   return request(`${BASE}/logs/clear`, { method: 'DELETE' })
+}
+
+// 操作日志模块选项（动态）
+export async function fetchLogModules(): Promise<string[]> {
+  return request(`${BASE}/logs/modules`)
 }
 
 // 概览统计

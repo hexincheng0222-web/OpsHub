@@ -271,26 +271,34 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
 
 // ========== 操作日志 ==========
 
-// GET /api/v1/admin/logs/list  — 日志列表
+// GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选
 router.get('/logs/list', (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1
-  const pageSize = parseInt(req.query.pageSize as string) || 20
-  const module_ = req.query.module as string
+  const page = Math.max(1, parseInt(req.query.page as string) || 1)
+  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  const module_ = (req.query.module as string) || ''
+  const startDate = (req.query.startDate as string) || ''
+  const endDate = (req.query.endDate as string) || ''
   const offset = (page - 1) * pageSize
 
-  let where = ''
+  const conditions: string[] = []
   const params: any[] = []
-  if (module_) {
-    where = 'WHERE module = ?'
-    params.push(module_)
-  }
+  if (module_) { conditions.push('module = ?'); params.push(module_) }
+  if (startDate) { conditions.push("created_at >= ?"); params.push(startDate + ' 00:00:00') }
+  if (endDate) { conditions.push("created_at <= ?"); params.push(endDate + ' 23:59:59') }
 
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
   const total = (db.prepare(`SELECT COUNT(*) as cnt FROM operation_logs ${where}`).get(...params) as { cnt: number }).cnt
   const rows = db.prepare(
     `SELECT * FROM operation_logs ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
   ).all(...params, pageSize, offset)
 
   res.json({ code: 200, data: { rows, total, page, pageSize } })
+})
+
+// GET /api/v1/admin/logs/modules  — 模块下拉选项（去重）
+router.get('/logs/modules', (_req: Request, res: Response) => {
+  const rows = db.prepare('SELECT DISTINCT module FROM operation_logs ORDER BY module ASC').all() as { module: string }[]
+  res.json({ code: 200, data: rows.map(r => r.module).filter(Boolean) })
 })
 
 // DELETE /api/v1/admin/logs/clear  — 清空日志
