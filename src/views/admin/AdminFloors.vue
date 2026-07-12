@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchDict, createDict, updateDict, deleteDict } from '../../api/admin'
-import { Building, Printer as PrinterIcon } from '@element-plus/icons-vue'
+import { OfficeBuilding, Printer as PrinterIcon } from '@element-plus/icons-vue'
 import type { ColumnConfig } from '../../utils/admin-dict-config'
 
 interface DictConfig {
