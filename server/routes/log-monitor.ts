@@ -4,6 +4,7 @@ import db from '../db'
 import {
   loadConfig, saveConfigPartial, fetchLokiLogs, analyzeLogs,
   saveAudit, cleanupAudit, healthCheck, startScheduler,
+  pushAlertIfAbnormal,
   stopScheduler, getSchedulerStatus, getDashboardData,
   discoverDevices,
 } from '../logMonitor'
@@ -145,7 +146,10 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
 
     const result = await analyzeLogs(logs, config.llm.system_prompt)
     const device = { device_id, name: hostname || device_id }
-    saveAudit(device, logs, result)
+    const auditId = saveAudit(device, logs, result)
+
+    // 新增：手动分析也触发告警
+    await pushAlertIfAbnormal(device, auditId, result)
 
     res.json({
       code: 0,

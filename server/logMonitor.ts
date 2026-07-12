@@ -43,6 +43,12 @@ export interface LogConfig {
   llm: LLMConfig
   scheduler: SchedulerConfig
   scheduler_running: boolean
+  alert?: {
+    webhook: string
+    silent_hours?: string
+    cooldown_minutes?: number
+    enabled: boolean
+  }
 }
 
 export interface LogEntry {
@@ -405,6 +411,59 @@ let cronTask: ScheduledTask | null = null
 let intervalTimer: NodeJS.Timeout | null = null
 let lastRunTime: Date | null = null
 
+// ========== 异常告警推送 ==========
+
+export async function pushAlertIfAbnormal(device: DeviceConfig, auditId: number, result: LLMResult): Promise<boolean> {
+  if (!result.has_abnormal) return false
+  const cfg = loadConfig()
+  if (!cfg.alert?.enabled || !cfg.alert?.webhook) return false
+
+  // 静默时段判断
+  if (cfg.alert.silent_hours) {
+    const [start, end] = cfg.alert.silent_hours.split('-')
+    const now = new Date()
+    const hour = now.getHours()
+    const startH = parseInt(start.split(':')[0])
+    const endH = parseInt(end.split(':')[0])
+    if (startH <= endH ? (hour >= startH && hour < endH) : (hour >= startH || hour < endH)) {
+      console.log('[alert] 静默时段，跳过推送')
+      return false
+    }
+  }
+
+  // 冷却期判断（同设备 N 分钟内已推送则跳过）
+  if (cfg.alert.cooldown_minutes) {
+    const recent = db.prepare(
+      `SELECT 1 FROM log_alert_sent WHERE device_id = ? AND pushed_at >= datetime('now', ?)`
+    ).get(device.device_id, `-${cfg.alert.cooldown_minutes} minutes`)
+    if (recent) {
+      console.log(`[alert] 设备 ${device.device_id} 冷却期内，跳过`)
+      return false
+    }
+  }
+
+  // 去重：同 audit 已推送则跳过
+  const exists = db.prepare('SELECT 1 FROM log_alert_sent WHERE device_id = ? AND audit_id = ?').get(device.device_id, auditId)
+  if (exists) return false
+
+  // 推送
+  const msg = `⚠️ 设备「${device.name}」检测到异常\n摘要：${result.summary}\n耗时：${result._llm_ms}ms`
+  try {
+    await fetch(cfg.alert.webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgtype: 'text', text: { content: msg } }),
+      signal: AbortSignal.timeout(10000),
+    })
+    db.prepare('INSERT INTO log_alert_sent (device_id, audit_id) VALUES (?, ?)').run(device.device_id, auditId)
+    console.log(`[alert] 已推送设备 ${device.device_id} 异常告警`)
+    return true
+  } catch (e: any) {
+    console.warn(`[alert] 推送失败:`, e.message)
+    return false
+  }
+}
+
 export function startScheduler(): void {
   if (intervalTimer) return
 
@@ -435,7 +494,11 @@ export function startScheduler(): void {
         const startTime = new Date(endTime.getTime() - (config.scheduler.window * 1000))
         const { logs } = await fetchLokiLogsCached((device as any).hostname || device.device_id, startTime, endTime, 10000)
         const result = await analyzeLogs(logs, config.llm.system_prompt)
-        saveAudit(device, logs, result)
+        const auditId = saveAudit(device, logs, result)
+        // 新增：异常时推送告警
+        if (result.has_abnormal) {
+          await pushAlertIfAbnormal(device, auditId, result)
+        }
       } catch (e: any) {
         console.error(`[scheduler] 分析设备 ${device.device_id} 失败: ${e.message}`)
       }

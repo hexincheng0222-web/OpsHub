@@ -79,6 +79,21 @@
         <el-input-number v-model="form.scheduler.window" :min="1" :max="86400" />
       </el-form-item>
 
+      <!-- 告警推送 -->
+      <el-divider content-position="left">告警推送</el-divider>
+      <el-form-item label="告警推送" prop="alert.enabled">
+        <el-switch v-model="form.alert.enabled" />
+      </el-form-item>
+      <el-form-item label="Webhook 地址" prop="alert.webhook">
+        <el-input v-model="form.alert.webhook" placeholder="企业微信/钉钉机器人 URL" />
+      </el-form-item>
+      <el-form-item label="静默时段" prop="alert.silent_hours">
+        <el-input v-model="form.alert.silent_hours" placeholder="如 22:00-08:00" />
+      </el-form-item>
+      <el-form-item label="冷却期（分钟）" prop="alert.cooldown_minutes">
+        <el-input-number v-model="form.alert.cooldown_minutes" :min="0" :max="1440" />
+      </el-form-item>
+
       <!-- 提交 -->
       <el-form-item>
         <el-button type="primary" @click="handleSave" :loading="saving">保存配置</el-button>
@@ -109,7 +124,12 @@ const testingLoki = ref(false)
 async function loadConfig() {
   loading.value = true
   try {
-    form.value = await getConfig()
+    const cfg = await getConfig()
+    // 兼容老配置：补全告警推送默认值
+    form.value = {
+      alert: { enabled: false, webhook: '', silent_hours: '', cooldown_minutes: 0 },
+      ...cfg,
+    }
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {

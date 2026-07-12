@@ -12,6 +12,12 @@ export interface LogConfig {
   }
   scheduler: { interval: number; window: number }
   scheduler_running: boolean
+  alert?: {
+    webhook: string
+    silent_hours?: string
+    cooldown_minutes?: number
+    enabled: boolean
+  }
 }
 
 export interface AuditRecord {
