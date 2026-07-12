@@ -8,22 +8,47 @@ const router = Router()
 // 所有用户管理路由需要登录 + admin 权限
 router.use(authRequired, requireRole('admin', 'superadmin'))
 
-// GET /api/v1/users — 用户列表
+// GET /api/v1/users — 用户列表 + 分页 + 搜索 + 角色筛选
 router.get('/', (req: Request, res: Response) => {
-  let users
-  if (req.user!.role === 'superadmin') {
-    // 超级管理员看到所有用户
-    users = db.prepare(
-      'SELECT id, username, display_name, role, is_active, last_login_at, created_at, updated_at FROM users ORDER BY id ASC'
-    ).all()
-  } else {
-    // 管理员只看到普通用户
-    users = db.prepare(
-      "SELECT id, username, display_name, role, is_active, last_login_at, created_at, updated_at FROM users WHERE role = 'user' ORDER BY id ASC"
-    ).all()
+  const page = Math.max(1, parseInt(req.query.page as string) || 1)
+  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  const keyword = (req.query.keyword as string)?.trim() || ''
+  const roleFilter = (req.query.role as string)?.trim() || ''
+  const offset = (page - 1) * pageSize
+
+  // 权限过滤（管理员只看普通用户）
+  const roleScope = req.user!.role === 'superadmin' ? null : 'user'
+
+  const conditions: string[] = []
+  const params: any[] = []
+
+  if (roleScope) {
+    conditions.push('role = ?')
+    params.push(roleScope)
+  }
+  if (roleFilter) {
+    if (roleScope && roleFilter !== roleScope) {
+      // 筛选范围超出权限，返回空
+      return res.json({ code: 200, data: { rows: [], total: 0 } })
+    }
+    if (!roleScope) {
+      conditions.push('role = ?')
+      params.push(roleFilter)
+    }
+  }
+  if (keyword) {
+    conditions.push('(username LIKE ? OR display_name LIKE ?)')
+    params.push(`%${keyword}%`, `%${keyword}%`)
   }
 
-  res.json({ code: 200, data: users })
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
+  const total = (db.prepare(`SELECT COUNT(*) as cnt FROM users ${where}`).get(...params) as { cnt: number }).cnt
+  const rows = db.prepare(
+    `SELECT id, username, display_name, role, is_active, last_login_at, created_at, updated_at
+     FROM users ${where} ORDER BY id ASC LIMIT ? OFFSET ?`
+  ).all(...params, pageSize, offset)
+
+  res.json({ code: 200, data: { rows, total } })
 })
 
 // POST /api/v1/users — 创建用户

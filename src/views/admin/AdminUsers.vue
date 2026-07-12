@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../../stores/auth'
 import { fetchUsers, createUser, updateUser, deleteUser, resetPassword } from '../../api/users'
@@ -8,12 +8,19 @@ import type { UserInfo } from '../../api/auth'
 const auth = useAuthStore()
 const users = ref<UserInfo[]>([])
 const loading = ref(false)
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
+const keyword = ref('')
+const roleFilter = ref('')
 const dialogVisible = ref(false)
 const resetDialogVisible = ref(false)
 const isEdit = ref(false)
 const form = ref({ username: '', password: '', display_name: '', role: 'user' as string })
 const resetForm = ref({ userId: 0, userName: '', newPassword: '' })
 const editingUser = ref<UserInfo | null>(null)
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const roleLabels: Record<string, string> = {
   superadmin: '超级管理员',
@@ -40,7 +47,14 @@ const availableRoles = computed(() => {
 async function loadUsers() {
   loading.value = true
   try {
-    users.value = await fetchUsers()
+    const data = await fetchUsers({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: keyword.value || undefined,
+      role: roleFilter.value || undefined,
+    })
+    users.value = data.rows
+    total.value = data.total
   } catch (e: any) {
     ElMessage.error(e.message || '加载失败')
   } finally {
@@ -49,6 +63,19 @@ async function loadUsers() {
 }
 
 onMounted(loadUsers)
+
+watch(keyword, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    loadUsers()
+  }, 300)
+})
+
+watch(roleFilter, () => {
+  page.value = 1
+  loadUsers()
+})
 
 function handleAdd() {
   isEdit.value = false
@@ -147,9 +174,25 @@ function formatTime(time: string | null | undefined) {
     <div class="page-header">
       <div class="header-left">
         <span class="page-title">用户管理</span>
-        <span class="total-text">{{ users.length }} 个用户</span>
+        <span class="total-text">{{ total }} 个用户</span>
       </div>
       <el-button type="primary" size="small" @click="handleAdd">新增用户</el-button>
+    </div>
+
+    <div class="filter-bar">
+      <el-input
+        v-model="keyword"
+        placeholder="搜索用户名或显示名..."
+        clearable
+        size="small"
+        style="width: 260px"
+        prefix-icon="Search"
+      />
+      <el-select v-model="roleFilter" placeholder="全部角色" clearable size="small" style="width: 130px">
+        <el-option label="超级管理员" value="superadmin" />
+        <el-option label="管理员" value="admin" />
+        <el-option label="普通用户" value="user" />
+      </el-select>
     </div>
 
     <el-table :data="users" v-loading="loading" size="small">
@@ -190,13 +233,18 @@ function formatTime(time: string | null | undefined) {
       </el-table-column>
     </el-table>
 
+    <div class="pagination" v-if="total > pageSize">
+      <el-pagination
+        :current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        layout="prev, pager, next"
+        @current-change="(p: number) => { page = p; loadUsers() }"
+      />
+    </div>
+
     <!-- 新增/编辑对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="isEdit ? '编辑用户' : '新增用户'"
-      width="420px"
-      destroy-on-close
-    >
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="420px" destroy-on-close>
       <el-form :model="form" label-width="80px">
         <el-form-item label="用户名" v-if="!isEdit" required>
           <el-input v-model="form.username" placeholder="请输入用户名" />
@@ -209,12 +257,7 @@ function formatTime(time: string | null | undefined) {
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="form.role" style="width: 100%">
-            <el-option
-              v-for="opt in availableRoles"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
+            <el-option v-for="opt in availableRoles" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -230,12 +273,7 @@ function formatTime(time: string | null | undefined) {
         为「{{ resetForm.userName }}」设置新密码
       </p>
       <el-form-item label="新密码">
-        <el-input
-          v-model="resetForm.newPassword"
-          type="password"
-          placeholder="请输入新密码"
-          show-password
-        />
+        <el-input v-model="resetForm.newPassword" type="password" placeholder="请输入新密码" show-password />
       </el-form-item>
       <template #footer>
         <el-button @click="resetDialogVisible = false">取消</el-button>
@@ -246,37 +284,12 @@ function formatTime(time: string | null | undefined) {
 </template>
 
 <style scoped>
-.users-page {
-  width: 100%;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.header-left {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.page-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ops-text-primary);
-}
-
-.total-text {
-  font-size: 12px;
-  color: var(--ops-text-tertiary);
-}
-
-.cell-time {
-  font-size: 12px;
-  color: var(--ops-text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
+.users-page { width: 100%; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.header-left { display: flex; align-items: baseline; gap: 12px; }
+.page-title { font-size: 16px; font-weight: 500; color: var(--ops-text-primary); }
+.total-text { font-size: 12px; color: var(--ops-text-tertiary); }
+.filter-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+.cell-time { font-size: 12px; color: var(--ops-text-tertiary); font-variant-numeric: tabular-nums; }
+.pagination { display: flex; justify-content: center; margin-top: 16px; }
 </style>

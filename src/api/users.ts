@@ -14,8 +14,26 @@ export interface UpdateUserParams {
   is_active?: boolean
 }
 
-export function fetchUsers() {
-  return request<UserInfo[]>('/api/v1/users')
+export interface FetchUsersParams {
+  page?: number
+  pageSize?: number
+  keyword?: string
+  role?: string
+}
+
+export interface FetchUsersResult {
+  rows: UserInfo[]
+  total: number
+}
+
+export function fetchUsers(params: FetchUsersParams = {}): Promise<FetchUsersResult> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.pageSize) qs.set('pageSize', String(params.pageSize))
+  if (params.keyword) qs.set('keyword', params.keyword)
+  if (params.role) qs.set('role', params.role)
+  const q = qs.toString()
+  return request<FetchUsersResult>(`/api/v1/users${q ? '?' + q : ''}`)
 }
 
 export function createUser(data: CreateUserParams) {
