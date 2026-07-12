@@ -3,29 +3,14 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchDict, createDict, updateDict, deleteDict } from '../../api/admin'
 import { OfficeBuilding, Printer as PrinterIcon } from '@element-plus/icons-vue'
-import type { ColumnConfig } from '../../utils/admin-dict-config'
-
-interface DictConfig {
-  title: string
-  columns: ColumnConfig[]
-}
 
 const tabs = [
-  { key: 'device-floors', label: '设备楼层', icon: Building, dict: 'device-floors' },
+  { key: 'device-floors', label: '设备楼层', icon: OfficeBuilding, dict: 'device-floors' },
   { key: 'printer-floors', label: '打印机楼层', icon: PrinterIcon, dict: 'printer-floors' },
 ] as const
 
 const activeTab = ref<(typeof tabs)[number]['key']>('device-floors')
 const dictKey = computed(() => tabs.find(t => t.key === activeTab.value)!.dict)
-
-// 设备楼层和打印机楼层 schema 完全一致：name + sort_order
-const floorConfig: DictConfig = {
-  title: '楼层管理',
-  columns: [
-    { prop: 'name', label: '楼层名称', type: 'text', required: true },
-    { prop: 'sort_order', label: '排序', type: 'number' },
-  ],
-}
 
 const tableData = ref<any[]>([])
 const loading = ref(false)
@@ -115,35 +100,35 @@ async function handleSubmit() {
     </div>
 
     <el-tabs v-model="activeTab" class="floor-tabs">
-      <el-tab-pane v-for="tab in tabs" :key="tab.key" :name="tab.key">
+      <el-tab-pane v-for="tab in tabs" :key="tab.key" :label="tab.label" :name="tab.key">
         <template #label>
           <el-icon class="tab-icon"><component :is="tab.icon" /></el-icon>
           {{ tab.label }}
         </template>
-
-        <div class="toolbar">
-          <el-button type="primary" size="small" @click="handleAdd">新增楼层</el-button>
-          <span class="total-text">{{ tableData.length }} 条</span>
-        </div>
-
-        <el-table :data="tableData" v-loading="loading" size="small" style="width: 100%">
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="name" label="楼层名称" min-width="160" />
-          <el-table-column prop="sort_order" label="排序" width="100" align="center" />
-          <el-table-column label="创建时间" width="160">
-            <template #default="{ row }">
-              <span class="cell-time">{{ row.created_at?.replace('T', ' ')?.slice(0, 16) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
-            <template #default="{ row }">
-              <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
-              <el-button type="danger" text size="small" @click="handleDelete(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
       </el-tab-pane>
     </el-tabs>
+
+    <div class="toolbar">
+      <el-button type="primary" size="small" @click="handleAdd">新增楼层</el-button>
+      <span class="total-text">{{ tableData.length }} 条</span>
+    </div>
+
+    <el-table :data="tableData" v-loading="loading" size="small" style="width: 100%">
+      <el-table-column prop="id" label="ID" width="70" />
+      <el-table-column prop="name" label="楼层名称" min-width="160" />
+      <el-table-column prop="sort_order" label="排序" width="100" align="center" />
+      <el-table-column label="创建时间" width="160">
+        <template #default="{ row }">
+          <span class="cell-time">{{ row.created_at?.replace('T', ' ')?.slice(0, 16) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="140" fixed="right">
+        <template #default="{ row }">
+          <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" text size="small" @click="handleDelete(row)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑楼层' : '新增楼层'" width="420px" destroy-on-close>
@@ -169,7 +154,7 @@ async function handleSubmit() {
 .page-title { font-size: 16px; font-weight: 500; color: var(--ops-text-primary); }
 .floor-tabs :deep(.el-tabs__content) { padding-top: 16px; }
 .tab-icon { margin-right: 4px; }
-.toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.toolbar { display: flex; align-items: center; gap: 12px; margin: 16px 0 12px; }
 .total-text { font-size: 12px; color: var(--ops-text-tertiary); }
 .cell-time { font-size: 12px; color: var(--ops-text-tertiary); font-variant-numeric: tabular-nums; }
 </style>
