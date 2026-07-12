@@ -19,6 +19,10 @@ const db = new Database(DB_PATH)
 // 开启 WAL 模式（更好的并发性能）
 db.pragma('journal_mode = WAL')
 
+// 启用外键约束（better-sqlite3 默认关闭，ON DELETE CASCADE/SET NULL 才生效）
+db.pragma('foreign_keys = ON')
+console.log('[db] 已启用外键约束（CASCADE/SET NULL 生效）')
+
 // 建表
 db.exec(`
   CREATE TABLE IF NOT EXISTS services (
@@ -668,89 +672,112 @@ if (cpColumns.length > 0) {
   }
 }
 
-// 字典数据初始化
+// 字典数据初始化（各组独立门控：迁移 DROP 后只重填被清空的表，不牵连其它组）
 const floorCount = db.prepare('SELECT COUNT(*) as cnt FROM device_floors').get() as { cnt: number }
-if (floorCount.cnt === 0) {
+const dtCount = db.prepare('SELECT COUNT(*) as cnt FROM device_types').get() as { cnt: number }
+const dmCount = db.prepare('SELECT COUNT(*) as cnt FROM device_models').get() as { cnt: number }
+const brandCount = db.prepare('SELECT COUNT(*) as cnt FROM printer_brands').get() as { cnt: number }
+const pmCount = db.prepare('SELECT COUNT(*) as cnt FROM printer_models').get() as { cnt: number }
+const tmCount = db.prepare('SELECT COUNT(*) as cnt FROM toner_models').get() as { cnt: number }
+const catCount = db.prepare('SELECT COUNT(*) as cnt FROM service_categories').get() as { cnt: number }
+
+if (floorCount.cnt === 0 || dtCount.cnt === 0 || dmCount.cnt === 0 || brandCount.cnt === 0 || pmCount.cnt === 0 || tmCount.cnt === 0 || catCount.cnt === 0) {
   const seedDicts = db.transaction(() => {
-    // 楼层
-    const insertFloor = db.prepare('INSERT INTO device_floors (name, sort_order) VALUES (?, ?)')
-    const floors = ['-1F', '1F', '2F', '3F', '4F']
-    floors.forEach((f, i) => insertFloor.run(f, i))
+    // 楼层（仅当为空）
+    if (floorCount.cnt === 0) {
+      const insertFloor = db.prepare('INSERT INTO device_floors (name, sort_order) VALUES (?, ?)')
+      const floors = ['-1F', '1F', '2F', '3F', '4F']
+      floors.forEach((f, i) => insertFloor.run(f, i))
+    }
 
-    // 设备类型
-    const insertType = db.prepare('INSERT INTO device_types (key, name, abbr, icon, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
-    const types: [string, string, string, string, string, number][] = [
-      ['server', '服务器', 'SV', 'Monitor', '#3fb950', 0],
-      ['switch', '交换机', 'SW', 'Connection', '#58a6ff', 1],
-      ['storage', '存储', 'ST', 'Coin', '#a371f7', 2],
-      ['router', '路由器', 'RT', 'Share', '#d29922', 3],
-      ['firewall', '防火墙', 'FW', 'Shield', '#f85149', 4],
-      ['ups', 'UPS', 'UP', 'Lightning', '#e06c75', 5],
-      ['pdu', 'PDU', 'PD', 'Plug', '#6e7681', 6],
-    ]
-    types.forEach(t => insertType.run(...t))
+    // 设备类型（仅当为空——脱钩于 floorCount，修复迁移 DROP 后不重填 bug）
+    if (dtCount.cnt === 0) {
+      const insertType = db.prepare('INSERT INTO device_types (key, name, abbr, icon, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
+      const types: [string, string, string, string, string, number][] = [
+        ['server', '服务器', 'SV', 'Monitor', '#3fb950', 0],
+        ['switch', '交换机', 'SW', 'Connection', '#58a6ff', 1],
+        ['storage', '存储', 'ST', 'Coin', '#a371f7', 2],
+        ['router', '路由器', 'RT', 'Share', '#d29922', 3],
+        ['firewall', '防火墙', 'FW', 'Shield', '#f85149', 4],
+        ['ups', 'UPS', 'UP', 'Lightning', '#e06c75', 5],
+        ['pdu', 'PDU', 'PD', 'Plug', '#6e7681', 6],
+      ]
+      types.forEach(t => insertType.run(...t))
+    }
 
-    // 设备型号
-    const insertModel = db.prepare('INSERT INTO device_models (name, type_key, manufacturer, u_size, ports, power_watts, description, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    const models: [string, string, string, number, number, number, string, number][] = [
-      ['Dell R750', 'server', 'Dell', 2, 4, 750, '2U 双路机架服务器', 0],
-      ['Dell R750xa', 'server', 'Dell', 2, 4, 900, '2U 四路机架服务器', 1],
-      ['Dell R650', 'server', 'Dell', 1, 4, 600, '1U 双路机架服务器', 2],
-      ['S6730-H48X6C', 'switch', '华为', 1, 48, 150, '万兆核心交换机', 3],
-      ['S5735-L48P4X', 'switch', '华为', 1, 48, 100, '千兆汇聚交换机', 4],
-      ['S5735-L24P4X', 'switch', '华为', 1, 24, 80, '千兆接入交换机', 5],
-      ['NE8000', 'router', '华为', 2, 8, 200, '核心路由器', 6],
-      ['NE40E', 'router', '华为', 2, 16, 300, '汇聚路由器', 7],
-      ['FG-100F', 'firewall', 'Fortinet', 1, 16, 100, '下一代防火墙', 8],
-      ['FG-200F', 'firewall', 'Fortinet', 1, 16, 150, '下一代防火墙（高性能）', 9],
-      ['OceanStor 5310', 'storage', '华为', 3, 8, 500, '统一存储系统', 10],
-      ['SANTAK 20KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 20KVA', 11],
-      ['SANTAK 30KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 30KVA', 12],
-      ['APC 3kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 3kW', 13],
-      ['APC 5kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 5kW', 14],
-    ]
-    models.forEach(m => insertModel.run(...m))
+    // 设备型号（仅当为空——同样脱钩）
+    if (dmCount.cnt === 0) {
+      const insertModel = db.prepare('INSERT INTO device_models (name, type_key, manufacturer, u_size, ports, power_watts, description, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const models: [string, string, string, number, number, number, string, number][] = [
+        ['Dell R750', 'server', 'Dell', 2, 4, 750, '2U 双路机架服务器', 0],
+        ['Dell R750xa', 'server', 'Dell', 2, 4, 900, '2U 四路机架服务器', 1],
+        ['Dell R650', 'server', 'Dell', 1, 4, 600, '1U 双路机架服务器', 2],
+        ['S6730-H48X6C', 'switch', '华为', 1, 48, 150, '万兆核心交换机', 3],
+        ['S5735-L48P4X', 'switch', '华为', 1, 48, 100, '千兆汇聚交换机', 4],
+        ['S5735-L24P4X', 'switch', '华为', 1, 24, 80, '千兆接入交换机', 5],
+        ['NE8000', 'router', '华为', 2, 8, 200, '核心路由器', 6],
+        ['NE40E', 'router', '华为', 2, 16, 300, '汇聚路由器', 7],
+        ['FG-100F', 'firewall', 'Fortinet', 1, 16, 100, '下一代防火墙', 8],
+        ['FG-200F', 'firewall', 'Fortinet', 1, 16, 150, '下一代防火墙（高性能）', 9],
+        ['OceanStor 5310', 'storage', '华为', 3, 8, 500, '统一存储系统', 10],
+        ['SANTAK 20KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 20KVA', 11],
+        ['SANTAK 30KVA', 'ups', '山特', 3, 0, 0, '在线式 UPS 30KVA', 12],
+        ['APC 3kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 3kW', 13],
+        ['APC 5kW', 'pdu', 'APC', 1, 0, 0, 'PDU 配电单元 5kW', 14],
+      ]
+      models.forEach(m => insertModel.run(...m))
+    }
 
-    // 打印机品牌
-    const insertBrand = db.prepare('INSERT INTO printer_brands (name, sort_order) VALUES (?, ?)')
-    const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Samsung', 'Toshiba', 'Xerox']
-    brands.forEach((b, i) => insertBrand.run(b, i))
+    // 打印机品牌（仅当为空）
+    if (brandCount.cnt === 0) {
+      const insertBrand = db.prepare('INSERT INTO printer_brands (name, sort_order) VALUES (?, ?)')
+      const brands = ['HP', 'Canon', 'Epson', 'Brother', 'Samsung', 'Toshiba', 'Xerox']
+      brands.forEach((b, i) => insertBrand.run(b, i))
+    }
 
-    // 打印机型号（获取品牌 ID）
-    const insertPModel = db.prepare('INSERT INTO printer_models (brand_id, name, sort_order) VALUES (?, ?, ?)')
-    const hpId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('HP') as { id: number }).id
-    const canonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Canon') as { id: number }).id
-    const epsonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Epson') as { id: number }).id
-    const pm: [number, string, number][] = [
-      [hpId, 'LaserJet Pro M404dn', 0],
-      [hpId, 'LaserJet MFP M430f', 1],
-      [hpId, 'Color LaserJet Pro M454dw', 2],
-      [canonId, 'imageRUNNER C3326i', 0],
-      [canonId, 'imageCLASS MF746Cx', 1],
-      [epsonId, 'WorkForce Pro WF-C5790', 0],
-    ]
-    pm.forEach(m => insertPModel.run(...m))
+    // 打印机型号（获取品牌 ID，仅当为空）
+    if (pmCount.cnt === 0) {
+      const insertPModel = db.prepare('INSERT INTO printer_models (brand_id, name, sort_order) VALUES (?, ?, ?)')
+      const hpId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('HP') as { id: number }).id
+      const canonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Canon') as { id: number }).id
+      const epsonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Epson') as { id: number }).id
+      const pm: [number, string, number][] = [
+        [hpId, 'LaserJet Pro M404dn', 0],
+        [hpId, 'LaserJet MFP M430f', 1],
+        [hpId, 'Color LaserJet Pro M454dw', 2],
+        [canonId, 'imageRUNNER C3326i', 0],
+        [canonId, 'imageCLASS MF746Cx', 1],
+        [epsonId, 'WorkForce Pro WF-C5790', 0],
+      ]
+      pm.forEach(m => insertPModel.run(...m))
+    }
 
-    // 墨粉型号
-    const insertToner = db.prepare('INSERT INTO toner_models (name, brand_id, compatible, sort_order) VALUES (?, ?, ?, ?)')
-    const toners: [string, number, string, number][] = [
-      ['HP 59A', hpId, 'HP LaserJet Pro M404dn', 0],
-      ['HP 59X', hpId, 'HP LaserJet Pro M404dn, HP LaserJet MFP M430f', 1],
-      ['HP 207A', hpId, 'HP Color LaserJet Pro M454dw', 2],
-      ['Canon C-EXV 55', canonId, 'Canon imageRUNNER C3326i', 3],
-      ['Canon 055', canonId, 'Canon imageCLASS MF746Cx', 4],
-    ]
-    toners.forEach(t => insertToner.run(...t))
+    // 墨粉型号（仅当为空）
+    if (tmCount.cnt === 0) {
+      const insertToner = db.prepare('INSERT INTO toner_models (name, brand_id, compatible, sort_order) VALUES (?, ?, ?, ?)')
+      const hpId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('HP') as { id: number }).id
+      const canonId = (db.prepare('SELECT id FROM printer_brands WHERE name = ?').get('Canon') as { id: number }).id
+      const toners: [string, number, string, number][] = [
+        ['HP 59A', hpId, 'HP LaserJet Pro M404dn', 0],
+        ['HP 59X', hpId, 'HP LaserJet Pro M404dn, HP LaserJet MFP M430f', 1],
+        ['HP 207A', hpId, 'HP Color LaserJet Pro M454dw', 2],
+        ['Canon C-EXV 55', canonId, 'Canon imageRUNNER C3326i', 3],
+        ['Canon 055', canonId, 'Canon imageCLASS MF746Cx', 4],
+      ]
+      toners.forEach(t => insertToner.run(...t))
+    }
 
-    // 服务分类
-    const insertCat = db.prepare('INSERT INTO service_categories (name, icon, color, sort_order) VALUES (?, ?, ?, ?)')
-    const cats: [string, string, string, number][] = [
-      ['DevOps', 'SetUp', '#58a6ff', 0],
-      ['监控', 'DataAnalysis', '#3fb950', 1],
-      ['基础设施', 'Server', '#a371f7', 2],
-      ['协作', 'ChatDotRound', '#d29922', 3],
-    ]
-    cats.forEach(c => insertCat.run(...c))
+    // 服务分类（仅当为空）
+    if (catCount.cnt === 0) {
+      const insertCat = db.prepare('INSERT INTO service_categories (name, icon, color, sort_order) VALUES (?, ?, ?, ?)')
+      const cats: [string, string, string, number][] = [
+        ['DevOps', 'SetUp', '#58a6ff', 0],
+        ['监控', 'DataAnalysis', '#3fb950', 1],
+        ['基础设施', 'Server', '#a371f7', 2],
+        ['协作', 'ChatDotRound', '#d29922', 3],
+      ]
+      cats.forEach(c => insertCat.run(...c))
+    }
 
     console.log('[db] 已初始化字典数据')
   })

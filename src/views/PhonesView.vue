@@ -299,8 +299,14 @@ async function openDetail(phone: any) {
   drawerVisible.value = true
   detailLoading.value = true
   detail.value = null
+  // 编辑态重置 + 表单清空移到 try 之前——无论 fetch 成功失败都重置，避免串到另一台话机
   editing.value = false
   pbEditing.value = false
+  remarkEditing.value = false
+  remarkForm.value = ''
+  pbForm.value = { xmlUrl: '', name: '' }
+  pbUrl.value = ''
+  pbName.value = ''
   try {
     const data = await fetchPhoneDetail(phone.id)
     detail.value = data
@@ -309,9 +315,6 @@ async function openDetail(phone: any) {
     if (rp && typeof rp === 'object') {
       pbUrl.value = rp.phonebook1_remote_url || rp.phonebook2_remote_url || ''
       pbName.value = rp.phonebook1_display_name || rp.phonebook2_display_name || ''
-    } else {
-      pbUrl.value = ''
-      pbName.value = ''
     }
   } catch (e: any) {
     detail.value = null

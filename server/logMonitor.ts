@@ -588,6 +588,10 @@ export async function fetchLokiLogsCached(hostname: string, start: Date, end: Da
 }
 
 export async function fetchLokiLogs(hostname: string, start: Date, end: Date, limit: number = 2000): Promise<LokiResult> {
+  // LogQL 注入防护：hostname 只允许字母数字点下划线短横线，拒绝注入向量
+  if (!/^[a-zA-Z0-9._-]+$/.test(hostname)) {
+    return { logs: [], error: `hostname 含非法字符: ${hostname.slice(0, 50)}` }
+  }
   const query = `{job="syslog", host="${hostname}"}`
   const params = new URLSearchParams({
     query,

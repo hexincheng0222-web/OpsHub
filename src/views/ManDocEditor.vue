@@ -44,7 +44,7 @@
             <el-button size="small" type="danger" @click="handleRollback(versionPreview)">回滚到此版本</el-button>
           </div>
         </div>
-        <div class="vp-content" v-html="versionPreview.content"></div>
+        <div class="vp-content" v-html="sanitizedPreview"></div>
       </div>
     </div>
 
@@ -84,15 +84,23 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useOperationsStore } from '../stores/operations'
 import { fetchVersions, rollbackVersion } from '../api/operations'
+import { sanitizeHtml } from '../utils/sanitize'
 
 const route = useRoute()
 const router = useRouter()
 const store = useOperationsStore()
 
 const isEdit = computed(() => !!route.params.id)
+const draftKey = computed(() => isEdit.value ? `ops_draft_${route.params.id}` : 'ops_draft_new')
+
+// 版本预览内容过 sanitize（DB 内容直渲染需剥离危险标签，与 OperationsView 阅读视图一致）
+const sanitizedPreview = computed(() => {
+  const v = versionPreview.value
+  if (!v || typeof v.content !== 'string') return ''
+  return sanitizeHtml(v.content)
+})
 const saveError = ref('')
 const saving = ref(false)
-const draftKey = computed(() => isEdit.value ? `ops_draft_${route.params.id}` : 'ops_draft_new')
 
 const form = reactive({
   title: '',

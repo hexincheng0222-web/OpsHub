@@ -424,13 +424,24 @@ async function doImport() {
 }
 
 // ---- Export ----
+// HTML 转义：doc.title 拼进 document.write / HTML 模板前先转义，防 XSS
+function escapeHtml(s: string): string {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]!))
+}
+// 文件名 sanitize：防路径穿越 + 非法字符（注意：不要 HTML 转义，否则文件名含实体）
+function sanitizeFilename(s: string): string {
+  return String(s ?? '').replace(/[<>:"/\\|?*]/g, '_').slice(0, 100) || 'document'
+}
 function handleExport(command: string) {
   if (!selectedDoc.value) return
   const doc = selectedDoc.value
+  const safeTitle = escapeHtml(doc.title)
   if (command === 'print') {
     const w = window.open('', '_blank')
     if (!w) return
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${doc.title}</title>
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.8;color:#222}
 h1,h2,h3{color:#1a1a1a;border-bottom:1px solid #eee;padding-bottom:8px}
 code{background:#f4f4f4;padding:2px 6px;border-radius:3px;font-size:0.9em}
@@ -438,7 +449,7 @@ pre{background:#f4f4f4;padding:16px;border-radius:6px;overflow-x:auto}
 blockquote{border-left:4px solid #58a6ff;margin:0;padding-left:16px;color:#555}
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}
 img{max-width:100%}@media print{body{margin:0;padding:20px}}
-</style></head><body><h1>${doc.title}</h1>${renderedContent.value}</body></html>`)
+</style></head><body><h1>${safeTitle}</h1>${renderedContent.value}</body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 300)
     return
@@ -449,7 +460,7 @@ img{max-width:100%}@media print{body{margin:0;padding:20px}}
   let mime: string
   if (command === 'md') {
     content = htmlToMarkdown(doc.content)
-    filename = doc.title + '.md'
+    filename = sanitizeFilename(doc.title) + '.md'
     mime = 'text/markdown'
   } else if (command === 'docx') {
     // 导出为 Word 兼容格式（HTML 包装，Word 可直接打开）
@@ -459,7 +470,7 @@ img{max-width:100%}@media print{body{margin:0;padding:20px}}
       xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
-<title>${doc.title}</title>
+<title>${safeTitle}</title>
 <style>
 body{font-family:"Microsoft YaHei","SimSun",sans-serif;margin:40px 60px;line-height:1.8;color:#222}
 h1,h2,h3,h4{color:#1a1a1a;margin:24px 0 12px}
@@ -479,15 +490,15 @@ li{margin:4px 0}
 </style>
 </head>
 <body>
-<h1>${doc.title}</h1>
+<h1>${safeTitle}</h1>
 ${renderedContent.value}
 </body>
 </html>`
-    filename = doc.title + '.doc'
+    filename = sanitizeFilename(doc.title) + '.doc'
     mime = 'application/msword'
   } else {
     content = doc.content
-    filename = doc.title + '.html'
+    filename = sanitizeFilename(doc.title) + '.html'
     mime = 'text/html'
   }
   const blob = new Blob([content], { type: mime })

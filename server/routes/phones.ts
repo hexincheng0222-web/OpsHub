@@ -23,7 +23,7 @@ function parseDigestChallenge(wwwAuth: string): { realm: string; nonce: string; 
   for (const m of wwwAuth.matchAll(/(\w+)="?([^",]+)"?/g)) {
     params[m[1]] = m[2]
   }
-  return { realm: params.realm || '', nonce: params.nonce || '', qop: params.qop || 'auth', opaque: params.opopaque || '' }
+  return { realm: params.realm || '', nonce: params.nonce || '', qop: params.qop || 'auth', opaque: params.opaque || '' }
 }
 
 function buildDigestAuth(ip: string, method: string, uri: string, username: string, password: string): string {
