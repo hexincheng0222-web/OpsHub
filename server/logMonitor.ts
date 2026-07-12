@@ -1,5 +1,7 @@
 import db from './db'
 import cron, { ScheduledTask } from 'node-cron'
+import fs from 'node:fs'
+import path from 'node:path'
 
 // ========== 类型定义 ==========
 
@@ -250,13 +252,23 @@ function parseLLMJson(text: string): { summary: string; has_abnormal: boolean } 
 // ========== 审计存储 ==========
 
 export function saveAudit(device: DeviceConfig, logs: LogEntry[], result: LLMResult): number {
+  // 1) 全文写到 data/log-audit/YYYY-MM-DD/设备IP-毫秒.json
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const dir = path.join('data', 'log-audit', dateStr)
+  fs.mkdirSync(dir, { recursive: true })
+  const fileName = `${device.device_id}-${Date.now()}.json`
+  const filePath = path.join(dir, fileName)
+  fs.writeFileSync(filePath, JSON.stringify(logs))
+
+  // 2) DB 只存路径指针 + 轻量摘要列（< 1KB/行）
   const row = db.prepare(
-    'INSERT INTO log_audit (device_id, device_name, log_count, raw_logs, llm_summary, has_abnormal, llm_ms) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO log_audit (device_id, device_name, log_count, raw_logs, log_file_path, llm_summary, has_abnormal, llm_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     device.device_id,
     device.name,
     logs.length,
-    JSON.stringify(logs),
+    '',              // raw_logs 留空（向后兼容，旧代码可能读它）
+    filePath,        // ← 新列：文件路径指针
     result.summary,
     result.has_abnormal ? 1 : 0,
     result._llm_ms || 0,

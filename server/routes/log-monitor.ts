@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import fs from 'node:fs'
 import db from '../db'
 import {
   loadConfig, saveConfigPartial, fetchLokiLogs, analyzeLogs,
@@ -50,6 +51,31 @@ router.get('/audit', (req: Request, res: Response) => {
   ).all(...params, pageSize, (page - 1) * pageSize)
 
   res.json({ code: 0, data: { list: rows, total, page, pageSize } })
+})
+
+// 3b. 读取单条审计的外置日志文件
+router.get('/audit/:id/logs', (req: Request, res: Response) => {
+  const id = parseInt(req.params.id)
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效 ID' })
+  const row = db.prepare('SELECT log_file_path, raw_logs FROM log_audit WHERE id = ?').get(id) as any
+  if (!row) return res.status(404).json({ code: 404, message: '审计记录不存在' })
+
+  // 兼容旧数据：log_file_path 非空且文件存在时读文件
+  if (row.log_file_path && fs.existsSync(row.log_file_path)) {
+    try {
+      const logs = JSON.parse(fs.readFileSync(row.log_file_path, 'utf-8'))
+      return res.json({ code: 200, data: { logs, source: 'file' } })
+    } catch (e: any) {
+      console.warn(`[audit] 读文件失败 ${row.log_file_path}:`, e.message)
+    }
+  }
+  // 回退：旧数据 raw_logs 或文件已被清理
+  try {
+    const logs = JSON.parse(row.raw_logs || '[]')
+    res.json({ code: 200, data: { logs, source: 'db', expired: logs.length === 0 } })
+  } catch {
+    res.json({ code: 200, data: { logs: [], source: 'db', expired: true } })
+  }
 })
 
 // 4. 清理过期审计
