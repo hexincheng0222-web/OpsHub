@@ -52,6 +52,11 @@ export async function fetchOverview() {
   return request(`${BASE}/overview/stats`)
 }
 
+// 操作趋势（近 N 天操作日志数）
+export async function fetchOverviewTrend(days: number = 7): Promise<{ days: number; trend: { date: string; count: number }[] }> {
+  return request(`${BASE}/overview/trend?days=${days}`)
+}
+
 // 系统配置
 export async function fetchConfig() {
   return request(`${BASE}/config/list`)

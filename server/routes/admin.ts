@@ -326,4 +326,29 @@ router.get('/overview/stats', (_req: Request, res: Response) => {
   res.json({ code: 200, data: stats })
 })
 
+// GET /api/v1/admin/overview/trend?days=7  — 近 N 天操作日志趋势
+router.get('/overview/trend', (req: Request, res: Response) => {
+  const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7))
+  const rows = db.prepare(`
+    SELECT
+      DATE(created_at) AS date,
+      COUNT(*) AS count
+    FROM operation_logs
+    WHERE created_at >= datetime('now', ?)
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  ').all(`-${days} days`) as { date: string; count: number }[]
+
+  // 补全缺失日期（无日志的天填 0）
+  const result: { date: string; count: number }[] = []
+  const map = new Map(rows.map(r => [r.date, r.count]))
+  const today = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 86400000)
+    const key = d.toISOString().slice(0, 10)
+    result.push({ date: key.slice(5), count: map.get(key) || 0 })
+  }
+  res.json({ code: 200, data: { days, trend: result } })
+})
+
 export default router
