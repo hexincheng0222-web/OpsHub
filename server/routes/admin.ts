@@ -359,8 +359,8 @@ import cron from 'node-cron'
 const LOG_RETENTION_DAYS = 30
 cron.schedule('0 2 * * *', () => {
   try {
-    const n = db.prepare(`DELETE FROM operation_logs WHERE created_at < datetime('now', '-${LOG_RETENTION_DAYS} days')`).run()
-    if (n.changes > 0) console.log(`[logs] 已自动清理 ${n.changes} 条 ${LOG_RETENTION_DAYS} 天前操作日志`)
+    const n = db.prepare('DELETE FROM operation_logs WHERE created_at < datetime(\'now\', \'-' + LOG_RETENTION_DAYS + ' days\')').run()
+    if (n.changes > 0) console.log('[logs] 已自动清理 ' + n.changes + ' 条 ' + LOG_RETENTION_DAYS + ' 天前操作日志')
   } catch (e) { console.warn('[logs] 自动清理失败:', e) }
 })
 
@@ -393,15 +393,9 @@ router.get('/overview/stats', (_req: Request, res: Response) => {
 // GET /api/v1/admin/overview/trend?days=7  — 近 N 天操作日志趋势
 router.get('/overview/trend', (req: Request, res: Response) => {
   const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7))
-  const rows = db.prepare(`
-    SELECT
-      DATE(created_at) AS date,
-      COUNT(*) AS count
-    FROM operation_logs
-    WHERE created_at >= datetime('now', ?)
-    GROUP BY DATE(created_at)
-    ORDER BY date ASC
-  ').all(`-${days} days`) as { date: string; count: number }[]
+  const rows = db.prepare(
+    'SELECT DATE(created_at) AS date, COUNT(*) AS count FROM operation_logs WHERE created_at >= datetime(\'now\', ?) GROUP BY DATE(created_at) ORDER BY date ASC'
+  ).all('-' + days + ' days') as { date: string; count: number }[]
 
   // 补全缺失日期（无日志的天填 0）
   const result: { date: string; count: number }[] = []

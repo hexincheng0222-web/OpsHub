@@ -320,11 +320,14 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_operation_logs_module ON operation_logs (module);
   CREATE INDEX IF NOT EXISTS idx_operation_logs_created ON operation_logs (created_at);
+`)
 
   // 迁移：operation_logs 扩展用户操作详情字段
   const olCols = db.prepare("PRAGMA table_info(operation_logs)").all() as { name: string }[]
   const olAdd = (col: string, def: string) => {
-    if (!olCols.some(c => c.name === col)) db.exec(`ALTER TABLE operation_logs ADD COLUMN ${col} NOT NULL DEFAULT ${def}`)
+    if (!olCols.some(c => c.name === col)) {
+      db.exec('ALTER TABLE operation_logs ADD COLUMN ' + col + ' NOT NULL DEFAULT ' + def)
+    }
   }
   olAdd('operator', "''")
   olAdd('ip_address', "''")
@@ -335,6 +338,8 @@ db.exec(`
   olAdd('request_path', "''")
   olAdd('duration_ms', '0')
 
+// phonebook / device_types rebuild / logMonitor / tokens
+db.exec(`
   CREATE TABLE IF NOT EXISTS phonebook_contacts (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
