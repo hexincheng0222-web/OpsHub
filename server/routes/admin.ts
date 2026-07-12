@@ -191,14 +191,17 @@ router.get('/:table', (req: Request, res: Response) => {
   const config = tables[req.params.table]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
-  const page = Math.max(1, parseInt(req.query.page as string) || 0)
-  const pageSize = Math.min(200, Math.max(0, parseInt(req.query.pageSize as string) || 0))
+  const hasPage = req.query.page !== undefined
+  const hasPageSize = req.query.pageSize !== undefined
 
   // 无分页参数 → 返回全量（向后兼容）
-  if (!page && !pageSize) {
+  if (!hasPage && !hasPageSize) {
     const rows = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} ORDER BY sort_order ASC, id ASC`).all()
     return res.json({ code: 200, data: rows })
   }
+
+  const page = Math.max(1, parseInt(req.query.page as string) || 1)
+  const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize as string) || 20))
 
   const offset = (page - 1) * pageSize
   const total = (db.prepare(`SELECT COUNT(*) as cnt FROM ${config.table}`).get() as { cnt: number }).cnt
