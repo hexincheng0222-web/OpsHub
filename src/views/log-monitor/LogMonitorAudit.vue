@@ -118,7 +118,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, View } from '@element-plus/icons-vue'
-import TrendChart, { type TrendDevice } from '../components/TrendChart.vue'
+import TrendChart, { type TrendDevice } from '../../components/TrendChart.vue'
 import { getAuditList, getTrend } from '../../api/log-monitor'
 import { request } from '../../utils/http'
 import BackButton from '../../components/BackButton.vue'
