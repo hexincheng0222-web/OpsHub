@@ -86,7 +86,12 @@
       </div>
       <div class="detail-section">
         <div class="detail-label">原始日志（{{ detail.log_count }} 条）</div>
-        <pre class="log-pre">{{ formattedLogs }}</pre>
+        <el-alert v-if="logExpired" type="info" :closable="false" title="该批次日志已超 7 天保留期，仅保留摘要" />
+        <el-alert v-else-if="logParseError" type="error" :closable="false" title="日志读取失败，文件可能损坏" />
+        <pre v-else class="log-pre">{{ formattedLogs || '(空)' }}</pre>
+        <el-button v-if="!logExpired && !logParseError && displayCount < parsedLogs.length" text size="small" @click="loadMoreAuditLogs">
+          加载更多（{{ parsedLogs.length - displayCount }} 条剩余）
+        </el-button>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
@@ -96,11 +101,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, View } from '@element-plus/icons-vue'
 import { getAuditList } from '../../api/log-monitor'
+import { request } from '../../utils/http'
 import BackButton from '../../components/BackButton.vue'
+
+const BASE = '/api/v1/log-monitor'
 
 const filter = ref({ device: '', abnormal: '', start_date: '', end_date: '' })
 const records = ref<any[]>([])
@@ -111,13 +119,41 @@ const loading = ref(false)
 const detailVisible = ref(false)
 const detail = ref<any>({})
 
-const formattedLogs = computed(() => {
+// 审计日志兜底 + 分页
+const logParseError = ref(false)
+const logExpired = ref(false)
+const parsedLogs = ref<any[]>([])
+const logLevelFilter = ref('')
+const displayCount = ref(50)
+const formattedLogs = computed(() => JSON.stringify(displayedParsedLogs.value, null, 2))
+const displayedParsedLogs = computed(() => {
+  const filtered = logLevelFilter.value
+    ? parsedLogs.value.filter(l => l.level?.toLowerCase() === logLevelFilter.value)
+    : parsedLogs.value
+  return filtered.slice(0, displayCount.value)
+})
+function loadMoreAuditLogs() { displayCount.value += 50 }
+
+async function loadAuditLogs(id: number) {
+  logParseError.value = false
+  logExpired.value = false
+  parsedLogs.value = []
+  displayCount.value = 50
   try {
-    const logs = JSON.parse(detail.value.raw_logs || '[]')
-    return JSON.stringify(logs.slice(0, 100), null, 2)
+    const res = await request<{ logs: any[]; source: string; expired?: boolean }>(
+      `${BASE}/audit/${id}/logs`
+    )
+    parsedLogs.value = res.logs
+    logExpired.value = res.expired === true && res.logs.length === 0
+    if (logExpired.value) ElMessage.info('该批次日志已超 7 天保留期，仅保留摘要')
   } catch {
-    return detail.value.raw_logs || ''
+    logParseError.value = true
   }
+}
+
+watch(detailVisible, async (v) => {
+  if (!v || !detail.value?.id) return
+  await loadAuditLogs(detail.value.id)
 })
 
 async function loadData() {

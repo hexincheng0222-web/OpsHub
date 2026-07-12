@@ -51,7 +51,20 @@
       </el-empty>
     </div>
 
-    <el-row :gutter="16" class="device-grid">
+    <el-row v-if="loading && !dashData" :gutter="16" class="device-grid">
+      <el-col v-for="i in 4" :key="i" :xs="24" :sm="24" :md="12" :lg="12" class="device-col">
+        <el-skeleton animated>
+          <template #template>
+            <div style="padding: 16px;">
+              <el-skeleton-item variant="text" style="width: 50%; margin-bottom: 12px;" />
+              <el-skeleton-item variant="rect" style="height: 96px; margin-bottom: 12px;" />
+              <el-skeleton-item variant="rect" style="height: 60px;" />
+            </div>
+          </template>
+        </el-skeleton>
+      </el-col>
+    </el-row>
+    <el-row v-else :gutter="16" class="device-grid" v-loading="loading">
       <el-col
         v-for="device in dashData?.devices || []"
         :key="device.device_id"
@@ -176,10 +189,17 @@
 
         <!-- 完整日志 -->
         <div class="drawer-section">
-          <div class="drawer-label">完整日志 ({{ drawerDevice.log_count }} 条)</div>
-          <div v-if="drawerDevice.logs.length" class="drawer-logs">
+          <div class="drawer-section-header">
+            <div class="drawer-label">完整日志 ({{ drawerDevice.log_count }} 条)</div>
+            <el-select v-model="logLevelFilter" size="small" placeholder="全部级别" clearable style="width: 120px">
+              <el-option label="Error" value="error" />
+              <el-option label="Warning" value="warning" />
+              <el-option label="Info" value="info" />
+            </el-select>
+          </div>
+          <div v-if="filteredDrawerLogs.length" class="drawer-logs">
             <div
-              v-for="(log, i) in drawerDevice.logs"
+              v-for="(log, i) in displayedDrawerLogs"
               :key="i"
               class="log-line"
               :class="'log-' + log.level.toLowerCase()"
@@ -188,8 +208,10 @@
               <span class="log-level">{{ log.level }}</span>
               <span class="log-msg-full">{{ log.msg }}</span>
             </div>
+            <el-button v-if="displayedCount < filteredDrawerLogs.length" text size="small" @click="loadMoreLogs">
+              加载更多（{{ filteredDrawerLogs.length - displayedCount }} 条剩余）
+            </el-button>
           </div>
-          <div v-else class="no-data">暂无日志数据</div>
         </div>
       </template>
     </el-dialog>
@@ -197,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import BackButton from '../../components/BackButton.vue'
@@ -222,6 +244,19 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 const drawerVisible = ref(false)
 const drawerDevice = ref<DashboardDevice | null>(null)
 const analyzing = ref(false)
+
+// 详情弹窗日志分页
+const logLevelFilter = ref('')
+const displayedCount = ref(50)
+const filteredDrawerLogs = computed(() => {
+  if (!drawerDevice.value) return []
+  const logs = drawerDevice.value.logs
+  if (!logLevelFilter.value) return logs
+  return logs.filter(l => l.level.toLowerCase() === logLevelFilter.value)
+})
+const displayedDrawerLogs = computed(() => filteredDrawerLogs.value.slice(0, displayedCount.value))
+function loadMoreLogs() { displayedCount.value += 50 }
+watch(drawerVisible, (v) => { if (v) { displayedCount.value = 50; logLevelFilter.value = '' } })
 
 function openDrawer(device: DashboardDevice) {
   drawerDevice.value = device
