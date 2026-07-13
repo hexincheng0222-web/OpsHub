@@ -1,0 +1,20 @@
+steps:
+  - name: build-frontend
+    image: node:22
+    commands:
+      - npm ci
+      - npm run build
+    when:
+      branch: hxc
+      event: push
+
+  - name: deploy
+    image: alpine:3.21
+    commands:
+      - cp -r dist/* /woodpecker/deploy/opshub/dist/
+      - cp -r server/ /woodpecker/deploy/opshub/server/
+      - cp package.json package-lock.json /woodpecker/deploy/opshub/
+    when:
+      branch: hxc
+      event: push
+
