@@ -47,14 +47,15 @@ export interface PhoneProcurement {
 // ===== 电脑采购 Store =====
 export const useComputerProcurementStore = defineStore('computerProcurement', () => {
   const computers = ref<ComputerProcurement[]>([])
-  const total = computed(() => computers.value.length)
+  const total = ref(0)  // 后端总记录数，由 loadComputers 写入
   const loading = ref(false)
 
   async function loadComputers(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
     loading.value = true
     try {
-      const { list } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
+      const { list, total: t } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
       computers.value = list
+      total.value = t
     } catch (e: any) {
       ElMessage.error(e.message || '加载电脑采购数据失败')
     } finally {
@@ -96,14 +97,15 @@ export const useComputerProcurementStore = defineStore('computerProcurement', ()
 // ===== 手机采购 Store =====
 export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
   const phones = ref<PhoneProcurement[]>([])
-  const total = computed(() => phones.value.length)
+  const total = ref(0)  // 后端总记录数，由 loadPhones 写入
   const loading = ref(false)
 
   async function loadPhones(params?: { page?: number; pageSize?: number; search?: string; department?: string; purchaseType?: string }) {
     loading.value = true
     try {
-      const { list } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
+      const { list, total: t } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
       phones.value = list
+      total.value = t
     } catch (e: any) {
       ElMessage.error(e.message || '加载手机采购数据失败')
     } finally {

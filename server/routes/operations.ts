@@ -129,6 +129,8 @@ router.post('/docs', (req: Request, res: Response) => {
   try {
     const { title, content, folderId } = req.body
     if (!title || !folderId) return res.status(400).json({ code: 400, message: 'title 和 folderId 必填' })
+    if (title.length > 200) return res.status(400).json({ code: 400, message: 'title 长度不能超过 200' })
+    if (content && content.length > 100_000) return res.status(400).json({ code: 400, message: 'content 长度不能超过 100000' })
 
     const result = db.prepare('INSERT INTO manual_docs (title, content, folder_id, author) VALUES (?, ?, ?, ?)')
       .run(title, content || '', folderId, req.body.author || '')

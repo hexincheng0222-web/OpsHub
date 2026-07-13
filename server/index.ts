@@ -72,8 +72,8 @@ if (fs.existsSync(path.join(distPath, 'index.html'))) {
 
 // 全局错误处理
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('[server] Error:', err.message)
   const traceId = crypto.randomBytes(4).toString('hex')
+  console.error(`[server] Error (traceId=${traceId}):`, err.message)
   res.status(500).json({ code: 500, message: '服务器内部错误', traceId })
 })
 

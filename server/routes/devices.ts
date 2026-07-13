@@ -28,6 +28,16 @@ router.put('/:id', (req: Request, res: Response) => {
 
     const { name, type, model, ports, status, ip } = req.body
 
+    // 字段校验（防超长/非法数据）
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) return res.status(400).json({ code: 400, message: 'name 不能为空' })
+      if (name.length > 100) return res.status(400).json({ code: 400, message: 'name 长度不能超过 100' })
+    }
+    if (type !== undefined && type.length > 50) return res.status(400).json({ code: 400, message: 'type 长度不能超过 50' })
+    if (model !== undefined && model.length > 100) return res.status(400).json({ code: 400, message: 'model 长度不能超过 100' })
+    if (ip !== undefined && ip && !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return res.status(400).json({ code: 400, message: 'ip 格式无效' })
+    if (ports !== undefined && (!Number.isInteger(ports) || ports < 0 || ports > 100)) return res.status(400).json({ code: 400, message: 'ports 必须为 0-100 的整数' })
+
     db.prepare(`
       UPDATE devices SET name = ?, type = ?, model = ?, ports = ?, status = ?, ip = ?, updated_at = datetime('now')
       WHERE id = ?

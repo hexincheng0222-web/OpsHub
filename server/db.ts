@@ -1509,11 +1509,13 @@ try {
 // 初始化：如果 users 表为空，创建默认超级管理员
 const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt
 if (userCount === 0) {
-  const hash = bcrypt.hashSync('admin123', 10)
+  // 默认密码可通过环境变量 ADMIN_DEFAULT_PASSWORD 覆盖，未设置时回退到 admin123
+  const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'admin123'
+  const hash = bcrypt.hashSync(defaultPassword, 10)
   db.prepare(
     "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)"
   ).run('admin', hash, '超级管理员', 'superadmin')
-  console.log('[db] 已创建默认超级管理员账号：admin / admin123')
+  console.log('[db] 已创建默认超级管理员账号：admin / ' + (process.env.ADMIN_DEFAULT_PASSWORD ? '(来自 ADMIN_DEFAULT_PASSWORD)') : 'admin123（⚠️ 生产环境务必通过 ADMIN_DEFAULT_PASSWORD 修改）'))
 }
 
 // 启动时注册：每日凌晨 4 点清理 7 天前的 data/log-audit/ 目录（P0-3）

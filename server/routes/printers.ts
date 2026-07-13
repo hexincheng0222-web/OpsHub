@@ -197,6 +197,14 @@ router.post('/import', (req: Request, res: Response) => {
         }
       }
       // TODO: model / tonerModel 校验同模式（评审文档 v2 中形式如此；本任务暂不强制实现）
+      // 去重：同一 floor+location+manufacturer+model 已存在则跳过
+      const dup = db.prepare(
+        'SELECT id FROM printers WHERE floor = ? AND location = ? AND manufacturer = ? AND model = ?'
+      ).get(r.floor || '', r.location || '', r.manufacturer || '', r.model || '')
+      if (dup) {
+        errors.push(`第 ${i+1} 行: ${r.floor}/${r.location}/${r.manufacturer}/${r.model} 已存在，跳过`)
+        continue
+      }
       try {
         insert.run(r.floor || '', r.location || '', r.manufacturer || '', r.model || '',
                    r.tonerModel || '', r.notes || '', r.status || '正常')

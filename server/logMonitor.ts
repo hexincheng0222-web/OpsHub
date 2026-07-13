@@ -73,7 +73,13 @@ export interface HealthStatus {
 
 function getConfig(key: string): any {
   const row = db.prepare('SELECT value FROM log_monitor_config WHERE key = ?').get(key) as { value: string } | undefined
-  return row ? JSON.parse(row.value) : null
+  if (!row) return null
+  try {
+    return JSON.parse(row.value)
+  } catch (e: any) {
+    console.warn(`[logMonitor] 配置 ${key} 损坏（非法 JSON），跳过: ${e.message}`)
+    return null
+  }
 }
 
 function setConfig(key: string, value: any): void {
