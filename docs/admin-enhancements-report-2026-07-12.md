@@ -22,7 +22,7 @@
 **删除/简化项**：
 - D1 ✅ 硬编码 moduleOptions → 动态接口
 - D2 ✅ parentCards 保留逻辑（已隐含在现有代码中）
-- D3 ✅ service-hosts category→name 自动填充**未实施**（实际代码中已无此逻辑，无需处理）
+- D3 ⚠️ service-hosts category→name 自动填充**仍存在于代码中**（`AdminDictTable.vue` L135-139 的 `watch` 触发条件：仅 `service-hosts` 表 + `name` 为空时填入 `category` 值）。原报告误述为「已无此逻辑」。该逻辑本身无害（不覆盖已填名称），保留作辅助输入；如需移除请显式删除该 `watch`。
 
 ---
 

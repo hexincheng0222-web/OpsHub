@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - heading "OpsHub" [level=1] [ref=e5]
+    - paragraph [ref=e6]: 运维管理平台
+    - generic [ref=e7]:
+      - textbox "用户名" [ref=e12]: admin
+      - textbox "密码" [ref=e17]: admin123
+      - generic [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]:
+          - checkbox "记住账号"
+        - generic [ref=e22]: 记住账号
+      - button "登录" [ref=e23] [cursor=pointer]
+  - generic [ref=e32]:
+    - generic [ref=e33]: "[plugin:vite:vue] [vue/compiler-sfc] Identifier 'computed' has already been declared. (11:9) C:/Users/何鑫城/Desktop/OpsHub/src/views/procurement/ComputerProcurementTab.vue 275| import { fetchLogs } from '../../api/admin' 276| import { useAuthStore } from '../../stores/auth' 277| import { computed } from 'vue' 278| import { downloadCsv, escapeCsvField } from '../../utils/csv' 279| import { downloadXlsx, parseXlsx } from '../../utils/excel'"
+    - generic [ref=e34]: C:/Users/何鑫城/Desktop/OpsHub/src/views/procurement/ComputerProcurementTab.vue:11:9
+    - generic [ref=e35]: 11 | <el-option v-for="d in departments" :key="d" :label="d" :value="d" /> 12 | </el-select> 13 | <el-select v-model="filterBrand" placeholder="全部品牌" clearable style="width:140px"> | ^ 14 | <el-option v-for="b in brands" :key="b" :label="b" :value="b" /> 15 | </el-select>
+    - generic [ref=e36]: at constructor (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:365:19) at TypeScriptParserMixin.raise (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:6616:19) at TypeScriptScopeHandler.declareName (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:4878:21) at TypeScriptParserMixin.declareNameFromIdentifier (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:7584:16) at TypeScriptParserMixin.checkIdentifier (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:7580:12) at TypeScriptParserMixin.checkLVal (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:7517:12) at TypeScriptParserMixin.finishImportSpecifier (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:14283:10) at TypeScriptParserMixin.parseImportSpecifier (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:14436:17) at TypeScriptParserMixin.parseImportSpecifier (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:10165:18) at TypeScriptParserMixin.parseNamedImportSpecifiers (C:\Users\何鑫城\Desktop\OpsHub\node_modules\@babel\parser\lib\index.js:14415:36)
+    - generic [ref=e37]:
+      - text: Click outside, press Esc key, or fix the code to dismiss.You can also disable this overlay by setting
+      - code [ref=e38]: server.hmr.overlay
+      - text: to
+      - code [ref=e39]: "false"
+      - text: in
+      - code [ref=e40]: vite.config.ts
+      - text: .

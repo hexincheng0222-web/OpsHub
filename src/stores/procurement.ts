@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import * as computerApi from '../api/computer-procurement'
 import * as phoneApi from '../api/phone-procurement'
 import { ElMessage } from 'element-plus'

@@ -258,12 +258,6 @@ function handleTopAction(command: string) {
   else if (command === 'import') triggerImport()
   else if (command === 'export-csv') exportCSV()
 }
-
-async function handleExportXlsx() {
-  await exportPrintersXlsx(store.printers)
-}
-
-// 搜索
 const { searchInput, search: searchQuery } = useDebouncedSearch()
 searchInput.value = (route.query.search as string) || ''
 watch(searchQuery, (v) => {
@@ -310,7 +304,7 @@ async function batchDelete() {
   // 保存被删数据供撤销（剔除 id + 时间戳，避免恢复时主键冲突）
   const deletedData = store.printers
     .filter(p => ids.includes(p.id))
-    .map(({ id, createdAt, updatedAt, ...rest }) => rest)
+    .map(({ id, ...rest }) => rest)
   batchDeleting.value = true
   try {
     await store.deletePrinters(ids)

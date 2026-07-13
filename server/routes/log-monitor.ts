@@ -139,9 +139,11 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
 
     // 用 fetchLokiLogs 从 Loki 查真实日志（不限量，取时间窗口内全部日志）
     const queryTarget = hostname || device_id
-    const { logs } = await fetchLokiLogs(queryTarget, startTime, endTime, 10000)
+    const { logs, error: lokiError } = await fetchLokiLogs(queryTarget, startTime, endTime, 10000)
     if (!logs.length) {
-      return res.json({ code: 0, data: { summary: '无日志可分析', has_abnormal: false, llm_ms: 0 } })
+      // 区分「查询失败」与「真无日志」：失败时把 Loki 错误透传给前端，避免误报"设备正常"
+      const summary = lokiError ? `日志查询失败：${lokiError}` : '无日志可分析'
+      return res.json({ code: 0, data: { summary, has_abnormal: false, llm_ms: 0, created_at: new Date().toISOString(), error: lokiError || null } })
     }
 
     const result = await analyzeLogs(logs, config.llm.system_prompt)
@@ -158,6 +160,7 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
         has_abnormal: result.has_abnormal,
         llm_ms: result._llm_ms || 0,
         created_at: new Date().toISOString(),
+        error: null,
       },
     })
   } catch (e: any) {

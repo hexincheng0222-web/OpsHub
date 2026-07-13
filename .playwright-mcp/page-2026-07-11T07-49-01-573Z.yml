@@ -1,0 +1,306 @@
+- generic [active] [ref=f13e1]:
+  - generic [ref=f13e3]:
+    - generic [ref=f13e4]:
+      - button "返回" [ref=f13e5] [cursor=pointer]
+      - generic [ref=f13e9]:
+        - generic [ref=f13e10] [cursor=pointer]:
+          - generic [ref=f13e11]: 🖥
+          - generic [ref=f13e12]: 电脑采购
+          - generic [ref=f13e13]: "533"
+        - generic [ref=f13e14] [cursor=pointer]:
+          - generic [ref=f13e15]: 📱
+          - generic [ref=f13e16]: 手机采购
+          - generic [ref=f13e17]: "0"
+        - generic [ref=f13e18] [cursor=pointer]:
+          - generic [ref=f13e19]: 📊
+          - generic [ref=f13e20]: 采购概览
+      - generic [ref=f13e21]:
+        - button [ref=f13e22] [cursor=pointer]
+        - button [ref=f13e27] [cursor=pointer]
+    - generic [ref=f13e33]:
+      - generic [ref=f13e34]:
+        - textbox "搜索型号/部门/申请人/MAC地址..." [ref=f13e39]
+        - generic [ref=f13e42] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e44]
+            - generic [ref=f13e45]: 全部部门
+        - generic [ref=f13e51] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e53]
+            - generic [ref=f13e54]: 全部品牌
+        - generic [ref=f13e60] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e62]
+            - generic [ref=f13e63]: CE 流程
+        - generic [ref=f13e69] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e71]
+            - generic [ref=f13e72]: 收货日期
+        - generic [ref=f13e77]:
+          - combobox "开始日期" [ref=f13e81]
+          - generic [ref=f13e82]: 至
+          - combobox "结束日期" [ref=f13e83]
+        - button "重置" [ref=f13e84] [cursor=pointer]
+        - button [ref=f13e87] [cursor=pointer]
+        - button [ref=f13e95] [cursor=pointer]
+        - button [ref=f13e100] [cursor=pointer]
+      - generic [ref=f13e106]:
+        - table [ref=f13e108]:
+          - rowgroup [ref=f13e121]:
+            - row [ref=f13e122]:
+              - columnheader [ref=f13e123]:
+                - generic "选择所有行" [ref=f13e125] [cursor=pointer]:
+                  - generic [ref=f13e126]:
+                    - checkbox "选择所有行"
+              - columnheader [ref=f13e128] [cursor=pointer]:
+                - generic [ref=f13e129]:
+                  - text: 资产序号
+                  - button "按 资产序号 排序" [ref=f13e130]
+              - columnheader [ref=f13e133] [cursor=pointer]:
+                - generic [ref=f13e134]:
+                  - text: 采购型号
+                  - button "按 采购型号 排序" [ref=f13e135]
+              - columnheader [ref=f13e138] [cursor=pointer]:
+                - generic [ref=f13e139]:
+                  - text: 使用部门
+                  - button "按 使用部门 排序" [ref=f13e140]
+              - columnheader [ref=f13e143] [cursor=pointer]:
+                - generic [ref=f13e144]:
+                  - text: 申请人
+                  - button "按 申请人 排序" [ref=f13e145]
+              - columnheader "MAC 地址" [ref=f13e148]
+              - columnheader "设备型号" [ref=f13e150]
+              - columnheader [ref=f13e152] [cursor=pointer]:
+                - generic [ref=f13e153]:
+                  - text: 收货日期
+                  - button "按 收货日期 排序" [ref=f13e154]
+              - columnheader [ref=f13e157] [cursor=pointer]:
+                - generic [ref=f13e158]:
+                  - text: 交付日期
+                  - button "按 交付日期 排序" [ref=f13e159]
+              - columnheader [ref=f13e162] [cursor=pointer]:
+                - generic [ref=f13e163]:
+                  - text: 价格
+                  - button "按 价格 排序" [ref=f13e164]
+              - columnheader "操作" [ref=f13e167]
+        - table [ref=f13e173]:
+          - rowgroup [ref=f13e186]:
+            - row [ref=f13e643] [cursor=pointer]:
+              - cell [ref=f13e188]:
+                - generic "选择当前行" [ref=f13e190]:
+                  - generic [ref=f13e191]:
+                    - checkbox "选择当前行"
+              - cell "30002530" [ref=f13e644]
+              - cell "ThinkPad联想笔记本电脑ThinkBook14 锐龙版 R7-8745H 14英寸 16G 1T 2.8K 120Hz 高刷屏" [ref=f13e645]
+              - cell "外科科室运营" [ref=f13e646]
+              - cell "欧阳进" [ref=f13e647]
+              - cell "14:B5:CD:A1:7B:45" [ref=f13e648]
+              - cell "ThinkBook14 锐龙版 R7-8745H 14英寸 16G 1T 2.8K 120Hz 高刷屏" [ref=f13e649]
+              - cell "2026-04-22" [ref=f13e650]
+              - cell "2026-04-23" [ref=f13e651]
+              - cell "¥5,399" [ref=f13e209]
+              - cell [ref=f13e211]:
+                - generic [ref=f13e213]:
+                  - button "编辑" [ref=f13e214]
+                  - button "删除" [ref=f13e216]
+            - row [ref=f13e652] [cursor=pointer]:
+              - cell [ref=f13e219]:
+                - generic "选择当前行" [ref=f13e221]:
+                  - generic [ref=f13e222]:
+                    - checkbox "选择当前行"
+              - cell "30002529" [ref=f13e653]
+              - cell "飞利浦一体机电脑14代酷睿i5十核 32G/1TG" [ref=f13e654]
+              - cell "微创" [ref=f13e655]
+              - cell "郑晓莉" [ref=f13e656]
+              - cell [ref=f13e657]
+              - cell "14代i5 32G/1TG" [ref=f13e658]
+              - cell "2026-02-12" [ref=f13e659]
+              - cell "2026-02-26" [ref=f13e660]
+              - cell "¥4,850" [ref=f13e661]
+              - cell [ref=f13e241]:
+                - generic [ref=f13e243]:
+                  - button "编辑" [ref=f13e244]
+                  - button "删除" [ref=f13e246]
+            - row [ref=f13e662] [cursor=pointer]:
+              - cell [ref=f13e249]:
+                - generic "选择当前行" [ref=f13e251]:
+                  - generic [ref=f13e252]:
+                    - checkbox "选择当前行"
+              - cell "30002528" [ref=f13e663]
+              - cell "飞利浦一体机电脑14代酷睿i5十核 32G/1TG" [ref=f13e256]
+              - cell "微创" [ref=f13e258]
+              - cell "郑晓莉" [ref=f13e260]
+              - cell [ref=f13e262]
+              - cell "14代i5 32G/1TG" [ref=f13e263]
+              - cell "2026-02-12" [ref=f13e265]
+              - cell "2026-02-26" [ref=f13e267]
+              - cell "¥4,850" [ref=f13e269]
+              - cell [ref=f13e271]:
+                - generic [ref=f13e273]:
+                  - button "编辑" [ref=f13e274]
+                  - button "删除" [ref=f13e276]
+            - row [ref=f13e664] [cursor=pointer]:
+              - cell [ref=f13e279]:
+                - generic "选择当前行" [ref=f13e281]:
+                  - generic [ref=f13e282]:
+                    - checkbox "选择当前行"
+              - cell "30002527" [ref=f13e665]
+              - cell "华硕灵耀14 Ultra9 285H 32G 1T" [ref=f13e666]
+              - cell "5楼微创" [ref=f13e667]
+              - cell "王鹏" [ref=f13e668]
+              - cell [ref=f13e292]
+              - cell "华硕灵耀14 Ultra9 285H 32G 1T" [ref=f13e669]
+              - cell "2026-02-05" [ref=f13e670]
+              - cell "2026-02-05" [ref=f13e671]
+              - cell "¥7,999" [ref=f13e672]
+              - cell [ref=f13e301]:
+                - generic [ref=f13e303]:
+                  - button "编辑" [ref=f13e304]
+                  - button "删除" [ref=f13e306]
+            - row [ref=f13e673] [cursor=pointer]:
+              - cell [ref=f13e309]:
+                - generic "选择当前行" [ref=f13e311]:
+                  - generic [ref=f13e312]:
+                    - checkbox "选择当前行"
+              - cell "30002526" [ref=f13e674]
+              - cell "WIKO Hi MateBook 14" [ref=f13e675]
+              - cell "总经办" [ref=f13e676]
+              - cell "陈雪" [ref=f13e677]
+              - cell "C4:0F:08:03:17:68" [ref=f13e678]
+              - cell "Ultra 7 32G 1T极夜灰" [ref=f13e679]
+              - cell "2026-02-01" [ref=f13e680]
+              - cell "2026-02-04" [ref=f13e681]
+              - cell "¥7,499" [ref=f13e682]
+              - cell [ref=f13e332]:
+                - generic [ref=f13e334]:
+                  - button "编辑" [ref=f13e335]
+                  - button "删除" [ref=f13e337]
+            - row [ref=f13e683] [cursor=pointer]:
+              - cell [ref=f13e340]:
+                - generic "选择当前行" [ref=f13e342]:
+                  - generic [ref=f13e343]:
+                    - checkbox "选择当前行"
+              - cell "30002525" [ref=f13e684]
+              - cell "飞利浦一体机电脑14代i5 32G/1TG" [ref=f13e685]
+              - cell "外科医生组" [ref=f13e686]
+              - cell "任召强" [ref=f13e687]
+              - cell "00:E2:69:99:6F:48" [ref=f13e688]
+              - cell "14代i5 32G/1TG" [ref=f13e689]
+              - cell "2026-01-29" [ref=f13e690]
+              - cell [ref=f13e691]
+              - cell "¥4,750" [ref=f13e692]
+              - cell [ref=f13e362]:
+                - generic [ref=f13e364]:
+                  - button "编辑" [ref=f13e365]
+                  - button "删除" [ref=f13e367]
+            - row [ref=f13e693] [cursor=pointer]:
+              - cell [ref=f13e370]:
+                - generic "选择当前行" [ref=f13e372]:
+                  - generic [ref=f13e373]:
+                    - checkbox "选择当前行"
+              - cell "30002524" [ref=f13e694]
+              - cell "飞利浦一体机电脑14代i5 32G/1TG" [ref=f13e377]
+              - cell "外科医生组" [ref=f13e379]
+              - cell "任召强" [ref=f13e381]
+              - cell "00:E2:69:99:6F:46" [ref=f13e695]
+              - cell "14代i5 32G/1TG" [ref=f13e385]
+              - cell "2026-01-29" [ref=f13e387]
+              - cell [ref=f13e389]
+              - cell "¥4,750" [ref=f13e390]
+              - cell [ref=f13e392]:
+                - generic [ref=f13e394]:
+                  - button "编辑" [ref=f13e395]
+                  - button "删除" [ref=f13e397]
+            - row [ref=f13e696] [cursor=pointer]:
+              - cell [ref=f13e400]:
+                - generic "选择当前行" [ref=f13e402]:
+                  - generic [ref=f13e403]:
+                    - checkbox "选择当前行"
+              - cell "30002523" [ref=f13e697]
+              - cell "飞利浦一体机电脑14代i5 32G/1TG" [ref=f13e407]
+              - cell "会员客服组" [ref=f13e698]
+              - cell "郑睿熙" [ref=f13e699]
+              - cell "E4:1F:D5:E1:D7:41" [ref=f13e700]
+              - cell "14代i5 32G/1TG" [ref=f13e415]
+              - cell "2026-01-17" [ref=f13e701]
+              - cell [ref=f13e419]
+              - cell "¥4,750" [ref=f13e420]
+              - cell [ref=f13e422]:
+                - generic [ref=f13e424]:
+                  - button "编辑" [ref=f13e425]
+                  - button "删除" [ref=f13e427]
+            - row [ref=f13e702] [cursor=pointer]:
+              - cell [ref=f13e430]:
+                - generic "选择当前行" [ref=f13e432]:
+                  - generic [ref=f13e433]:
+                    - checkbox "选择当前行"
+              - cell "30002522" [ref=f13e703]
+              - cell "飞利浦一体机电脑14代i5 32G/1TG" [ref=f13e437]
+              - cell "会员客服组" [ref=f13e439]
+              - cell "郑睿熙" [ref=f13e441]
+              - cell "E4:1F:D5:E1:89:85" [ref=f13e704]
+              - cell "14代i5 32G/1TG" [ref=f13e445]
+              - cell "2026-01-17" [ref=f13e447]
+              - cell [ref=f13e449]
+              - cell "¥4,750" [ref=f13e450]
+              - cell [ref=f13e452]:
+                - generic [ref=f13e454]:
+                  - button "编辑" [ref=f13e455]
+                  - button "删除" [ref=f13e457]
+            - row [ref=f13e705] [cursor=pointer]:
+              - cell [ref=f13e460]:
+                - generic "选择当前行" [ref=f13e462]:
+                  - generic [ref=f13e463]:
+                    - checkbox "选择当前行"
+              - cell "30002521" [ref=f13e706]
+              - cell "飞利浦一体机电脑14代i5 32G/1TG" [ref=f13e467]
+              - cell "会员客服组" [ref=f13e469]
+              - cell "郑睿熙" [ref=f13e471]
+              - cell "9C:B1:50:12:02:05" [ref=f13e707]
+              - cell "14代i5 32G/1TG" [ref=f13e475]
+              - cell "2026-01-17" [ref=f13e477]
+              - cell [ref=f13e479]
+              - cell "¥4,750" [ref=f13e480]
+              - cell [ref=f13e482]:
+                - generic [ref=f13e484]:
+                  - button "编辑" [ref=f13e485]
+                  - button "删除" [ref=f13e487]
+      - generic [ref=f13e490]:
+        - text: "筛选结果合计:"
+        - strong [ref=f13e491]: ¥1,236,128
+      - generic [ref=f13e493]:
+        - generic [ref=f13e494]: 共 533 条
+        - generic [ref=f13e497] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e499]
+            - generic [ref=f13e500]: 10条/页
+        - button "上一页" [disabled] [ref=f13e505]
+        - list [ref=f13e506]:
+          - listitem "第 1 页" [ref=f13e507]: "1"
+          - listitem "第 2 页" [ref=f13e508] [cursor=pointer]: "2"
+          - listitem "第 3 页" [ref=f13e509] [cursor=pointer]: "3"
+          - listitem "第 4 页" [ref=f13e510] [cursor=pointer]: "4"
+          - listitem "第 5 页" [ref=f13e511] [cursor=pointer]: "5"
+          - listitem "第 6 页" [ref=f13e512] [cursor=pointer]: "6"
+          - listitem "向后 5 页" [ref=f13e513] [cursor=pointer]
+          - listitem "第 54 页" [ref=f13e514] [cursor=pointer]: "54"
+        - button "下一页" [ref=f13e515] [cursor=pointer]
+      - button "下载导入模板" [ref=f13e516] [cursor=pointer]
+      - button "♻ 回收站" [ref=f13e518] [cursor=pointer]
+      - dialog "回收站（已软删除记录）" [ref=f13e521]:
+        - banner [ref=f13e522]:
+          - heading "回收站（已软删除记录）" [level=2] [ref=f13e523]
+          - button "关闭此对话框" [ref=f13e524] [cursor=pointer]
+        - generic [ref=f13e528]: 回收站为空
+        - button "关闭" [ref=f13e542] [cursor=pointer]
+  - dialog "永久删除" [ref=f13e721]:
+    - generic [ref=f13e722]:
+      - generic [ref=f13e723]:
+        - generic [ref=f13e724]: 永久删除
+        - button "关闭此对话框" [ref=f13e725] [cursor=pointer]
+      - paragraph [ref=f13e735]: 确定永久删除 1 条记录吗？此操作不可恢复
+      - generic [ref=f13e736]:
+        - button "取消" [ref=f13e737] [cursor=pointer]
+        - button "永久删除" [ref=f13e739] [cursor=pointer]
+  - alert [ref=f13e743]:
+    - paragraph [ref=f13e747]: 已永久删除 1 条

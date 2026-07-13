@@ -164,7 +164,7 @@ function statusLabel(status: string) {
   return status === 'online' ? '在线' : status === 'offline' ? '离线' : '维护中'
 }
 
-function getHostName(hostId: number | null) {
+function getHostName(hostId: number | null | undefined) {
   if (!hostId) return '-'
   const h = hosts.value.find((h: any) => h.id === hostId)
   return h ? h.name : '-'

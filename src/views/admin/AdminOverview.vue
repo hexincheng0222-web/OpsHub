@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { fetchOverview, fetchOverviewTrend } from '../../api/admin'
 import {
   Monitor, Connection, Printer,
-  FolderOpened, ShoppingBag, Cellphone, DataAnalysis, Document, DataBoard,
+  FolderOpened, Cellphone, Document, DataBoard,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { formatTime } from '../../utils/format'

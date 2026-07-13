@@ -116,9 +116,9 @@
             <div v-if="device.analysis" class="analysis-content">
               <div
                 class="analysis-badge"
-                :class="device.analysis.has_abnormal ? 'badge-abnormal' : 'badge-normal'"
+                :class="device.analysis.error ? 'badge-error' : (device.analysis.has_abnormal ? 'badge-abnormal' : 'badge-normal')"
               >
-                {{ device.analysis.has_abnormal ? '异常' : '正常' }}
+                {{ device.analysis.error ? '查询失败' : (device.analysis.has_abnormal ? '异常' : '正常') }}
               </div>
               <div class="analysis-summary">{{ truncateText(device.analysis.summary) }}</div>
               <div class="analysis-time" v-if="device.analysis.created_at">
@@ -175,8 +175,8 @@
           </div>
           <el-alert
             v-if="drawerDevice.analysis"
-            :title="drawerDevice.analysis.has_abnormal ? '检测到异常' : '设备正常'"
-            :type="drawerDevice.analysis.has_abnormal ? 'error' : 'success'"
+            :title="drawerDevice.analysis.error ? '日志查询失败' : (drawerDevice.analysis.has_abnormal ? '检测到异常' : '设备正常')"
+            :type="drawerDevice.analysis.error ? 'warning' : (drawerDevice.analysis.has_abnormal ? 'error' : 'success')"
             :closable="false"
             show-icon
           >
@@ -277,6 +277,7 @@ async function handleAnalyze(device: DashboardDevice) {
           has_abnormal: res.has_abnormal,
           llm_ms: res.llm_ms,
           created_at: res.created_at,
+          error: res.error,
         },
       }
     }
@@ -288,6 +289,7 @@ async function handleAnalyze(device: DashboardDevice) {
         has_abnormal: res.has_abnormal,
         llm_ms: res.llm_ms,
         created_at: res.created_at,
+        error: res.error,
       }
     }
     ElMessage.success('AI 分析完成')
@@ -300,6 +302,7 @@ async function handleAnalyze(device: DashboardDevice) {
 
 function statusClass(device: DashboardDevice): string {
   if (!device.analysis) return 'dot-unknown'
+  if (device.analysis.error) return 'dot-warning'
   return device.analysis.has_abnormal ? 'dot-abnormal' : 'dot-normal'
 }
 
@@ -453,6 +456,11 @@ onUnmounted(() => {
   background: var(--el-color-info);
   box-shadow: 0 0 4px var(--el-color-info);
 }
+.dot-warning {
+  background: var(--el-color-warning);
+  box-shadow: 0 0 8px var(--el-color-warning);
+  animation: pulse-glow 1s ease-in-out infinite;
+}
 
 @keyframes pulse-glow {
   0%, 100% { opacity: 1; }
@@ -558,6 +566,10 @@ onUnmounted(() => {
 .badge-normal {
   background: rgba(var(--el-color-success-rgb), 0.15);
   color: var(--el-color-success);
+}
+.badge-error {
+  background: rgba(var(--el-color-warning-rgb), 0.15);
+  color: var(--el-color-warning);
 }
 .analysis-summary {
   font-size: 12px;

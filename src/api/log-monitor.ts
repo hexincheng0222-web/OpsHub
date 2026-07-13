@@ -110,6 +110,7 @@ export interface DashboardDevice {
     has_abnormal: boolean
     llm_ms: number
     created_at: string
+    error: string | null
   } | null
 }
 
@@ -130,6 +131,7 @@ export function analyzeDevice(deviceId: string, hostname?: string, timeRange: st
     has_abnormal: boolean
     llm_ms: number
     created_at: string
+    error: string | null
   }>(`${BASE}/analyze-device`, {
     method: 'POST',
     body: JSON.stringify({ device_id: deviceId, hostname, time_range: timeRange }),

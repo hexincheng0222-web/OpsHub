@@ -47,7 +47,7 @@ function format(n: number, fmt: string): string {
 }
 
 // 带 Digest Auth 的 HTTP 请求
-function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data: string = '', username = 'admin', password = 'admin'): Promise<any> {
+function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data: string = '', username = 'admin', password = process.env.ADMIN_DEFAULT_PASSWORD || 'admin'): Promise<any> {
   const url = `/cgi-bin/web_cgi_main.cgi?${command}`
   return new Promise((resolve, reject) => {
     const doRequest = (authHeader?: string) => {

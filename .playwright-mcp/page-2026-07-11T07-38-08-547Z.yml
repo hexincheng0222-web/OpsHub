@@ -1,0 +1,384 @@
+- generic [ref=f7e3]:
+  - generic [ref=f7e4]:
+    - button "返回" [ref=f7e5] [cursor=pointer]
+    - generic [ref=f7e9]:
+      - generic [ref=f7e10] [cursor=pointer]:
+        - generic [ref=f7e11]: 🖥
+        - generic [ref=f7e12]: 电脑采购
+        - generic [ref=f7e13]: "534"
+      - generic [ref=f7e14] [cursor=pointer]:
+        - generic [ref=f7e15]: 📱
+        - generic [ref=f7e16]: 手机采购
+        - generic [ref=f7e17]: "397"
+      - generic [ref=f7e18] [cursor=pointer]:
+        - generic [ref=f7e19]: 📊
+        - generic [ref=f7e20]: 采购概览
+    - generic [ref=f7e249]:
+      - button [ref=f7e250] [cursor=pointer]
+      - button [ref=f7e255] [cursor=pointer]
+  - generic [ref=f7e260]:
+    - generic [ref=f7e261]:
+      - textbox "搜索品牌/型号/资产编号/IMEI/领用人/序列号/经手人/原归属..." [ref=f7e266]
+      - generic [ref=f7e269] [cursor=pointer]:
+        - generic:
+          - combobox [ref=f7e271]
+          - generic [ref=f7e272]: 全部部门
+      - generic [ref=f7e278] [cursor=pointer]:
+        - generic:
+          - combobox [ref=f7e280]
+          - generic [ref=f7e281]: 换/新购
+      - generic [ref=f7e287] [cursor=pointer]:
+        - generic:
+          - combobox [ref=f7e289]
+          - generic [ref=f7e290]: 全部品牌
+      - generic [ref=f7e296]:
+        - generic:
+          - combobox [ref=f7e298]
+          - generic [ref=f7e299]: 全部领用人
+      - generic [ref=f7e305] [cursor=pointer]:
+        - generic:
+          - combobox [ref=f7e307]
+          - generic [ref=f7e308]: 到货时间
+      - generic [ref=f7e313]:
+        - combobox "开始日期" [ref=f7e317]
+        - generic [ref=f7e318]: 至
+        - combobox "结束日期" [ref=f7e319]
+      - button "重置" [ref=f7e320] [cursor=pointer]
+      - button [ref=f7e323] [cursor=pointer]
+      - button [ref=f7e331] [cursor=pointer]
+      - button [ref=f7e336] [cursor=pointer]
+    - generic [ref=f7e341]:
+      - generic [ref=f7e342]:
+        - table [ref=f7e344]:
+          - rowgroup [ref=f7e358]:
+            - row [ref=f7e359]:
+              - columnheader [ref=f7e360]:
+                - generic "选择所有行" [ref=f7e362] [cursor=pointer]:
+                  - generic [ref=f7e363]:
+                    - checkbox "选择所有行"
+              - columnheader [ref=f7e365] [cursor=pointer]:
+                - generic [ref=f7e366]:
+                  - text: 资产编号
+                  - button "按 资产编号 排序" [ref=f7e367]
+              - columnheader [ref=f7e370] [cursor=pointer]:
+                - generic [ref=f7e371]:
+                  - text: 品牌
+                  - button "按 品牌 排序" [ref=f7e372]
+              - columnheader [ref=f7e375] [cursor=pointer]:
+                - generic [ref=f7e376]:
+                  - text: 型号
+                  - button "按 型号 排序" [ref=f7e377]
+              - columnheader "IMEI/MEID" [ref=f7e380]
+              - columnheader [ref=f7e382] [cursor=pointer]:
+                - generic [ref=f7e383]:
+                  - text: 领用部门
+                  - button "按 领用部门 排序" [ref=f7e384]
+              - columnheader [ref=f7e387] [cursor=pointer]:
+                - generic [ref=f7e388]:
+                  - text: 领用人
+                  - button "按 领用人 排序" [ref=f7e389]
+              - columnheader [ref=f7e392] [cursor=pointer]:
+                - generic [ref=f7e393]:
+                  - text: 采购类型
+                  - button "按 采购类型 排序" [ref=f7e394]
+              - columnheader "经手人" [ref=f7e397]
+              - columnheader [ref=f7e399] [cursor=pointer]:
+                - generic [ref=f7e400]:
+                  - text: 到货时间
+                  - button "按 到货时间 排序" [ref=f7e401]
+              - columnheader [ref=f7e404] [cursor=pointer]:
+                - generic [ref=f7e405]:
+                  - text: 领用时间
+                  - button "按 领用时间 排序" [ref=f7e406]
+              - columnheader "操作" [ref=f7e409]
+        - table [ref=f7e415]:
+          - rowgroup [ref=f7e429]:
+            - row [ref=f7e430] [cursor=pointer]:
+              - cell [ref=f7e431]:
+                - generic "选择当前行" [ref=f7e433]:
+                  - generic [ref=f7e434]:
+                    - checkbox "选择当前行"
+              - cell "397" [ref=f7e436]
+              - cell "红米" [ref=f7e438]
+              - cell "红米note15pro 12+256 天青蓝" [ref=f7e440]
+              - cell "862435080087583" [ref=f7e442]
+              - cell "信息流客服" [ref=f7e444]
+              - cell "聂敏" [ref=f7e446]
+              - cell "换旧" [ref=f7e448]
+              - cell "何鑫城" [ref=f7e450]
+              - cell "2026-05-21" [ref=f7e452]
+              - cell "2026-05-26" [ref=f7e454]
+              - cell [ref=f7e456]:
+                - generic [ref=f7e458]:
+                  - button "编辑" [ref=f7e459]
+                  - button "删除" [ref=f7e461]
+            - row [ref=f7e463] [cursor=pointer]:
+              - cell [ref=f7e464]:
+                - generic "选择当前行" [ref=f7e466]:
+                  - generic [ref=f7e467]:
+                    - checkbox "选择当前行"
+              - cell "396" [ref=f7e469]
+              - cell "红米" [ref=f7e471]
+              - cell "红米note15pro 12+256 云霞紫" [ref=f7e473]
+              - cell "868878087317921" [ref=f7e475]
+              - cell "信息流客服" [ref=f7e477]
+              - cell "张潇予" [ref=f7e479]
+              - cell "换旧" [ref=f7e481]
+              - cell "李兴春" [ref=f7e483]
+              - cell "2026-04-29" [ref=f7e485]
+              - cell "2026-04-29" [ref=f7e487]
+              - cell [ref=f7e489]:
+                - generic [ref=f7e491]:
+                  - button "编辑" [ref=f7e492]
+                  - button "删除" [ref=f7e494]
+            - row [ref=f7e496] [cursor=pointer]:
+              - cell [ref=f7e497]:
+                - generic "选择当前行" [ref=f7e499]:
+                  - generic [ref=f7e500]:
+                    - checkbox "选择当前行"
+              - cell "395" [ref=f7e502]
+              - cell "红米" [ref=f7e504]
+              - cell "红米note15pro 12+256 天青蓝" [ref=f7e506]
+              - cell "868878084635523" [ref=f7e508]
+              - cell "三方客服组" [ref=f7e510]
+              - cell "汪亚" [ref=f7e512]
+              - cell "换旧" [ref=f7e514]
+              - cell "李兴春" [ref=f7e516]
+              - cell "2026-04-29" [ref=f7e518]
+              - cell "2026-04-29" [ref=f7e520]
+              - cell [ref=f7e522]:
+                - generic [ref=f7e524]:
+                  - button "编辑" [ref=f7e525]
+                  - button "删除" [ref=f7e527]
+            - row [ref=f7e529] [cursor=pointer]:
+              - cell [ref=f7e530]:
+                - generic "选择当前行" [ref=f7e532]:
+                  - generic [ref=f7e533]:
+                    - checkbox "选择当前行"
+              - cell "394" [ref=f7e535]
+              - cell "红米" [ref=f7e537]
+              - cell "红米note15pro 12+256 天青蓝" [ref=f7e539]
+              - cell "868878084655307" [ref=f7e541]
+              - cell "三方客服组" [ref=f7e543]
+              - cell [ref=f7e545]
+              - cell "换旧" [ref=f7e546]
+              - cell "李兴春" [ref=f7e548]
+              - cell "2026-04-29" [ref=f7e550]
+              - cell [ref=f7e552]
+              - cell [ref=f7e553]:
+                - generic [ref=f7e555]:
+                  - button "编辑" [ref=f7e556]
+                  - button "删除" [ref=f7e558]
+            - row [ref=f7e560] [cursor=pointer]:
+              - cell [ref=f7e561]:
+                - generic "选择当前行" [ref=f7e563]:
+                  - generic [ref=f7e564]:
+                    - checkbox "选择当前行"
+              - cell "393" [ref=f7e566]
+              - cell "红米" [ref=f7e568]
+              - cell "红米note15pro 12+256" [ref=f7e570]
+              - cell "862435080074888" [ref=f7e572]
+              - cell "品牌挚友客服组" [ref=f7e574]
+              - cell "周癸春" [ref=f7e576]
+              - cell "换旧" [ref=f7e578]
+              - cell "周柯宇" [ref=f7e580]
+              - cell "2026-04-15" [ref=f7e582]
+              - cell "2026-04-16" [ref=f7e584]
+              - cell [ref=f7e586]:
+                - generic [ref=f7e588]:
+                  - button "编辑" [ref=f7e589]
+                  - button "删除" [ref=f7e591]
+            - row [ref=f7e593] [cursor=pointer]:
+              - cell [ref=f7e594]:
+                - generic "选择当前行" [ref=f7e596]:
+                  - generic [ref=f7e597]:
+                    - checkbox "选择当前行"
+              - cell "392" [ref=f7e599]
+              - cell "红米" [ref=f7e601]
+              - cell "红米note15pro 12+256" [ref=f7e603]
+              - cell "862752088493286" [ref=f7e605]
+              - cell "美学设计部" [ref=f7e607]
+              - cell "李海燕" [ref=f7e609]
+              - cell "换旧" [ref=f7e611]
+              - cell "周柯宇" [ref=f7e613]
+              - cell "2026-03-17" [ref=f7e615]
+              - cell "2026-03-20" [ref=f7e617]
+              - cell [ref=f7e619]:
+                - generic [ref=f7e621]:
+                  - button "编辑" [ref=f7e622]
+                  - button "删除" [ref=f7e624]
+            - row [ref=f7e626] [cursor=pointer]:
+              - cell [ref=f7e627]:
+                - generic "选择当前行" [ref=f7e629]:
+                  - generic [ref=f7e630]:
+                    - checkbox "选择当前行"
+              - cell "391" [ref=f7e632]
+              - cell "苹果" [ref=f7e634]
+              - cell "iphone17 pro256G" [ref=f7e636]
+              - cell "357689397480020" [ref=f7e638]
+              - cell "产品运营部" [ref=f7e640]
+              - cell "杨杰" [ref=f7e642]
+              - cell "新增" [ref=f7e644]
+              - cell "周柯宇" [ref=f7e646]
+              - cell "2026-02-08" [ref=f7e648]
+              - cell "2026-02-08" [ref=f7e650]
+              - cell [ref=f7e652]:
+                - generic [ref=f7e654]:
+                  - button "编辑" [ref=f7e655]
+                  - button "删除" [ref=f7e657]
+            - row [ref=f7e659] [cursor=pointer]:
+              - cell [ref=f7e660]:
+                - generic "选择当前行" [ref=f7e662]:
+                  - generic [ref=f7e663]:
+                    - checkbox "选择当前行"
+              - cell "390" [ref=f7e665]
+              - cell "红米" [ref=f7e667]
+              - cell "红米note15pro 12+256" [ref=f7e669]
+              - cell "99002192402899" [ref=f7e671]
+              - cell "会员客服部" [ref=f7e673]
+              - cell "曾婷婷" [ref=f7e675]
+              - cell "换旧" [ref=f7e677]
+              - cell "何鑫城" [ref=f7e679]
+              - cell "2026-01-16" [ref=f7e681]
+              - cell "2026-01-18" [ref=f7e683]
+              - cell [ref=f7e685]:
+                - generic [ref=f7e687]:
+                  - button "编辑" [ref=f7e688]
+                  - button "删除" [ref=f7e690]
+            - row [ref=f7e692] [cursor=pointer]:
+              - cell [ref=f7e693]:
+                - generic "选择当前行" [ref=f7e695]:
+                  - generic [ref=f7e696]:
+                    - checkbox "选择当前行"
+              - cell "389" [ref=f7e698]
+              - cell "红米" [ref=f7e700]
+              - cell "红米note15pro 12+256" [ref=f7e702]
+              - cell "867798089635990" [ref=f7e704]
+              - cell "美学设计部" [ref=f7e706]
+              - cell "卢小燕" [ref=f7e708]
+              - cell "换旧" [ref=f7e710]
+              - cell "周柯宇" [ref=f7e712]
+              - cell "2026-01-08" [ref=f7e714]
+              - cell "2026-01-08" [ref=f7e716]
+              - cell [ref=f7e718]:
+                - generic [ref=f7e720]:
+                  - button "编辑" [ref=f7e721]
+                  - button "删除" [ref=f7e723]
+            - row [ref=f7e725] [cursor=pointer]:
+              - cell [ref=f7e726]:
+                - generic "选择当前行" [ref=f7e728]:
+                  - generic [ref=f7e729]:
+                    - checkbox "选择当前行"
+              - cell "388" [ref=f7e731]
+              - cell "红米" [ref=f7e733]
+              - cell "红米note15pro 12+256" [ref=f7e735]
+              - cell "867798089729991" [ref=f7e737]
+              - cell "会员客服" [ref=f7e739]
+              - cell "王跃霖" [ref=f7e741]
+              - cell "换旧" [ref=f7e743]
+              - cell "周柯宇" [ref=f7e745]
+              - cell "2026-01-07" [ref=f7e747]
+              - cell "2026-01-07" [ref=f7e749]
+              - cell [ref=f7e751]:
+                - generic [ref=f7e753]:
+                  - button "编辑" [ref=f7e754]
+                  - button "删除" [ref=f7e756]
+      - tooltip "红米note15pro 12+256 天青蓝" [ref=f7e1054]
+    - generic [ref=f7e760]:
+      - generic [ref=f7e761]: 共 397 条
+      - generic [ref=f7e764] [cursor=pointer]:
+        - generic:
+          - combobox [ref=f7e766]
+          - generic [ref=f7e767]: 10条/页
+      - button "上一页" [disabled] [ref=f7e772]
+      - list [ref=f7e773]:
+        - listitem "第 1 页" [ref=f7e774]: "1"
+        - listitem "第 2 页" [ref=f7e775] [cursor=pointer]: "2"
+        - listitem "第 3 页" [ref=f7e776] [cursor=pointer]: "3"
+        - listitem "第 4 页" [ref=f7e777] [cursor=pointer]: "4"
+        - listitem "第 5 页" [ref=f7e778] [cursor=pointer]: "5"
+        - listitem "第 6 页" [ref=f7e779] [cursor=pointer]: "6"
+        - listitem "向后 5 页" [ref=f7e780] [cursor=pointer]
+        - listitem "第 40 页" [ref=f7e781] [cursor=pointer]: "40"
+      - button "下一页" [ref=f7e782] [cursor=pointer]
+    - dialog "手机采购详情" [ref=f7e784]:
+      - banner [ref=f7e785]:
+        - heading "手机采购详情" [level=2] [ref=f7e786]
+        - button "关闭此对话框" [ref=f7e787] [cursor=pointer]
+      - generic [ref=f7e791]:
+        - generic [ref=f7e792]:
+          - generic [ref=f7e793]: 📱 设备信息
+          - generic [ref=f7e794]:
+            - generic [ref=f7e795]: 资产编号
+            - generic [ref=f7e796]: "397"
+          - generic [ref=f7e797]:
+            - generic [ref=f7e798]: 品牌
+            - generic [ref=f7e799]: 红米
+          - generic [ref=f7e800]:
+            - generic [ref=f7e801]: 型号
+            - generic [ref=f7e802]: 红米note15pro 12+256 天青蓝
+          - generic [ref=f7e803]:
+            - generic [ref=f7e804]: Part No
+            - generic [ref=f7e805]: 25081RABDC
+          - generic [ref=f7e806]:
+            - generic [ref=f7e807]: Serial No
+            - generic [ref=f7e808]: 70133/W6QC00228
+          - generic [ref=f7e809]:
+            - generic [ref=f7e810]: IMEI/MEID
+            - generic [ref=f7e811]: "862435080087583"
+        - generic [ref=f7e812]:
+          - generic [ref=f7e813]: 👤 人员信息
+          - generic [ref=f7e814]:
+            - generic [ref=f7e815]: 领用部门
+            - generic [ref=f7e816]: 信息流客服
+          - generic [ref=f7e817]:
+            - generic [ref=f7e818]: 领用人
+            - generic [ref=f7e819]: 聂敏
+          - generic [ref=f7e820]:
+            - generic [ref=f7e821]: 经手人
+            - generic [ref=f7e822]: 何鑫城
+          - generic [ref=f7e823]:
+            - generic [ref=f7e824]: 原手机归属
+            - generic [ref=f7e825]: —
+        - generic [ref=f7e826]:
+          - generic [ref=f7e827]: 📋 采购与审批
+          - generic [ref=f7e828]:
+            - generic [ref=f7e829]: 换/新购
+            - generic [ref=f7e830]: 换旧
+          - generic [ref=f7e831]:
+            - generic [ref=f7e832]: 资产关联
+            - generic [ref=f7e833]: —
+          - generic [ref=f7e834]:
+            - generic [ref=f7e835]: 钉钉流程创建人
+            - generic [ref=f7e836]: 聂敏
+          - generic [ref=f7e837]:
+            - generic [ref=f7e838]: 钉钉流程
+            - generic [ref=f7e839]: "202605191953000000000"
+        - generic [ref=f7e840]:
+          - generic [ref=f7e841]: 📅 时间节点
+          - generic [ref=f7e842]:
+            - generic [ref=f7e843]: 到货时间
+            - generic [ref=f7e844]: 2026-05-21
+          - generic [ref=f7e845]:
+            - generic [ref=f7e846]: 领用时间
+            - generic [ref=f7e847]: 2026-05-26
+        - generic [ref=f7e848]:
+          - generic [ref=f7e849]: 📝 备注
+          - generic [ref=f7e850]: 手机经常重启，严重影响工作
+        - generic [ref=f7e852]:
+          - generic [ref=f7e853]: 📜 最近变更
+          - generic [ref=f7e1056]:
+            - generic [ref=f7e1057]: 编辑
+            - generic [ref=f7e1058]: 何鑫城 · 2026-07-09 07:37:05
+          - generic [ref=f7e1059]:
+            - generic [ref=f7e1060]: 新增
+            - generic [ref=f7e1061]: admin · 2026-07-06 07:37:05
+      - generic [ref=f7e855]:
+        - button "删除" [ref=f7e856] [cursor=pointer]
+        - generic [ref=f7e858]:
+          - button "上一条" [disabled] [ref=f7e859]
+          - button "下一条" [ref=f7e861] [cursor=pointer]
+        - button "关闭" [ref=f7e863] [cursor=pointer]
+        - button "编辑" [ref=f7e865] [cursor=pointer]
+    - button "下载导入模板" [ref=f7e867] [cursor=pointer]
+    - button "♻ 回收站" [ref=f7e869] [cursor=pointer]

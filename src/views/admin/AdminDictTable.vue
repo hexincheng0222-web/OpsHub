@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchDict, createDict, updateDict, deleteDict } from '../../api/admin'
+import { fetchDict, createDict, updateDict, deleteDict, batchDeleteDict } from '../../api/admin'
 import { Search } from '@element-plus/icons-vue'
 import { dictConfigs } from '../../utils/admin-dict-config'
 import type { ColumnConfig } from '../../utils/admin-dict-config'
@@ -116,7 +116,7 @@ async function handleBatchDelete() {
     await ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 条记录？`, '确认删除', {
       confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning',
     })
-    await api.batchDeleteDict(dictKey.value, selectedRows.value.map(r => r.id))
+    await batchDeleteDict(dictKey.value, selectedRows.value.map(r => r.id))
     ElMessage.success('批量删除成功')
     selectedRows.value = []
     loadData()

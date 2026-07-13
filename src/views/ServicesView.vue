@@ -251,7 +251,7 @@ const filteredCount = computed(() => filteredServices.value.length)
 
 const checkResults = computed(() => servicesStore.checkResults)
 
-function hostName(hostId: number | null): string {
+function hostName(hostId: number | null | undefined): string {
   if (!hostId) return '—'
   const h = hosts.value.find(x => x.id === hostId)
   return h ? `${h.name} (${h.ip ?? ''})` : '—'

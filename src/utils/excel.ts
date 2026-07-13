@@ -12,11 +12,11 @@ import * as XLSX from 'xlsx'
  */
 export function downloadXlsx(
   headers: string[],
-  rows: (string | number | boolean)[],
+  rows: (string | number | boolean)[] | (string | number | boolean)[][],
   filename: string,
   sheetName = 'Sheet1',
 ) {
-  const aoa = [headers, ...rows.map(r => Array.isArray(r) ? r : [r])]
+  const aoa = [headers, ...(rows as any[]).map(r => Array.isArray(r) ? r : [r])]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, sheetName)

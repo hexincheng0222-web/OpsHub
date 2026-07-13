@@ -1,0 +1,61 @@
+- generic [ref=f19e30]:
+  - generic [ref=f19e31]:
+    - link "系统管理后台" [ref=f19e32] [cursor=pointer]:
+      - /url: /admin
+    - heading "运维中心" [level=1] [ref=f19e36]
+    - paragraph [ref=f19e37]: 一站式运维管理平台 — 集中管理内网服务、运维工单流程、公司设备资产与打印机
+  - generic [ref=f19e38]:
+    - generic [ref=f19e39] [cursor=pointer]:
+      - generic [ref=f19e45]:
+        - heading "内网服务" [level=3] [ref=f19e46]
+        - paragraph [ref=f19e47]: 管理所有内网部署服务，一键跳转访问
+      - generic [ref=f19e48]:
+        - generic [ref=f19e49]: "6"
+        - generic [ref=f19e50]: 个服务
+    - generic [ref=f19e51] [cursor=pointer]:
+      - generic [ref=f19e57]:
+        - heading "运维操作手册" [level=3] [ref=f19e58]
+        - paragraph [ref=f19e59]: 系统运维操作手册，文档查阅与知识管理
+      - generic [ref=f19e60]:
+        - generic [ref=f19e61]: "8"
+        - generic [ref=f19e62]: 篇手册
+    - generic [ref=f19e63] [cursor=pointer]:
+      - generic [ref=f19e70]:
+        - heading "设备信息" [level=3] [ref=f19e71]
+        - paragraph [ref=f19e72]: 公司设备资产详情，分类查询与管理
+      - generic [ref=f19e73]:
+        - generic [ref=f19e74]: "31"
+        - generic [ref=f19e75]: 台设备
+    - generic [ref=f19e76] [cursor=pointer]:
+      - generic [ref=f19e82]:
+        - heading "采购管理" [level=3] [ref=f19e83]
+        - paragraph [ref=f19e84]: 电脑 / 手机采购登记与资产追踪
+      - generic [ref=f19e85]:
+        - generic [ref=f19e86]: "930"
+        - generic [ref=f19e87]: 台设备
+    - generic [ref=f19e88] [cursor=pointer]:
+      - generic [ref=f19e94]:
+        - heading "打印机管理" [level=3] [ref=f19e95]
+        - paragraph [ref=f19e96]: 打印机列表、状态监控与耗材管理
+      - generic [ref=f19e97]:
+        - generic [ref=f19e98]: "79"
+        - generic [ref=f19e99]: 台打印机
+    - generic [ref=f19e100] [cursor=pointer]:
+      - generic [ref=f19e106]:
+        - heading "ATCOM 话机管理" [level=3] [ref=f19e107]
+        - paragraph [ref=f19e108]: IP 话机统一管控，设备发现与配置管理
+      - generic [ref=f19e109]:
+        - generic [ref=f19e110]: "--"
+        - generic [ref=f19e111]: 台话机
+        - generic [ref=f19e112]: 待接入
+    - generic [ref=f19e113] [cursor=pointer]:
+      - generic [ref=f19e119]:
+        - heading "日志监控" [level=3] [ref=f19e120]
+        - paragraph [ref=f19e121]: 网络设备日志 LLM 分析与异常检测
+      - generic [ref=f19e122]:
+        - generic [ref=f19e123]: "7"
+        - generic [ref=f19e124]: 台设备
+  - generic [ref=f19e125]:
+    - generic "切换主题" [ref=f19e126] [cursor=pointer]: 🌙 深色
+    - generic [ref=f19e127]: 超级管理员
+    - generic [ref=f19e128] [cursor=pointer]: 登出

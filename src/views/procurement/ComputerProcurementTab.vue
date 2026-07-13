@@ -168,7 +168,7 @@
           <div v-if="rowLogs.length === 0" class="drawer-empty">暂无变更记录</div>
           <div v-for="log in rowLogs" :key="log.id" class="log-item">
             <span class="log-action" :class="logActionClass(log.action)">{{ log.action }}</span>
-            <span class="log-meta">{{ log.operator }} · {{ log.time }}</span>
+            <span class="log-meta">{{ log.operator }} · {{ log.created_at }}</span>
           </div>
         </div>
       </template>
@@ -359,8 +359,6 @@ const rules = {
 }
 
 // ===== 筛选状态持久化到 URL query =====
-// query key 前缀 c_ 避免与手机 tab 冲突
-const FILTER_QKEYS = ['c_search', 'c_dept', 'c_brand', 'c_ce', 'c_dstart', 'c_dend', 'c_dtype'] as const
 function applyFiltersFromQuery() {
   const q = route.query
   const s = (q['c_search'] as string) || ''
@@ -722,7 +720,7 @@ async function batchDelete() {
             try {
               await restoreComputer(rows.map(r => r.id))
               ElMessage.success('已撤销删除')
-              await store.fetchComputers()
+              await store.loadComputers()
             } catch (e: any) {
               ElMessage.error('撤销失败：' + (e.message || ''))
             }

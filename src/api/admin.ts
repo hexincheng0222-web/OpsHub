@@ -4,7 +4,6 @@ const BASE = '/api/v1/admin'
 
 // 字典缓存（60s TTL）
 const dictCache = new Map<string, { data: any; ts: number }>()
-const DICT_CACHE_TTL = 60_000
 
 // 通用 CRUD
 export async function fetchDict(table: string, params: { page?: number; pageSize?: number } = {}) {

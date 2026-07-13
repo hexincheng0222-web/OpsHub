@@ -1,0 +1,439 @@
+- generic [ref=f13e1]:
+  - generic [ref=f13e3]:
+    - generic [ref=f13e4]:
+      - button "返回" [ref=f13e5] [cursor=pointer]
+      - generic [ref=f13e9]:
+        - generic [ref=f13e10] [cursor=pointer]:
+          - generic [ref=f13e11]: 🖥
+          - generic [ref=f13e12]: 电脑采购
+          - generic [ref=f13e13]: "533"
+        - generic [ref=f13e14] [cursor=pointer]:
+          - generic [ref=f13e15]: 📱
+          - generic [ref=f13e16]: 手机采购
+          - generic [ref=f13e17]: "0"
+        - generic [ref=f13e18] [cursor=pointer]:
+          - generic [ref=f13e19]: 📊
+          - generic [ref=f13e20]: 采购概览
+      - generic [ref=f13e21]:
+        - button [ref=f13e22] [cursor=pointer]
+        - button [ref=f13e27] [cursor=pointer]
+    - generic [ref=f13e33]:
+      - generic [ref=f13e34]:
+        - textbox "搜索型号/部门/申请人/MAC地址..." [ref=f13e39]
+        - generic [ref=f13e42] [cursor=pointer]:
+          - generic:
+            - combobox [active] [ref=f13e44]
+            - generic [ref=f13e45]: 微创
+        - generic [ref=f13e51] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e53]
+            - generic [ref=f13e54]: 全部品牌
+        - generic [ref=f13e60] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e62]
+            - generic [ref=f13e63]: CE 流程
+        - generic [ref=f13e69] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e71]
+            - generic [ref=f13e72]: 收货日期
+        - generic [ref=f13e77]:
+          - combobox "开始日期" [ref=f13e81]
+          - generic [ref=f13e82]: 至
+          - combobox "结束日期" [ref=f13e83]
+        - button "重置" [ref=f13e84] [cursor=pointer]
+        - button [ref=f13e87] [cursor=pointer]
+        - button [ref=f13e95] [cursor=pointer]
+        - button [ref=f13e100] [cursor=pointer]
+        - generic [ref=f13e910]: 筛选 29 / 533 条
+      - generic [ref=f13e106]:
+        - table [ref=f13e108]:
+          - rowgroup [ref=f13e121]:
+            - row [ref=f13e122]:
+              - columnheader [ref=f13e123]:
+                - generic "选择所有行" [ref=f13e125] [cursor=pointer]:
+                  - generic [ref=f13e126]:
+                    - checkbox "选择所有行"
+              - columnheader [ref=f13e128] [cursor=pointer]:
+                - generic [ref=f13e129]:
+                  - text: 资产序号
+                  - button "按 资产序号 排序" [ref=f13e130]
+              - columnheader [ref=f13e133] [cursor=pointer]:
+                - generic [ref=f13e134]:
+                  - text: 采购型号
+                  - button "按 采购型号 排序" [ref=f13e135]
+              - columnheader [ref=f13e138] [cursor=pointer]:
+                - generic [ref=f13e139]:
+                  - text: 使用部门
+                  - button "按 使用部门 排序" [ref=f13e140]
+              - columnheader [ref=f13e143] [cursor=pointer]:
+                - generic [ref=f13e144]:
+                  - text: 申请人
+                  - button "按 申请人 排序" [ref=f13e145]
+              - columnheader "MAC 地址" [ref=f13e148]
+              - columnheader "设备型号" [ref=f13e150]
+              - columnheader [ref=f13e152] [cursor=pointer]:
+                - generic [ref=f13e153]:
+                  - text: 收货日期
+                  - button "按 收货日期 排序" [ref=f13e154]
+              - columnheader [ref=f13e157] [cursor=pointer]:
+                - generic [ref=f13e158]:
+                  - text: 交付日期
+                  - button "按 交付日期 排序" [ref=f13e159]
+              - columnheader [ref=f13e162] [cursor=pointer]:
+                - generic [ref=f13e163]:
+                  - text: 价格
+                  - button "按 价格 排序" [ref=f13e164]
+              - columnheader "操作" [ref=f13e167]
+        - table [ref=f13e173]:
+          - rowgroup [ref=f13e186]:
+            - row [ref=f13e911] [cursor=pointer]:
+              - cell [ref=f13e188]:
+                - generic "选择当前行" [ref=f13e190]:
+                  - generic [ref=f13e191]:
+                    - checkbox "选择当前行"
+              - cell "30002529" [ref=f13e912]
+              - cell "飞利浦一体机电脑14代酷睿i5十核 32G/1TG" [ref=f13e913]
+              - cell "微创" [ref=f13e914]
+              - cell "郑晓莉" [ref=f13e915]
+              - cell [ref=f13e916]
+              - cell "14代i5 32G/1TG" [ref=f13e917]
+              - cell "2026-02-12" [ref=f13e918]
+              - cell "2026-02-26" [ref=f13e919]
+              - cell "¥4,850" [ref=f13e920]
+              - cell [ref=f13e211]:
+                - generic [ref=f13e213]:
+                  - button "编辑" [ref=f13e214]
+                  - button "删除" [ref=f13e216]
+            - row [ref=f13e921] [cursor=pointer]:
+              - cell [ref=f13e219]:
+                - generic "选择当前行" [ref=f13e221]:
+                  - generic [ref=f13e222]:
+                    - checkbox "选择当前行"
+              - cell "30002528" [ref=f13e922]
+              - cell "飞利浦一体机电脑14代酷睿i5十核 32G/1TG" [ref=f13e654]
+              - cell "微创" [ref=f13e655]
+              - cell "郑晓莉" [ref=f13e656]
+              - cell [ref=f13e657]
+              - cell "14代i5 32G/1TG" [ref=f13e658]
+              - cell "2026-02-12" [ref=f13e659]
+              - cell "2026-02-26" [ref=f13e660]
+              - cell "¥4,850" [ref=f13e661]
+              - cell [ref=f13e241]:
+                - generic [ref=f13e243]:
+                  - button "编辑" [ref=f13e244]
+                  - button "删除" [ref=f13e246]
+            - row [ref=f13e923] [cursor=pointer]:
+              - cell [ref=f13e249]:
+                - generic "选择当前行" [ref=f13e251]:
+                  - generic [ref=f13e252]:
+                    - checkbox "选择当前行"
+              - cell "30002370" [ref=f13e924]
+              - cell "小米电视65英寸" [ref=f13e925]
+              - cell "微创" [ref=f13e258]
+              - cell "周柯宇" [ref=f13e926]
+              - cell "SN:63005/106600067754" [ref=f13e927]
+              - cell "L65MA-SPL" [ref=f13e929]
+              - cell "2024-11-07" [ref=f13e930]
+              - cell "2024-11-07" [ref=f13e931]
+              - cell "¥3,649" [ref=f13e932]
+              - cell [ref=f13e271]:
+                - generic [ref=f13e273]:
+                  - button "编辑" [ref=f13e274]
+                  - button "删除" [ref=f13e276]
+            - row [ref=f13e933] [cursor=pointer]:
+              - cell [ref=f13e279]:
+                - generic "选择当前行" [ref=f13e281]:
+                  - generic [ref=f13e282]:
+                    - checkbox "选择当前行"
+              - cell "30002380" [ref=f13e934]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e935]
+              - cell "微创" [ref=f13e936]
+              - cell "郑晓莉" [ref=f13e937]
+              - cell [ref=f13e292]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e938]
+              - cell "2024-11-03" [ref=f13e939]
+              - cell "2024-11-03" [ref=f13e940]
+              - cell "¥0" [ref=f13e941]
+              - cell [ref=f13e301]:
+                - generic [ref=f13e303]:
+                  - button "编辑" [ref=f13e304]
+                  - button "删除" [ref=f13e306]
+            - row [ref=f13e942] [cursor=pointer]:
+              - cell [ref=f13e309]:
+                - generic "选择当前行" [ref=f13e311]:
+                  - generic [ref=f13e312]:
+                    - checkbox "选择当前行"
+              - cell "30002379" [ref=f13e943]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e944]
+              - cell "微创" [ref=f13e945]
+              - cell "郑晓莉" [ref=f13e946]
+              - cell [ref=f13e947]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e948]
+              - cell "2024-11-03" [ref=f13e949]
+              - cell "2024-11-03" [ref=f13e950]
+              - cell "¥0" [ref=f13e951]
+              - cell [ref=f13e332]:
+                - generic [ref=f13e334]:
+                  - button "编辑" [ref=f13e335]
+                  - button "删除" [ref=f13e337]
+            - row [ref=f13e952] [cursor=pointer]:
+              - cell [ref=f13e340]:
+                - generic "选择当前行" [ref=f13e342]:
+                  - generic [ref=f13e343]:
+                    - checkbox "选择当前行"
+              - cell "30002378" [ref=f13e953]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e954]
+              - cell "微创" [ref=f13e955]
+              - cell "郑晓莉" [ref=f13e956]
+              - cell [ref=f13e957]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e958]
+              - cell "2024-11-03" [ref=f13e959]
+              - cell "2024-11-03" [ref=f13e960]
+              - cell "¥0" [ref=f13e961]
+              - cell [ref=f13e362]:
+                - generic [ref=f13e364]:
+                  - button "编辑" [ref=f13e365]
+                  - button "删除" [ref=f13e367]
+            - row [ref=f13e962] [cursor=pointer]:
+              - cell [ref=f13e370]:
+                - generic "选择当前行" [ref=f13e372]:
+                  - generic [ref=f13e373]:
+                    - checkbox "选择当前行"
+              - cell "30002377" [ref=f13e963]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e964]
+              - cell "微创" [ref=f13e965]
+              - cell "郑晓莉" [ref=f13e966]
+              - cell [ref=f13e967]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e968]
+              - cell "2024-11-03" [ref=f13e969]
+              - cell "2024-11-03" [ref=f13e970]
+              - cell "¥0" [ref=f13e972]
+              - cell [ref=f13e392]:
+                - generic [ref=f13e394]:
+                  - button "编辑" [ref=f13e395]
+                  - button "删除" [ref=f13e397]
+            - row [ref=f13e973] [cursor=pointer]:
+              - cell [ref=f13e400]:
+                - generic "选择当前行" [ref=f13e402]:
+                  - generic [ref=f13e403]:
+                    - checkbox "选择当前行"
+              - cell "30002376" [ref=f13e974]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e975]
+              - cell "微创" [ref=f13e976]
+              - cell "郑晓莉" [ref=f13e977]
+              - cell [ref=f13e978]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e979]
+              - cell "2024-11-03" [ref=f13e980]
+              - cell "2024-11-03" [ref=f13e981]
+              - cell "¥0" [ref=f13e983]
+              - cell [ref=f13e422]:
+                - generic [ref=f13e424]:
+                  - button "编辑" [ref=f13e425]
+                  - button "删除" [ref=f13e427]
+            - row [ref=f13e984] [cursor=pointer]:
+              - cell [ref=f13e430]:
+                - generic "选择当前行" [ref=f13e432]:
+                  - generic [ref=f13e433]:
+                    - checkbox "选择当前行"
+              - cell "30002375" [ref=f13e985]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e986]
+              - cell "微创" [ref=f13e987]
+              - cell "郑晓莉" [ref=f13e988]
+              - cell [ref=f13e989]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e990]
+              - cell "2024-11-03" [ref=f13e991]
+              - cell "2024-11-03" [ref=f13e992]
+              - cell "¥0" [ref=f13e994]
+              - cell [ref=f13e452]:
+                - generic [ref=f13e454]:
+                  - button "编辑" [ref=f13e455]
+                  - button "删除" [ref=f13e457]
+            - row [ref=f13e995] [cursor=pointer]:
+              - cell [ref=f13e460]:
+                - generic "选择当前行" [ref=f13e462]:
+                  - generic [ref=f13e463]:
+                    - checkbox "选择当前行"
+              - cell "30002374" [ref=f13e996]
+              - cell "宏碁（acer） 23.8英寸一体机" [ref=f13e997]
+              - cell "微创" [ref=f13e998]
+              - cell "郑晓莉" [ref=f13e999]
+              - cell [ref=f13e1000]
+              - cell "13代i5-13400 16G 512G+1T" [ref=f13e1001]
+              - cell "2024-11-03" [ref=f13e1002]
+              - cell "2024-11-03" [ref=f13e1003]
+              - cell "¥0" [ref=f13e1005]
+              - cell [ref=f13e482]:
+                - generic [ref=f13e484]:
+                  - button "编辑" [ref=f13e485]
+                  - button "删除" [ref=f13e487]
+      - generic [ref=f13e490]:
+        - text: "筛选结果合计:"
+        - strong [ref=f13e491]: ¥51,374
+      - generic [ref=f13e493]:
+        - generic [ref=f13e494]: 共 29 条
+        - generic [ref=f13e497] [cursor=pointer]:
+          - generic:
+            - combobox [ref=f13e499]
+            - generic [ref=f13e500]: 10条/页
+        - button "上一页" [disabled] [ref=f13e505]
+        - list [ref=f13e506]:
+          - listitem "第 1 页" [ref=f13e507]: "1"
+          - listitem "第 2 页" [ref=f13e508] [cursor=pointer]: "2"
+          - listitem "第 3 页" [ref=f13e1006] [cursor=pointer]: "3"
+        - button "下一页" [ref=f13e515] [cursor=pointer]
+      - button "下载导入模板" [ref=f13e516] [cursor=pointer]
+      - button "♻ 回收站" [ref=f13e518] [cursor=pointer]
+  - tooltip "微创" [ref=f13e1007]:
+    - listbox [ref=f13e752]:
+      - option [ref=f13e753] [cursor=pointer]
+      - option "2号咨询" [ref=f13e754] [cursor=pointer]
+      - option "3f医生办公室" [ref=f13e755] [cursor=pointer]
+      - option "3f护士站" [ref=f13e756] [cursor=pointer]
+      - option "3f门诊" [ref=f13e757] [cursor=pointer]
+      - option "4楼面诊间" [ref=f13e758] [cursor=pointer]
+      - option "4楼鼻部院长" [ref=f13e759] [cursor=pointer]
+      - option "5f微创" [ref=f13e760] [cursor=pointer]
+      - option "5楼微创" [ref=f13e761] [cursor=pointer]
+      - option "spa中心" [ref=f13e762] [cursor=pointer]
+      - option "一楼12号质询室" [ref=f13e763] [cursor=pointer]
+      - option "一楼B超" [ref=f13e764] [cursor=pointer]
+      - option "一楼会籍" [ref=f13e765] [cursor=pointer]
+      - option "一楼前台" [ref=f13e766] [cursor=pointer]
+      - option "一楼总务" [ref=f13e767] [cursor=pointer]
+      - option "三方业务部" [ref=f13e768] [cursor=pointer]
+      - option "三楼病房门诊" [ref=f13e769] [cursor=pointer]
+      - option "二楼微创摄影室" [ref=f13e770] [cursor=pointer]
+      - option "产品创作组" [ref=f13e771] [cursor=pointer]
+      - option "产品办" [ref=f13e772] [cursor=pointer]
+      - option "产品管理部" [ref=f13e773] [cursor=pointer]
+      - option "产品运营中心" [ref=f13e774] [cursor=pointer]
+      - option "产品运营部" [ref=f13e775] [cursor=pointer]
+      - option "产品部" [ref=f13e776] [cursor=pointer]
+      - option "人力资源部" [ref=f13e777] [cursor=pointer]
+      - option "会员客服组" [ref=f13e778] [cursor=pointer]
+      - option "会员运营组" [ref=f13e779] [cursor=pointer]
+      - option "会籍" [ref=f13e780] [cursor=pointer]
+      - option "信息IT管理部" [ref=f13e781] [cursor=pointer]
+      - option "信息流客服" [ref=f13e782] [cursor=pointer]
+      - option "信息科" [ref=f13e783] [cursor=pointer]
+      - option "信息部" [ref=f13e784] [cursor=pointer]
+      - option "内容营销部" [ref=f13e785] [cursor=pointer]
+      - option "内容营销部-视频制作" [ref=f13e786] [cursor=pointer]
+      - option "内容营销部1组" [ref=f13e787] [cursor=pointer]
+      - option "医务办" [ref=f13e788] [cursor=pointer]
+      - option "医务科" [ref=f13e789] [cursor=pointer]
+      - option "医生IP视频制作组" [ref=f13e790] [cursor=pointer]
+      - option "医疗管理中心" [ref=f13e791] [cursor=pointer]
+      - option "后勤" [ref=f13e792] [cursor=pointer]
+      - option "后勤服务部" [ref=f13e793] [cursor=pointer]
+      - option "呼叫" [ref=f13e794] [cursor=pointer]
+      - option "呼叫客服" [ref=f13e795] [cursor=pointer]
+      - option "咨询" [ref=f13e796] [cursor=pointer]
+      - option "咨询3" [ref=f13e797] [cursor=pointer]
+      - option "咨询室10" [ref=f13e798] [cursor=pointer]
+      - option "品牌" [ref=f13e799] [cursor=pointer]
+      - option "品牌创作部" [ref=f13e800] [cursor=pointer]
+      - option "品牌创作部-视频制作组" [ref=f13e801] [cursor=pointer]
+      - option "品牌创意部" [ref=f13e802] [cursor=pointer]
+      - option "品牌创造部" [ref=f13e803] [cursor=pointer]
+      - option "品牌制作部" [ref=f13e804] [cursor=pointer]
+      - option "品牌挚友" [ref=f13e805] [cursor=pointer]
+      - option "品牌挚友事业部" [ref=f13e806] [cursor=pointer]
+      - option "品牌挚友前台" [ref=f13e807] [cursor=pointer]
+      - option "品牌挚友组" [ref=f13e808] [cursor=pointer]
+      - option "品牌视频组" [ref=f13e809] [cursor=pointer]
+      - option "品牌部" [ref=f13e810] [cursor=pointer]
+      - option "品质接待" [ref=f13e811] [cursor=pointer]
+      - option "品质提升部" [ref=f13e812] [cursor=pointer]
+      - option "品质监督办" [ref=f13e813] [cursor=pointer]
+      - option "复查组" [ref=f13e814] [cursor=pointer]
+      - option "外科" [ref=f13e815] [cursor=pointer]
+      - option "外科医生组" [ref=f13e816] [cursor=pointer]
+      - option "外科科室运营" [ref=f13e817] [cursor=pointer]
+      - option "外科运营" [ref=f13e818] [cursor=pointer]
+      - option "外聘专家" [ref=f13e819] [cursor=pointer]
+      - option "大会议室" [ref=f13e820] [cursor=pointer]
+      - option "大客户部" [ref=f13e821] [cursor=pointer]
+      - option "官网" [ref=f13e822] [cursor=pointer]
+      - option "官网业务部" [ref=f13e823] [cursor=pointer]
+      - option "官网竞价b1" [ref=f13e824] [cursor=pointer]
+      - option "官网设计" [ref=f13e825] [cursor=pointer]
+      - option "官网运营组" [ref=f13e826] [cursor=pointer]
+      - option "官网顾问组" [ref=f13e827] [cursor=pointer]
+      - option "客户关系部" [ref=f13e828] [cursor=pointer]
+      - option "客户服务部" [ref=f13e829] [cursor=pointer]
+      - option "客户管理中心" [ref=f13e830] [cursor=pointer]
+      - option "客户资源" [ref=f13e831] [cursor=pointer]
+      - option "客户资源办" [ref=f13e832] [cursor=pointer]
+      - option "客户资源管理部" [ref=f13e833] [cursor=pointer]
+      - option "客户资源组" [ref=f13e834] [cursor=pointer]
+      - option "客户资源（一楼大厅门口）" [ref=f13e835] [cursor=pointer]
+      - option "客诉办" [ref=f13e836] [cursor=pointer]
+      - option "小红书运营" [ref=f13e837] [cursor=pointer]
+      - option "小红书运营组" [ref=f13e838] [cursor=pointer]
+      - option "市场客服组" [ref=f13e839] [cursor=pointer]
+      - option "市场营销商务经理" [ref=f13e840] [cursor=pointer]
+      - option "市场营销客服" [ref=f13e841] [cursor=pointer]
+      - option "市场营销部" [ref=f13e842] [cursor=pointer]
+      - option "市场部" [ref=f13e843] [cursor=pointer]
+      - option "库房" [ref=f13e844] [cursor=pointer]
+      - option "微创" [selected] [ref=f13e845] [cursor=pointer]
+      - option "微创外科5楼" [ref=f13e846] [cursor=pointer]
+      - option "总经办" [ref=f13e847] [cursor=pointer]
+      - option "手术产品组" [ref=f13e848] [cursor=pointer]
+      - option "手术产品组剪辑" [ref=f13e849] [cursor=pointer]
+      - option "手术前台" [ref=f13e850] [cursor=pointer]
+      - option "手术室" [ref=f13e851] [cursor=pointer]
+      - option "抖音信息流推广组" [ref=f13e852] [cursor=pointer]
+      - option "抖音视频制作组" [ref=f13e853] [cursor=pointer]
+      - option "收费室" [ref=f13e854] [cursor=pointer]
+      - option "收银组" [ref=f13e855] [cursor=pointer]
+      - option "数字营销部" [ref=f13e856] [cursor=pointer]
+      - option "数据部" [ref=f13e857] [cursor=pointer]
+      - option "文案策划" [ref=f13e858] [cursor=pointer]
+      - option "新媒体营销组" [ref=f13e859] [cursor=pointer]
+      - option "新零售顾问组" [ref=f13e860] [cursor=pointer]
+      - option "新零售（李华）" [ref=f13e861] [cursor=pointer]
+      - option "档案室" [ref=f13e862] [cursor=pointer]
+      - option "检验科" [ref=f13e863] [cursor=pointer]
+      - option "渠道内容主管" [ref=f13e864] [cursor=pointer]
+      - option "牙科" [ref=f13e865] [cursor=pointer]
+      - option "牙科前台" [ref=f13e866] [cursor=pointer]
+      - option "牙科治疗间" [ref=f13e867] [cursor=pointer]
+      - option "现场咨询" [ref=f13e868] [cursor=pointer]
+      - option "电商运营" [ref=f13e869] [cursor=pointer]
+      - option "电网" [ref=f13e870] [cursor=pointer]
+      - option "电网新媒体" [ref=f13e871] [cursor=pointer]
+      - option "病房" [ref=f13e872] [cursor=pointer]
+      - option "病案室" [ref=f13e873] [cursor=pointer]
+      - option "病案摄影" [ref=f13e874] [cursor=pointer]
+      - option "皮肤科" [ref=f13e875] [cursor=pointer]
+      - option "皮肤运营" [ref=f13e876] [cursor=pointer]
+      - option "私密科" [ref=f13e877] [cursor=pointer]
+      - option "科室秘书" [ref=f13e878] [cursor=pointer]
+      - option "竞价组" [ref=f13e879] [cursor=pointer]
+      - option "纹绣" [ref=f13e880] [cursor=pointer]
+      - option "线上客服2组(冯燕)" [ref=f13e881] [cursor=pointer]
+      - option "线上客服（陶霞）" [ref=f13e882] [cursor=pointer]
+      - option "美学设计组" [ref=f13e883] [cursor=pointer]
+      - option "美容外科" [ref=f13e884] [cursor=pointer]
+      - option "自媒体" [ref=f13e885] [cursor=pointer]
+      - option "自媒体内容组" [ref=f13e886] [cursor=pointer]
+      - option "自媒体营销" [ref=f13e887] [cursor=pointer]
+      - option "营销中心901" [ref=f13e888] [cursor=pointer]
+      - option "营销事业部" [ref=f13e889] [cursor=pointer]
+      - option "营销管内容制作办" [ref=f13e890] [cursor=pointer]
+      - option "营销部" [ref=f13e891] [cursor=pointer]
+      - option "视觉助理" [ref=f13e892] [cursor=pointer]
+      - option "视频组" [ref=f13e893] [cursor=pointer]
+      - option "设计组" [ref=f13e894] [cursor=pointer]
+      - option "运营" [ref=f13e895] [cursor=pointer]
+      - option "运营中心" [ref=f13e896] [cursor=pointer]
+      - option "运营产品部" [ref=f13e897] [cursor=pointer]
+      - option "运营办" [ref=f13e898] [cursor=pointer]
+      - option "运营管理部" [ref=f13e899] [cursor=pointer]
+      - option "运营（产品经理）" [ref=f13e900] [cursor=pointer]
+      - option "通路客服部" [ref=f13e901] [cursor=pointer]
+      - option "通路营销" [ref=f13e902] [cursor=pointer]
+      - option "非手术产品组" [ref=f13e903] [cursor=pointer]
+      - option "麻醉科" [ref=f13e904] [cursor=pointer]

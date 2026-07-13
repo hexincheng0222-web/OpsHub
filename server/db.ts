@@ -1515,7 +1515,7 @@ if (userCount === 0) {
   db.prepare(
     "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)"
   ).run('admin', hash, '超级管理员', 'superadmin')
-  console.log('[db] 已创建默认超级管理员账号：admin / ' + (process.env.ADMIN_DEFAULT_PASSWORD ? '(来自 ADMIN_DEFAULT_PASSWORD)') : 'admin123（⚠️ 生产环境务必通过 ADMIN_DEFAULT_PASSWORD 修改）'))
+  console.log("[db] 已创建默认超级管理员账号：admin / " + (process.env.ADMIN_DEFAULT_PASSWORD ? "(来自 ADMIN_DEFAULT_PASSWORD)" : "admin123（警告: 生产环境务必通过 ADMIN_DEFAULT_PASSWORD 修改）"));
 }
 
 // 启动时注册：每日凌晨 4 点清理 7 天前的 data/log-audit/ 目录（P0-3）

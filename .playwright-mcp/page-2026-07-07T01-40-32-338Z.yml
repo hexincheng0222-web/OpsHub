@@ -1,0 +1,12 @@
+- generic [ref=e4]:
+  - heading "OpsHub" [level=1] [ref=e5]
+  - paragraph [ref=e6]: 运维管理平台
+  - generic [ref=e7]:
+    - textbox "用户名" [ref=e12]
+    - textbox "密码" [ref=e17]
+    - generic [ref=e19] [cursor=pointer]:
+      - generic [ref=e20]:
+        - checkbox "记住账号"
+      - generic [ref=e22]: 记住账号
+    - button "登录" [ref=e23] [cursor=pointer]:
+      - generic [ref=e24]: 登录

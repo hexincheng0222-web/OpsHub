@@ -372,8 +372,6 @@ const rules = {
 }
 
 // ===== 筛选状态持久化到 URL query =====
-// query key 前缀 p_ 避免与电脑 tab 冲突
-const FILTER_QKEYS = ['p_search', 'p_dept', 'p_ptype', 'p_brand', 'p_recip', 'p_dstart', 'p_dend', 'p_dtype'] as const
 function applyFiltersFromQuery() {
   const q = route.query
   const s = (q['p_search'] as string) || ''
@@ -711,7 +709,7 @@ async function batchDelete() {
             try {
               await restorePhone(rows.map(r => r.id))
               ElMessage.success('已撤销删除')
-              await store.fetchPhones()
+              await store.loadPhones()
             } catch (e: any) {
               ElMessage.error('撤销失败：' + (e.message || ''))
             }
