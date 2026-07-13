@@ -465,7 +465,9 @@ async function loadDevices(force = false) {
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
-        const { data, ts } = JSON.parse(cached)
+        let parsed: any
+        try { parsed = JSON.parse(cached) } catch { parsed = null }
+        const { data, ts } = parsed || {}
         if (Date.now() - ts < CACHE_TTL && data) {
           devices.value = data.devices || []
           total.value = data.total || 0

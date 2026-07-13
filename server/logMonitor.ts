@@ -208,7 +208,7 @@ export async function analyzeLogs(logs: LogEntry[], systemPrompt: string): Promi
   }
 
   const url = (cfg.base_url || 'http://10.3.0.200:17002/v1').replace(/\/$/, '') + '/chat/completions'
-  const apiKey = cfg.api_key || 'EMPTY'
+  const apiKey = cfg.api_key || ''
   const maxRetries = cfg.retries || 3
   const timeoutSec = cfg.timeout || 120
 

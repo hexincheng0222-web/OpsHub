@@ -484,7 +484,7 @@ function logOp(module: string, action: string, target: string, detail: string = 
 
 // GET /phonebook — 联系人列表
 router.get('/phonebook', (req: Request, res: Response) => {
-  const search = req.search || req.query.search as string
+  const search = req.query.search as string
   const type = req.query.type as string
   let where = 'WHERE 1=1'
   const params: any[] = []

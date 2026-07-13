@@ -196,6 +196,14 @@ router.post('/import', (req: Request, res: Response) => {
   const batch = db.transaction(() => {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
+      // 去重：asset_number（固定资产编号）已存在则跳过
+      if (r.assetNumber) {
+        const dup = db.prepare('SELECT id FROM computer_procurement WHERE asset_number = ? AND deleted = 0').get(r.assetNumber)
+        if (dup) {
+          errors.push(`第${i+1} 行: 固定资产编号「${r.assetNumber}」已存在，跳过`)
+          continue
+        }
+      }
       try {
         insert.run(r.model||'', r.department||'', r.applicant||'', r.macAddress||'', r.deviceModel||'',
           r.ceNumber||'', r.actualUser||'', r.approvalNumber||'', r.receiveDate||'', r.assetNumber||'',

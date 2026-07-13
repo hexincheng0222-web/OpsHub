@@ -162,8 +162,9 @@ onMounted(async () => {
   try {
     const raw = localStorage.getItem(draftKey.value)
     if (raw) {
-      const draft = JSON.parse(raw)
-      if (draft.title || draft.content) {
+      let draft: any
+      try { draft = JSON.parse(raw) } catch { draft = null }
+      if (draft && (draft.title || draft.content)) {
         const useDraft = await ElMessageBox.confirm(
           '检测到未保存的编辑内容，是否恢复？',
           '恢复草稿',
