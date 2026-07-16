@@ -1,5 +1,5 @@
 steps:
-  - name: build-frontend
+  - name: build
     image: node:22
     commands:
       - npm ci
@@ -9,11 +9,16 @@ steps:
       event: push
 
   - name: deploy
-    image: alpine:3.21
+    image: docker:27
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /data/opshub:/data/opshub
     commands:
-      - cp -r dist/* /woodpecker/deploy/opshub/dist/
-      - cp -r server/ /woodpecker/deploy/opshub/server/
-      - cp package.json package-lock.json /woodpecker/deploy/opshub/
+      - cp -r dist/. /data/opshub/dist/
+      - cp -r server/. /data/opshub/server/
+      - cp package.json package-lock.json /data/opshub/
+      - docker restart opshub-api
+      - docker exec opshub-nginx nginx -s reload
     when:
       branch: hxc
       event: push
