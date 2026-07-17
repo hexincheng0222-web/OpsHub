@@ -86,7 +86,7 @@ router.post('/', (req: Request, res: Response) => {
 
 // PUT /api/v1/users/:id — 修改用户
 router.put('/:id', (req: Request, res: Response) => {
-  const targetId = parseInt(req.params.id)
+  const targetId = parseInt(String(req.params.id))
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId) as any
 
   if (!target) {
@@ -144,7 +144,7 @@ router.put('/:id', (req: Request, res: Response) => {
 
 // DELETE /api/v1/users/:id — 删除用户
 router.delete('/:id', (req: Request, res: Response) => {
-  const targetId = parseInt(req.params.id)
+  const targetId = parseInt(String(req.params.id))
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId) as any
 
   if (!target) {
@@ -167,7 +167,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 
 // PUT /api/v1/users/:id/reset-password — 重置密码
 router.put('/:id/reset-password', (req: Request, res: Response) => {
-  const targetId = parseInt(req.params.id)
+  const targetId = parseInt(String(req.params.id))
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId) as any
 
   if (!target) {

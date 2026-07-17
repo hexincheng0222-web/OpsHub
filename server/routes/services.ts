@@ -144,7 +144,7 @@ router.get('/categories', (_req: Request, res: Response) => {
 // 收藏路由（必须在 /:id 之前，避免 GET /favorites 被 /:id 拦截）
 router.post('/:id/favorite', authRequired, (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ code: 401 })
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   db.prepare('INSERT OR IGNORE INTO user_service_favorites (user_id, service_id) VALUES (?, ?)').run(req.user!.id, id)
   res.json({ code: 200 })
@@ -152,7 +152,7 @@ router.post('/:id/favorite', authRequired, (req: Request, res: Response) => {
 
 router.delete('/:id/favorite', authRequired, (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ code: 401 })
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   db.prepare('DELETE FROM user_service_favorites WHERE user_id=? AND service_id=?').run(req.user!.id, id)
   res.json({ code: 200 })
@@ -169,7 +169,7 @@ router.get('/favorites', authRequired, (req: Request, res: Response) => {
 // GET /api/v1/services/:id/credentials（必须在 /:id 之前，否则被 id='credentials' 拦截）
 router.get('/:id/credentials', authRequired, (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ code: 401 })
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const rows = db.prepare('SELECT id, label, username, secret_enc FROM service_credentials WHERE service_id=?').all(id) as any[]
   if ((req.user.role === 'admin' || req.user.role === 'superadmin') && credKeyReady()) {
@@ -181,7 +181,7 @@ router.get('/:id/credentials', authRequired, (req: Request, res: Response) => {
 
 // GET /api/v1/services/:id/history?hours=24（必须在 /:id 之前，否则被 id='history' 拦截）
 router.get('/:id/history', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const hours = Math.min(168, Math.max(1, parseInt(req.query.hours as string) || 24))
   const rows = db.prepare(
@@ -195,7 +195,7 @@ router.get('/:id/history', (req: Request, res: Response) => {
 
 // GET /api/v1/services/:id/uptime?days=7
 router.get('/:id/uptime', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7))
   const row = db.prepare(
@@ -209,7 +209,7 @@ router.get('/:id/uptime', (req: Request, res: Response) => {
 
 // 3. 获取单个服务
 router.get('/:id', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const row = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!row) {
@@ -255,7 +255,7 @@ router.post('/', (req: Request, res: Response) => {
 
 // 4. 全量更新
 router.put('/:id', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!existing) {
@@ -287,7 +287,7 @@ router.put('/:id', (req: Request, res: Response) => {
 
 // 5. 部分更新
 router.patch('/:id', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
   if (!existing) {
@@ -350,7 +350,7 @@ router.patch('/:id', (req: Request, res: Response) => {
 
 // 6. 删除服务
 router.delete('/:id', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const result = db.prepare('DELETE FROM services WHERE id = ?').run(id)
   if (result.changes === 0) {
@@ -489,7 +489,7 @@ router.post('/check-all', async (_req: Request, res: Response) => {
 
 // 8. 单个检测连通性
 router.post('/:id/check', async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
   const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(id) as any
   if (!svc) return res.status(404).json({ code: 404, message: '服务不存在' })

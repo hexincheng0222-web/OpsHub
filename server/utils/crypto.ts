@@ -21,11 +21,6 @@ function getKey(): Buffer {
   return cachedKey
 }
 
-/** 重新读取密钥（用于运行时 `pm2 reload` 后生效） */
-export function reloadCredKey(): void {
-  cachedKey = loadKey()
-}
-
 export function credKeyReady(): boolean {
   return getKey().length === 32
 }

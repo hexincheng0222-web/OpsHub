@@ -32,7 +32,13 @@ router.post('/login', (req: Request, res: Response) => {
     }
     // 锁定时间已过 → 清除锁定标记，但保留 failed_attempts 累计威慑 (#34)
     // 仅在密码正确时才重置 failed_attempts，避免锁定到期即"重置计数→免费 4 次"的暴破窗口
-    db.prepare("UPDATE users SET locked_until = NULL WHERE id = ?").run(user.id)
+    // R3 修复：若距上次锁定到期 > 24h，视为长期未登录，重置 failed_attempts 避免偶发错误即锁定
+    const sinceUnlockMs = nowMs - lockedMs
+    if (sinceUnlockMs > 24 * 60 * 60 * 1000) {
+      db.prepare("UPDATE users SET locked_until = NULL, failed_attempts = 0 WHERE id = ?").run(user.id)
+    } else {
+      db.prepare("UPDATE users SET locked_until = NULL WHERE id = ?").run(user.id)
+    }
   }
 
   if (!user.is_active) {

@@ -1,6 +1,7 @@
 import db from './db'
 import fs from 'node:fs'
 import path from 'node:path'
+import type { ScheduledTask } from 'node-cron'
 
 // ========== 类型定义 ==========
 
@@ -289,7 +290,7 @@ export function saveAudit(device: DeviceConfig, logs: LogEntry[], result: LLMRes
     result.has_abnormal ? 1 : 0,
     result._llm_ms || 0,
   )
-  return row.lastrowid as number
+  return row.lastInsertRowid as number
 }
 
 export function cleanupAudit(retentionDays: number): number {

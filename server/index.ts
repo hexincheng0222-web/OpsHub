@@ -4,6 +4,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import crypto from 'crypto'
 import path from 'path'
+import fs from 'node:fs'
 import { fileURLToPath } from 'url'
 import servicesRouter from './routes/services'
 import racksRouter from './routes/racks'
@@ -33,7 +34,25 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:5173', 'http://localhost:3001'],
   credentials: true,
 }))
-app.use(helmet({ crossOriginResourcePolicy: false }))
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  // R2 修复：CSP 头兜底 XSS 防护（#11 长期项）
+  // 限制脚本/样式/连接只能来自同源，阻止内联脚本执行
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],  // Element Plus 内联样式需要
+      imgSrc: ["'self'", 'data:', 'blob:'],     // 头像/图标 base64
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],               // 防点击劫持
+    },
+  },
+}))
 app.use(express.json({ limit: '10mb' }))
 
 // 健康检查
@@ -62,7 +81,7 @@ app.use('/api/v1/dashboard', authRequired, dashboardRouter)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const distPath = path.resolve(__dirname, '../dist')
-const fs = await import('fs')
+// R4 修复：fs 改静态 import（顶层 + cron 复用），消除 await import 阻塞启动和动态导入代码气味
 if (fs.existsSync(path.join(distPath, 'index.html'))) {
   app.use(express.static(distPath, { maxAge: '1h', index: false }))
   // SPA fallback：所有非 /api 非静态文件的 GET 请求回 index.html
@@ -158,11 +177,11 @@ cron.schedule('0 4 * * *', async () => {
   try {
     const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
     const baseDir = path.join('data', 'log-audit')
-    const fsRef = await import('fs')
-    if (!fsRef.existsSync(baseDir)) return
-    for (const d of fsRef.readdirSync(baseDir)) {
+    // R4 修复：复用顶层静态 import fs，消除 await import('fs')
+    if (!fs.existsSync(baseDir)) return
+    for (const d of fs.readdirSync(baseDir)) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d < cutoff) {
-        fsRef.rmSync(path.join(baseDir, d), { recursive: true, force: true })
+        fs.rmSync(path.join(baseDir, d), { recursive: true, force: true })
         console.log(`[log-audit] 已清理 7 天前目录: ${d}`)
       }
     }

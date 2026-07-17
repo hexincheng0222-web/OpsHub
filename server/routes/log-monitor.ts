@@ -56,7 +56,7 @@ router.get('/audit', (req: Request, res: Response) => {
 
 // 3b. 读取单条审计的外置日志文件
 router.get('/audit/:id/logs', (req: Request, res: Response) => {
-  const id = parseInt(req.params.id)
+  const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效 ID' })
   const row = db.prepare('SELECT log_file_path, raw_logs FROM log_audit WHERE id = ?').get(id) as any
   if (!row) return res.status(404).json({ code: 404, message: '审计记录不存在' })

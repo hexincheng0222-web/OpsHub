@@ -20,7 +20,7 @@ router.get('/', (req: Request, res: Response) => {
 // ============ 7. 更新设备 ============
 router.put('/:id', (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id)
+    const id = parseInt(String(req.params.id))
     if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
 
     const existing = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
@@ -62,7 +62,7 @@ router.put('/:id', (req: Request, res: Response) => {
 // ============ 8. 删除设备 ============
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id)
+    const id = parseInt(String(req.params.id))
     if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
 
     const existing = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
@@ -85,7 +85,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 // ============ 9. 移动设备 ============
 router.post('/:id/move', (req: Request, res: Response) => {
   try {
-    const deviceId = parseInt(req.params.id)
+    const deviceId = parseInt(String(req.params.id))
     if (isNaN(deviceId)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
 
     const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId) as any

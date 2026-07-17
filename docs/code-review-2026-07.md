@@ -379,3 +379,45 @@ cron.schedule('0 4 * * *', async () => {
 
 **关键路径**：A-1 → B-1 → C-1，总工时 ≈ 17.5 小时（不含 S 难度 2.5h 外委部分）
 **最低上线门槛**：A-1 + C-1(#5/#11) 必须完成，其余可迭代消化
+
+---
+
+## 附录 C：第三轮审查与修复记录（2026-07-17）
+
+### C.1 上轮残留问题修复（5 项）
+
+| # | 严重度 | 文件 | 修复 | 验证 |
+|---|:------:|------|------|:----:|
+| R1 | 🟠 高 | `src/router/index.ts:151-161` | 路由守卫 `meta.roles` 校验存在缺陷：`if (requiredRoles && auth.user)` 当 `auth.user` 为 null 时（fetchMe 失败/网络抖动）直接跳过角色校验，普通 user 可趁登录态未校验时进入 admin 路由。修复：改为 `if (requiredRoles) { if (!auth.user) return '/'; if (!requiredRoles.includes(auth.user.role)) return '/' }` | ✅ |
+| R2 | 🟠 高 | `server/routes/auth.ts:71-79`、`server/index.ts:36-54` | HttpOnly cookie 的 `SameSite=Lax` 对 GET 导航请求仍发送 cookie，CSRF 防护弱；且 CSP 头未配置（#11 长期项未落地）。修复：`SameSite=Lax` → `Strict`；`helmet` 加 `contentSecurityPolicy` 限制 `defaultSrc/scriptSrc 'self'`、`objectSrc 'none'`、`frameAncestors 'none'` | ✅ |
+| R3 | 🟡 中 | `server/routes/auth.ts:33-40` | #34 修复"锁定到期即重置 failed_attempts 给攻击者 4 次免费尝试"窗口，但产生副作用：长期未登录用户的偶发错误永远累计不清零，下次错误即锁定。修复：锁定到期后若距上次锁定 > 24h，视为长期未登录，重置 `failed_attempts=0`；否则保留累计威慑 | ✅ |
+| R4 | 🟡 中 | `server/index.ts:1-8, 83, 179` | `fs` 用动态 `await import('fs')` 两处（顶层 + cron 内），顶层阻塞启动，cron 内每次触发都动态导入（代码气味）。修复：改 `import fs from 'node:fs'` 静态导入，删除两处动态 import 复用顶层引用 | ✅ |
+| R5 | 🟢 低 | `server/utils/crypto.ts:24-27` | `reloadCredKey()` 函数无实际调用方（`pm2 reload` 重启进程会自动重读 env，不需要该函数），属死代码。修复：删除函数 | ✅ |
+
+### C.2 服务端 typecheck 残留错误清零（#18 真正落地）
+
+**上轮虚报纠正**：评估表写"已修复 41/41 100%"是虚报——#18（服务端 typecheck + strict）上轮只建了 `tsconfig.server.json` 但 30+ 处类型错误未实际收敛，本轮才真正清零。
+
+| 类别 | 文件:行 | 错误 | 修复 |
+|------|---------|------|------|
+| **A 真实缺陷** | `server/logMonitor.ts:292` | `Property 'lastrowid' does not exist on type 'RunResult'`（better-sqlite3 的正确属性是 `lastInsertRowid`） | `lastrowid` → `lastInsertRowid` |
+| **A 真实缺陷** | `server/logMonitor.ts:426` | `Cannot find name 'ScheduledTask'`（node-cron 类型未导入） | 加 `import type { ScheduledTask } from 'node-cron'` |
+| **B 类型断言** | `server/routes/admin.ts` ×5 | `Type 'string[]' cannot be used as an index type`（Express 5 的 `req.params` 是 `Record<string, string \| string[]>`） | `tables[req.params.table]` → `tables[String(req.params.table)]` |
+| **B 类型断言** | `devices.ts`×3 / `log-monitor.ts`×1 / `services.ts`×10 / `users.ts`×3 共 17 处 | `string[] not assignable to string`（Express 5 的 `req.params.id` 是 `string \| string[]`，`parseInt` 不接受 union） | `parseInt(req.params.id)` → `parseInt(String(req.params.id))` |
+
+### C.3 最终验证
+
+| 检查 | 命令 | 结果 |
+|------|------|:----:|
+| 前端类型+构建 | `npm run build:client` | ✅ `built in 1.61s`（仅 dynamic import 告警，无害） |
+| 服务端类型 | `npm run build:server` | ✅ 无输出 = 无错误 |
+| Exit code | `$?` | ✅ 0 |
+
+### C.4 状态纠正
+
+| 项 | 旧状态（虚报） | 新状态（实际） |
+|----|--------------|---------------|
+| #18 服务端 typecheck | "已修复 41/41 100%" | 上轮仅建 `tsconfig.server.json`，30+ 处错误未收敛；**本轮 2026-07-17 真正清零** |
+| R1-R5 残留问题 | 未识别 | 本轮第三轮审查发现并全部修复 |
+| 服务端 `lastrowid` 运行时 bug | 未识别 | 本轮发现：`result.lastrowid` 实际为 `undefined`，写入 DB 的 ID 会是 NULL；已修正为 `lastInsertRowid` |
+| 服务端 `ScheduledTask` 运行时 bug | 未识别 | 本轮发现：若该行执行（cron 调度控制）会抛 `ReferenceError`；已加类型导入 |

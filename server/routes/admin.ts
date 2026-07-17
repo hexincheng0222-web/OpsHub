@@ -202,7 +202,7 @@ router.put('/config', (req: Request, res: Response) => {
 
 // GET /api/v1/admin/:table  — 列表（支持分页）
 router.get('/:table', (req: Request, res: Response) => {
-  const config = tables[req.params.table]
+  const config = tables[String(req.params.table)]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
   const hasPage = req.query.page !== undefined
@@ -225,7 +225,7 @@ router.get('/:table', (req: Request, res: Response) => {
 
 // DELETE /api/v1/admin/:table/batch  — 批量删除
 router.delete('/:table/batch', (req: Request, res: Response) => {
-  const config = tables[req.params.table]
+  const config = tables[String(req.params.table)]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
   const { ids } = req.body
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
@@ -242,7 +242,7 @@ router.delete('/:table/batch', (req: Request, res: Response) => {
 
 // POST /api/v1/admin/:table  — 新增
 router.post('/:table', (req: Request, res: Response) => {
-  const config = tables[req.params.table]
+  const config = tables[String(req.params.table)]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
   const cols = config.columns.filter(c => req.body[c] !== undefined)
@@ -269,7 +269,7 @@ router.post('/:table', (req: Request, res: Response) => {
 
 // PUT /api/v1/admin/:table/:id  — 修改
 router.put('/:table/:id', (req: Request, res: Response) => {
-  const config = tables[req.params.table]
+  const config = tables[String(req.params.table)]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
   const cols = config.columns.filter(c => req.body[c] !== undefined)
@@ -313,7 +313,7 @@ router.put('/:table/:id', (req: Request, res: Response) => {
 
 // DELETE /api/v1/admin/:table/:id  — 删除
 router.delete('/:table/:id', (req: Request, res: Response) => {
-  const config = tables[req.params.table]
+  const config = tables[String(req.params.table)]
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
 
   const nameCol = config.nameColumn || 'name'
