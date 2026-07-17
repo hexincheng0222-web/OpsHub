@@ -178,7 +178,7 @@
         </div>
       </div>
       <template #footer>
-        <el-button type="primary" :disabled="!isSafeUrl(selectedService!.url)" @click="openService(selectedService!.url)">
+        <el-button v-if="selectedService" type="primary" :disabled="!isSafeUrl(selectedService.url)" @click="openService(selectedService.url)">
           <el-icon><Position /></el-icon> 访问服务
         </el-button>
       </template>
@@ -194,6 +194,7 @@ import { useDebouncedSearch } from '../composables/useDebouncedSearch'
 import type { Service } from '../types'
 import { fetchDict } from '../api/admin'
 import { resolveIcon } from '../utils/icons'
+import { Refresh, Search, Link, Position } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import BackButton from '../components/BackButton.vue'
 import ServiceHealthChart from '../components/ServiceHealthChart.vue'

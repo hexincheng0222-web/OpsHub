@@ -4,6 +4,20 @@ import db from '../db'
 
 const router = Router()
 
+/**
+ * 操作日志脱敏 (#24)
+ * 遮蔽敏感键（password/token/secret/key/api_key/passphrase），防止凭据明文落库
+ */
+const SENSITIVE_KEYS = /^(password|passwd|token|secret|key|api_key|apikey|passphrase|credential)$/i
+function sanitizeDetail(body: unknown): string {
+  if (!body || typeof body !== 'object') return ''
+  const safe: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+    safe[k] = SENSITIVE_KEYS.test(k) ? '***' : v
+  }
+  return JSON.stringify(safe)
+}
+
 // ========== 通用 CRUD 工厂 ==========
 
 interface TableConfig {
@@ -180,7 +194,7 @@ router.put('/config', (req: Request, res: Response) => {
   })
   tx()
 
-  logOperation({ module: '系统配置', action: '修改', target: configs.map(c => c.key).join(', '), detail: JSON.stringify(configs), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+  logOperation({ module: '系统配置', action: '修改', target: configs.map(c => c.key).join(', '), detail: sanitizeDetail(configs), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
   res.json({ code: 200, message: '配置已保存' })
 })
 
@@ -240,7 +254,7 @@ router.post('/:table', (req: Request, res: Response) => {
   try {
     const result = db.prepare(`INSERT INTO ${config.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(result.lastInsertRowid)
-    logOperation({ module: config.module, action: '新增', target: String(req.body.name || ''), detail: JSON.stringify(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '新增', target: String(req.body.name || ''), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
     res.status(201).json({ code: 201, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
@@ -287,7 +301,7 @@ router.put('/:table/:id', (req: Request, res: Response) => {
       }
     }
 
-    logOperation({ module: config.module, action: '修改', target: String(req.body.name || `ID:${req.params.id}`), detail: JSON.stringify(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '修改', target: String(req.body.name || `ID:${req.params.id}`), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
     res.json({ code: 200, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {

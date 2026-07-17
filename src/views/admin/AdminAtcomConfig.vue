@@ -17,7 +17,7 @@ const configs = ref<ConfigItem[]>([])
 const form = ref({
   pbx_ip: '192.168.35.250',
   pbx_user: 'admin',
-  pbx_pass: 'admin',
+  pbx_pass: '',  // 默认置空，留空则不修改 (#6)
 })
 
 onMounted(async () => {
@@ -111,7 +111,7 @@ function getLastUpdated() {
             v-model="form.pbx_pass"
             type="password"
             show-password
-            placeholder="默认: admin"
+            placeholder="留空则不修改"
             clearable
             style="max-width: 360px;"
           />
@@ -146,11 +146,11 @@ function getLastUpdated() {
         </div>
         <div class="info-item">
           <strong>默认账号：</strong>
-          <span>IPPBX200 和 ATCOM 话机默认均为 admin/admin</span>
+          <span>IPPBX200 和 ATCOM 话机出厂默认账号请查阅设备文档，部署后请立即修改默认密码</span>
         </div>
         <div class="info-item">
           <strong>安全建议：</strong>
-          <span>建议修改默认密码，LuCI session 有超时机制，系统会自动重新登录</span>
+          <span>务必修改设备出厂默认密码；LuCI session 有超时机制，系统会自动重新登录</span>
         </div>
       </div>
     </el-card>

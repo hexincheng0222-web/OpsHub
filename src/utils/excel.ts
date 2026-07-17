@@ -4,6 +4,17 @@
 import * as XLSX from 'xlsx'
 
 /**
+ * 公式注入防护：单元格值若以 = + - @ \t \r 开头，前置单引号让 Excel 当作文本
+ * SheetJS 没有内置 sanitize，需在写入 cell 前手动处理
+ */
+function sanitizeCell(v: string | number | boolean): string | number | boolean {
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(v)) {
+    return "'" + v
+  }
+  return v
+}
+
+/**
  * 导出二维数据为 .xlsx 文件
  * @param headers 表头数组
  * @param rows    数据行数组（每行为字段数组）
@@ -16,7 +27,10 @@ export function downloadXlsx(
   filename: string,
   sheetName = 'Sheet1',
 ) {
-  const aoa = [headers, ...(rows as any[]).map(r => Array.isArray(r) ? r : [r])]
+  const safeRows = (rows as any[]).map(r =>
+    (Array.isArray(r) ? r : [r]).map(sanitizeCell)
+  )
+  const aoa = [headers, ...safeRows]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, sheetName)

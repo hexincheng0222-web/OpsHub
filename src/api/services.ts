@@ -29,18 +29,28 @@ export async function fetchServices(params?: {
   return request<PaginatedList>(BASE + (qs ? '?' + qs : ''))
 }
 
-// 全量列表（走上限 100，前台/后台卡片不分页场景）
+// 全量列表 — 分页拉取合并，避免 pageSize 上限截断 (#15)
 export async function fetchAllServices(params?: {
   keyword?: string; category?: string; status?: string; hostId?: number
 }): Promise<Service[]> {
-  const query = new URLSearchParams()
-  query.set('pageSize', '100')
-  if (params?.keyword) query.set('keyword', params.keyword)
-  if (params?.category) query.set('category', params.category)
-  if (params?.status) query.set('status', params.status)
-  if (params?.hostId) query.set('hostId', String(params.hostId))
-  const data = await request<PaginatedList>(`${BASE}?${query.toString()}`)
-  return data.list
+  const PAGE_SIZE = 500
+  let page = 1
+  const all: Service[] = []
+  // 最多拉 50 页（10000 条）防止无限循环
+  for (let i = 0; i < 50; i++) {
+    const query = new URLSearchParams()
+    query.set('page', String(page))
+    query.set('pageSize', String(PAGE_SIZE))
+    if (params?.keyword) query.set('keyword', params.keyword)
+    if (params?.category) query.set('category', params.category)
+    if (params?.status) query.set('status', params.status)
+    if (params?.hostId) query.set('hostId', String(params.hostId))
+    const data = await request<PaginatedList>(`${BASE}?${query.toString()}`)
+    all.push(...data.list)
+    if (data.list.length < PAGE_SIZE) break  // 最后一页
+    page++
+  }
+  return all
 }
 
 // 2. 获取单个服务

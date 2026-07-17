@@ -14,7 +14,7 @@ router.get('/', (req: Request, res: Response) => {
   }
   sql += ' ORDER BY name ASC'
   const rows = db.prepare(sql).all(...params)
-  res.json({ code: 0, data: rows })
+  res.json({ code: 200, data: rows })
 })
 
 // ============ 7. 更新设备 ============

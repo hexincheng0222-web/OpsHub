@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import crypto from 'crypto'
 import db from '../db'
 
 const router = Router()
@@ -25,7 +26,7 @@ router.post('/folders', (req: Request, res: Response) => {
     const { name } = req.body
     if (!name) return res.status(400).json({ code: 400, message: 'name 必填' })
 
-    const id = 'folder-' + Date.now()
+    const id = 'folder-' + crypto.randomUUID()
     db.prepare('INSERT INTO manual_folders (id, name) VALUES (?, ?)').run(id, name)
     const row = db.prepare('SELECT * FROM manual_folders WHERE id = ?').get(id) as any
     res.status(201).json({ code: 201, data: { id: row.id, name: row.name, icon: '' } })

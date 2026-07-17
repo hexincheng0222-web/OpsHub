@@ -115,6 +115,11 @@ export const useDevicesStore = defineStore('devices', () => {
   function addDeviceToRack(rackId: string, uPosition: number, device: Device) {
     const rack = racks.value.find(r => r.id === rackId)
     if (!rack) return
+    // #14: 越界前置拒绝，避免静默截断产生"半放置"脏数据
+    if (uPosition < 0 || uPosition + device.u > rack.totalU) {
+      ElMessage.warning(`空间不足：设备 ${device.u}U，机柜剩余 ${rack.totalU - uPosition}U`)
+      return
+    }
     const occupied = buildOccupied(rack)
     for (let i = uPosition; i < uPosition + device.u && i < rack.totalU; i++) {
       if (occupied[i]) return

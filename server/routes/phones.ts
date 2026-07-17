@@ -47,7 +47,7 @@ function format(n: number, fmt: string): string {
 }
 
 // 带 Digest Auth 的 HTTP 请求
-function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data: string = '', username = 'admin', password = process.env.ADMIN_DEFAULT_PASSWORD || 'admin'): Promise<any> {
+function atcomRequest(ip: string, command: string, method: 'GET' | 'POST', data: string = '', username = 'admin', password = process.env.ATCOM_PBX_PASS || ''): Promise<any> {
   const url = `/cgi-bin/web_cgi_main.cgi?${command}`
   return new Promise((resolve, reject) => {
     const doRequest = (authHeader?: string) => {
@@ -128,9 +128,10 @@ function getConfig() {
   const map: Record<string, string> = {}
   rows.forEach(r => { map[r.key] = r.value })
   return {
-    ip: map['atcom_pbx_ip'] || '192.168.35.250',
-    user: map['atcom_pbx_user'] || 'admin',
-    pass: map['atcom_pbx_pass'] || 'admin',
+    // 默认置空，未配置时拒绝调用 (#6)
+    ip: map['atcom_pbx_ip'] || process.env.ATCOM_PBX_IP || '192.168.35.250',
+    user: map['atcom_pbx_user'] || process.env.ATCOM_PBX_USER || 'admin',
+    pass: map['atcom_pbx_pass'] || process.env.ATCOM_PBX_PASS || '',
   }
 }
 
@@ -468,11 +469,12 @@ router.put('/:id/remark', async (req: Request, res: Response) => {
 })
 
 // ATCOM 话机 API 封装（带 Digest Auth）
-function atcomGet(ip: string, command: string, username = 'admin', password = 'admin'): Promise<any> {
+// #29: 凭据从 getConfig() 统一读取，不再硬编码 'admin' 默认回退
+function atcomGet(ip: string, command: string, username?: string, password?: string): Promise<any> {
   return atcomRequest(ip, command, 'GET', '', username, password)
 }
 
-function atcomPost(ip: string, command: string, data: string, username = 'admin', password = 'admin'): Promise<any> {
+function atcomPost(ip: string, command: string, data: string, username?: string, password?: string): Promise<any> {
   return atcomRequest(ip, command, 'POST', data, username, password)
 }
 
@@ -550,10 +552,13 @@ router.post('/phonebook/batch-delete', (req: Request, res: Response) => {
   try {
     const { ids } = req.body
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-    const ph = ids.map(() => '?').join(',')
-    db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...ids)
-    logOp('电话簿', '批量删除', `${ids.length} 条`)
-    res.json({ code: 200, message: `已删除 ${ids.length} 条` })
+    if (ids.length > 1000) return res.status(400).json({ code: 400, message: '单次最多操作 1000 条' })
+    const cleanIds = ids.filter((id) => Number.isInteger(id) && id > 0)
+    if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
+    const ph = cleanIds.map(() => '?').join(',')
+    db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...cleanIds)
+    logOp('电话簿', '批量删除', `${cleanIds.length} 条`)
+    res.json({ code: 200, message: `已删除 ${cleanIds.length} 条` })
   } catch (err: any) {
     console.error('[server] 批量删除联系人失败:', err.message)
     res.status(500).json({ code: 500, message: '批量删除失败' })

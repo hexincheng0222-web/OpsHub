@@ -597,7 +597,8 @@ const renderedContent = computed(() => {
   if (!selectedDoc.value) return ''
   const raw = selectedDoc.value.content
   // If content already looks like HTML (starts with <), use directly
-  const html = raw.trim().startsWith('<') ? raw : (marked.parse(raw) as string)
+  // marked 输出强制 sanitize (#40)，避免 marked 内置 HTML 直通
+  const html = raw.trim().startsWith('<') ? raw : (marked.parse(raw, { async: false }) as string)
   return sanitizeHtml(html)
 })
 

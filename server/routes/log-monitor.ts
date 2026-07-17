@@ -13,16 +13,16 @@ const router = Router()
 
 // 1. 获取配置
 router.get('/config', (_req: Request, res: Response) => {
-  res.json({ code: 0, data: loadConfig() })
+  res.json({ code: 200, data: loadConfig() })
 })
 
 // 2. 更新配置
 router.put('/config', (req: Request, res: Response) => {
   try {
     const updated = saveConfigPartial(req.body)
-    res.json({ code: 0, data: updated })
+    res.json({ code: 200, data: updated })
   } catch (e: any) {
-    res.json({ code: 500, message: e.message })
+    res.status(500).json({ code: 500, message: e.message })
   }
 })
 
@@ -51,7 +51,7 @@ router.get('/audit', (req: Request, res: Response) => {
      FROM log_audit ${where} ORDER BY id DESC LIMIT ? OFFSET ?`
   ).all(...params, pageSize, (page - 1) * pageSize)
 
-  res.json({ code: 0, data: { list: rows, total, page, pageSize } })
+  res.json({ code: 200, data: { list: rows, total, page, pageSize } })
 })
 
 // 3b. 读取单条审计的外置日志文件
@@ -83,7 +83,7 @@ router.get('/audit/:id/logs', (req: Request, res: Response) => {
 router.delete('/audit', (req: Request, res: Response) => {
   const days = parseInt(req.query.days as string) || 90
   const deleted = cleanupAudit(days)
-  res.json({ code: 0, data: { deleted } })
+  res.json({ code: 200, data: { deleted } })
 })
 
 // 5. 手动触发一次分析（自动发现设备）
@@ -108,9 +108,9 @@ router.post('/run-once', async (req: Request, res: Response) => {
       const id = saveAudit(device, logs, result)
       results.push({ id, device_id: device.device_id, has_abnormal: result.has_abnormal })
     }
-    res.json({ code: 0, data: results })
+    res.json({ code: 200, data: results })
   } catch (e: any) {
-    res.json({ code: 500, message: e.message })
+    res.status(500).json({ code: 500, message: e.message })
   }
 })
 
@@ -143,7 +143,7 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
     if (!logs.length) {
       // 区分「查询失败」与「真无日志」：失败时把 Loki 错误透传给前端，避免误报"设备正常"
       const summary = lokiError ? `日志查询失败：${lokiError}` : '无日志可分析'
-      return res.json({ code: 0, data: { summary, has_abnormal: false, llm_ms: 0, created_at: new Date().toISOString(), error: lokiError || null } })
+      return res.json({ code: 200, data: { summary, has_abnormal: false, llm_ms: 0, created_at: new Date().toISOString(), error: lokiError || null } })
     }
 
     const result = await analyzeLogs(logs, config.llm.system_prompt)
@@ -154,7 +154,7 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
     await pushAlertIfAbnormal(device, auditId, result)
 
     res.json({
-      code: 0,
+      code: 200,
       data: {
         summary: result.summary,
         has_abnormal: result.has_abnormal,
@@ -171,16 +171,16 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
 // 6. 调度器控制
 router.post('/scheduler/start', (_req: Request, res: Response) => {
   startScheduler()
-  res.json({ code: 0, message: '调度器已启动' })
+  res.json({ code: 200, message: '调度器已启动' })
 })
 
 router.post('/scheduler/stop', (_req: Request, res: Response) => {
   stopScheduler()
-  res.json({ code: 0, message: '调度器已停止' })
+  res.json({ code: 200, message: '调度器已停止' })
 })
 
 router.get('/scheduler/status', (_req: Request, res: Response) => {
-  res.json({ code: 0, data: getSchedulerStatus() })
+  res.json({ code: 200, data: getSchedulerStatus() })
 })
 
 // 7. LLM 连通测试
@@ -204,13 +204,13 @@ router.post('/llm-test', async (req: Request, res: Response) => {
       signal: AbortSignal.timeout((config.llm?.timeout || 120) * 1000),
     })
     const ms = Date.now() - t0
-    if (!r.ok) return res.json({ code: 0, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
+    if (!r.ok) return res.json({ code: 200, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
     const data = await r.json()
     const message = data.choices?.[0]?.message || {}
     const content: string = message.content || message.reasoning || ''
-    res.json({ code: 0, data: { success: true, latency_ms: ms, response: content } })
+    res.json({ code: 200, data: { success: true, latency_ms: ms, response: content } })
   } catch (e: any) {
-    res.json({ code: 0, data: { success: false, latency_ms: 0, error: e.message } })
+    res.json({ code: 200, data: { success: false, latency_ms: 0, error: e.message } })
   }
 })
 
@@ -220,19 +220,19 @@ router.post('/test-loki', async (req: Request, res: Response) => {
     const { url } = req.body
     const testUrl = (url || '').replace(/\/$/, '')
     if (!testUrl) {
-      return res.json({ code: 0, data: { success: false, latency_ms: 0, error: '请先填写 Loki 地址' } })
+      return res.json({ code: 200, data: { success: false, latency_ms: 0, error: '请先填写 Loki 地址' } })
     }
     const t0 = Date.now()
     const r = await fetch(testUrl + '/loki/api/v1/labels', { signal: AbortSignal.timeout(10000) })
     const ms = Date.now() - t0
     if (!r.ok) {
-      return res.json({ code: 0, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
+      return res.json({ code: 200, data: { success: false, latency_ms: ms, error: `HTTP ${r.status}` } })
     }
     const data = await r.json() as any
     const labelCount = data.data?.length || 0
-    res.json({ code: 0, data: { success: true, latency_ms: ms, label_count: labelCount } })
+    res.json({ code: 200, data: { success: true, latency_ms: ms, label_count: labelCount } })
   } catch (e: any) {
-    res.json({ code: 0, data: { success: false, latency_ms: 0, error: e.message } })
+    res.json({ code: 200, data: { success: false, latency_ms: 0, error: e.message } })
   }
 })
 
@@ -240,13 +240,13 @@ router.post('/test-loki', async (req: Request, res: Response) => {
 router.get('/dashboard', async (req: Request, res: Response) => {
   const timeRange = (req.query.time_range as string) || '1h'
   const data = await getDashboardData(timeRange)
-  res.json({ code: 0, data })
+  res.json({ code: 200, data })
 })
 
 // 9. 健康检查
 router.get('/health', async (_req: Request, res: Response) => {
   const status = await healthCheck()
-  res.json({ code: 0, data: status })
+  res.json({ code: 200, data: status })
 })
 
 // 10. 从 Loki 自动发现设备
@@ -262,7 +262,7 @@ router.get('/discover', async (_req: Request, res: Response) => {
         : d.hostname,
       is_new: !configuredIds.has(d.ip),
     }))
-    res.json({ code: 0, data: result })
+    res.json({ code: 200, data: result })
   } catch (e: any) {
     res.status(500).json({ code: 500, message: e.message })
   }

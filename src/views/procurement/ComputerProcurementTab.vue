@@ -276,6 +276,7 @@ import { fetchLogs } from '../../api/admin'
 import { useAuthStore } from '../../stores/auth'
 import { downloadCsv, escapeCsvField } from '../../utils/csv'
 import { downloadXlsx, parseXlsx } from '../../utils/excel'
+import { escapeHtml } from '../../utils/sanitize'
 import { fetchComputerTrash, restoreComputer, purgeComputer } from '../../api/computer-procurement'
 
 const store = useComputerProcurementStore()
@@ -763,10 +764,10 @@ async function processImportRows(rawRows: any[][], skippedMacIn: number, skipped
       return
     }
     const skippedTotal = skippedMac + skippedDupMac
-    const summaryLines: string[] = [`将导入 <b style="color:var(--ops-accent-blue)">${rows.length}</b> 条记录`]
-    if (skippedTotal) summaryLines.push(`跳过 <b style="color:#e6a23c">${skippedTotal}</b> 行（MAC 格式 ${skippedMac} / 重复 ${skippedDupMac}）`)
-    if (skippedMacLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);margin-top:8px">MAC 格式错误行：${skippedMacLines.join(', ')}</div>`)
-    if (skippedDupMacLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);">MAC 重复行：${skippedDupMacLines.join(', ')}</div>`)
+    const summaryLines: string[] = [`将导入 <b style="color:var(--ops-accent-blue)">${escapeHtml(rows.length)}</b> 条记录`]
+    if (skippedTotal) summaryLines.push(`跳过 <b style="color:#e6a23c">${escapeHtml(skippedTotal)}</b> 行（MAC 格式 ${escapeHtml(skippedMac)} / 重复 ${escapeHtml(skippedDupMac)}）`)
+    if (skippedMacLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);margin-top:8px">MAC 格式错误行：${skippedMacLines.map(escapeHtml).join(', ')}</div>`)
+    if (skippedDupMacLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);">MAC 重复行：${skippedDupMacLines.map(escapeHtml).join(', ')}</div>`)
     try {
       await ElMessageBox.confirm(summaryLines.join('<br>'), '导入预览', {
         dangerouslyUseHTMLString: true, confirmButtonText: '确认导入', cancelButtonText: '取消',
@@ -833,7 +834,7 @@ async function handleImport(e: Event) {
     const { validRows, skippedMac, skippedMacLines, skippedDupMac, skippedDupMacLines } = validateMacRows(rawRows)
     await processImportRows(validRows, skippedMac, skippedMacLines, skippedDupMac, skippedDupMacLines)
   }
-  r.readAsText(f)
+  r.readAsText(f, 'utf-8')
 }
 
 // 按记录 id 打开详情抽屉（供概览跳转调用）

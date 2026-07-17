@@ -36,15 +36,23 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       router.push('/login')
     }
-    // 跳转触发后释放锁（下一次 router guard 仍可调 logout）
-    setTimeout(() => { logoutInProgress = false }, 0)
+    // 跳转完成后释放锁（router.push 是异步，等 afterEach 触发再释放）(#25)
+    const unhook = router.afterEach(() => {
+      logoutInProgress = false
+      unhook()
+    })
   }
 
   async function fetchMe() {
     try {
       user.value = await getMe()
-    } catch {
-      logout()
+    } catch (e: any) {
+      // #26 仅 401（登录过期）触发退出；网络抖动等非鉴权错误保留当前 user，避免误踢
+      if (e?.message === '登录已过期') {
+        logout()
+      } else {
+        console.warn('[auth] 获取用户信息失败（非鉴权错误，保留登录态）:', e?.message)
+      }
     }
   }
 

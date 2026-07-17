@@ -5,15 +5,24 @@ export interface ApiResponse<T = any> {
   message?: string
 }
 
+/** 默认超时 15 秒 */
+const DEFAULT_TIMEOUT_MS = 15_000
+
 /**
- * 统一的 HTTP 请求函数
+ * 统一的 HTTP 请求函数 (#12)
  * - 支持 204 No Content 响应
  * - 自动检查 HTTP 状态码和业务 code
  * - 自动添加 Authorization header
  * - 401 自动跳转登录页
+ * - AbortController 超时控制（默认 15s）
+ * - 支持 caller 传入自定义 signal 取消请求
  */
-export async function request<T = any>(url: string, options?: RequestInit): Promise<T> {
+export async function request<T = any>(
+  url: string,
+  options?: RequestInit & { timeoutMs?: number },
+): Promise<T> {
   const token = localStorage.getItem('token')
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -24,10 +33,35 @@ export async function request<T = any>(url: string, options?: RequestInit): Prom
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  })
+  // 超时控制：合并 caller 传入的 signal 和内部 timeout signal
+  const callerSignal = options?.signal
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+
+  // 如果 caller 传了 signal，其 abort 也触发我们的 ctrl
+  if (callerSignal) {
+    if (callerSignal.aborted) ctrl.abort()
+    else callerSignal.addEventListener('abort', () => ctrl.abort(), { once: true })
+  }
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+      signal: ctrl.signal,
+    })
+  } catch (e: any) {
+    clearTimeout(timer)
+    // 用户主动取消（caller signal）→ 抛 AbortError 让上层判断
+    if (e?.name === 'AbortError') throw e
+    // 超时 abort → 抛 TimeoutError
+    if (ctrl.signal.aborted && (!callerSignal || !callerSignal.aborted)) {
+      throw new Error(`请求超时（${timeoutMs}ms）`)
+    }
+    throw e
+  }
+  clearTimeout(timer)
 
   // 204 No Content 响应没有 body
   if (res.status === 204) return undefined as T

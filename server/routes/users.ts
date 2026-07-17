@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import db from '../db'
 import { authRequired, requireRole } from '../middleware/auth'
+import { validatePasswordStrength } from './auth'
 
 const router = Router()
 
@@ -181,6 +182,12 @@ router.put('/:id/reset-password', (req: Request, res: Response) => {
   const { newPassword } = req.body
   if (!newPassword) {
     return res.status(400).json({ code: 400, message: '新密码不能为空' })
+  }
+
+  // 新密码强度校验 (#39)
+  const strengthError = validatePasswordStrength(newPassword)
+  if (strengthError) {
+    return res.status(400).json({ code: 400, message: strengthError })
   }
 
   const hash = bcrypt.hashSync(newPassword, 10)

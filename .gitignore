@@ -37,5 +37,8 @@ data/
 .env.development.local
 .env.production
 
+# Playwright MCP 生成的浏览器快照（本地调试产物，禁止入库）
+.playwright-mcp/
+
 # AtomCode local-scope configs (machine-specific)
 .atomcode/local/

@@ -1,4 +1,5 @@
 import type { Printer } from '../types'
+import { escapeCsvField } from './csv'
 
 const CSV_HEADERS = ['楼层', '位置', '厂商', '型号', '硒鼓型号', '备注'] as const
 
@@ -6,12 +7,12 @@ const CSV_HEADERS = ['楼层', '位置', '厂商', '型号', '硒鼓型号', '�
 export function exportPrintersCSV(printers: Printer[]) {
   const header = CSV_HEADERS.join(',')
   const rows = printers.map(p => [
-    escapeCSV(p.floor),
-    escapeCSV(p.location),
-    escapeCSV(p.manufacturer),
-    escapeCSV(p.model),
-    escapeCSV(p.tonerModel),
-    escapeCSV(p.notes),
+    escapeCsvField(p.floor),
+    escapeCsvField(p.location),
+    escapeCsvField(p.manufacturer),
+    escapeCsvField(p.model),
+    escapeCsvField(p.tonerModel),
+    escapeCsvField(p.notes),
   ].join(','))
   const bom = '\uFEFF'
   const csv = bom + header + '\n' + rows.join('\n')
@@ -50,13 +51,6 @@ export function parsePrintersCSV(text: string): Partial<Printer>[] {
     })
   }
   return result
-}
-
-function escapeCSV(val: string): string {
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return '"' + val.replace(/"/g, '""') + '"'
-  }
-  return val
 }
 
 function parseCSVLine(line: string): string[] {

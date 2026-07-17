@@ -157,10 +157,12 @@ router.post('/batch-delete', (req: Request, res: Response) => {
   try {
     const { ids } = req.body
     if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ code: 400, message: 'ids 必填' })
-
-    const placeholders = ids.map(() => '?').join(',')
-    db.prepare(`DELETE FROM printers WHERE id IN (${placeholders})`).run(...ids)
-    res.json({ code: 200, message: `已删除 ${ids.length} 台` })
+    if (ids.length > 1000) return res.status(400).json({ code: 400, message: '单次最多操作 1000 条' })
+    const cleanIds = ids.filter((id) => Number.isInteger(id) && id > 0)
+    if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
+    const placeholders = cleanIds.map(() => '?').join(',')
+    db.prepare(`DELETE FROM printers WHERE id IN (${placeholders})`).run(...cleanIds)
+    res.json({ code: 200, message: `已删除 ${cleanIds.length} 台` })
   } catch (err: any) {
     console.error('[server] 批量删除打印机失败:', err.message)
     res.status(500).json({ code: 500, message: '批量删除失败' })

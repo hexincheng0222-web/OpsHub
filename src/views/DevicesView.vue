@@ -1,6 +1,6 @@
 <!-- src/views/DevicesView.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDevicesStore } from '../stores/devices'
 import type { Device, Rack } from '../types'
@@ -47,6 +47,10 @@ watch(searchQueryInput, (v) => {
   if (devSearchTimer) clearTimeout(devSearchTimer)
   devSearchTimer = setTimeout(() => { searchQuery.value = v }, 300)
   router.replace({ query: { ...route.query, search: v || undefined } })
+})
+// #32: 组件卸载时清理搜索定时器，防止内存泄漏
+onUnmounted(() => {
+  if (devSearchTimer) clearTimeout(devSearchTimer)
 })
 const filterType = ref((route.query.type as string) || '')
 watch(filterType, (v) => {

@@ -3,7 +3,6 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import bcrypt from 'bcryptjs'
-import cron from 'node-cron'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -428,12 +427,12 @@ if (count.cnt === 0) {
   `)
 
   const seeds = [
-    { name: 'Zabbix 监控', url: 'http://10.3.0.142/zabbix', description: '企业级 IT 监控平台', notes: '用户名: Admin\n密码: zabbix', icon: 'Monitor', category: '监控', status: 'online' },
-    { name: 'Grafana 监控 (142)', url: 'http://10.3.0.142:3000', description: '系统与服务监控可视化', notes: '用户名: admin\n密码: admin123', icon: 'DataAnalysis', category: '监控', status: 'online' },
-    { name: 'Grafana 监控 (143)', url: 'http://10.3.0.143:3001', description: '系统与服务监控可视化（备用）', notes: '用户名: admin\n密码: admin123', icon: 'DataAnalysis', category: '监控', status: 'online' },
-    { name: '网络运维工具箱', url: 'http://10.3.0.143:5000', description: '网络运维常用工具集合', notes: '用户名: admin\n密码: admin123', icon: 'SetUp', category: '基础设施', status: 'online' },
-    { name: 'OpenClaw WEB UI', url: 'http://10.3.0.144:3001', description: 'OpenClaw 管理界面', notes: '用户名: admin\n密码: admin123', icon: 'Connection', category: 'DevOps', status: 'online' },
-    { name: 'Gitea 代码仓库', url: 'http://10.3.0.145:3000', description: 'Git 代码托管（Docker 容器）', notes: '用户名: admin\n密码: Bravou#*604896', icon: 'FolderOpened', category: 'DevOps', status: 'online' },
+    { name: 'Zabbix 监控', url: 'http://10.3.0.142/zabbix', description: '企业级 IT 监控平台', notes: '请联系管理员获取凭据', icon: 'Monitor', category: '监控', status: 'online' },
+    { name: 'Grafana 监控 (142)', url: 'http://10.3.0.142:3000', description: '系统与服务监控可视化', notes: '请联系管理员获取凭据', icon: 'DataAnalysis', category: '监控', status: 'online' },
+    { name: 'Grafana 监控 (143)', url: 'http://10.3.0.143:3001', description: '系统与服务监控可视化（备用）', notes: '请联系管理员获取凭据', icon: 'DataAnalysis', category: '监控', status: 'online' },
+    { name: '网络运维工具箱', url: 'http://10.3.0.143:5000', description: '网络运维常用工具集合', notes: '请联系管理员获取凭据', icon: 'SetUp', category: '基础设施', status: 'online' },
+    { name: 'OpenClaw WEB UI', url: 'http://10.3.0.144:3001', description: 'OpenClaw 管理界面', notes: '请联系管理员获取凭据', icon: 'Connection', category: 'DevOps', status: 'online' },
+    { name: 'Gitea 代码仓库', url: 'http://10.3.0.145:3000', description: 'Git 代码托管（Docker 容器）', notes: '请联系管理员获取凭据', icon: 'FolderOpened', category: 'DevOps', status: 'online' },
   ]
 
   const insertMany = db.transaction((rows: typeof seeds) => {
@@ -1426,7 +1425,7 @@ if (lmConfigCount.cnt === 0) {
     ['llm', JSON.stringify({
       base_url: 'http://10.3.0.200:17002/v1',
       model: 'Qwen3.5-9B-AWQ',
-      api_key: 'ml-ShHoXcDGYdOZlH14hv0_GBTlsbsHwliMlYHsIIwiTNc',
+      api_key: process.env.LLM_API_KEY || '',
       temperature: 0.1,
       max_tokens: 1024,
       timeout: 120,
@@ -1506,6 +1505,17 @@ try {
   `)
 } catch {}
 
+// 服务检测缓存（多进程共享）(#41)
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS service_check_cache (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+} catch {}
+
 // 初始化：如果 users 表为空，创建默认超级管理员
 const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users').get() as { cnt: number }).cnt
 if (userCount === 0) {
@@ -1516,23 +1526,6 @@ if (userCount === 0) {
     "INSERT INTO users (username, password_hash, display_name, role) VALUES (?, ?, ?, ?)"
   ).run('admin', hash, '超级管理员', 'superadmin')
   console.log("[db] 已创建默认超级管理员账号：admin / " + (process.env.ADMIN_DEFAULT_PASSWORD ? "(来自 ADMIN_DEFAULT_PASSWORD)" : "admin123（警告: 生产环境务必通过 ADMIN_DEFAULT_PASSWORD 修改）"));
-}
-
-// 启动时注册：每日凌晨 4 点清理 7 天前的 data/log-audit/ 目录（P0-3）
-try {
-  cron.schedule('0 4 * * *', () => {
-    const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
-    const baseDir = path.join('data', 'log-audit')
-    if (!fs.existsSync(baseDir)) return
-    for (const d of fs.readdirSync(baseDir)) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d < cutoff) {
-        fs.rmSync(path.join(baseDir, d), { recursive: true, force: true })
-        console.log(`[log-audit] 已清理 7 天前目录: ${d}`)
-      }
-    }
-  })
-} catch (e: any) {
-  console.warn('[db] log-audit 清理 cron 注册失败:', e.message)
 }
 
 export default db

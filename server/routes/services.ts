@@ -38,13 +38,37 @@ function isBlacklisted(host: string): boolean {
   return false
 }
 
-function validateSsrfSafe(url: string): boolean {
+/**
+ * SSRF 校验 — 白名单授权模式 (#10)
+ *
+ * 默认禁止保留/链路本地地址，但允许：
+ * - 管理员在创建/编辑服务时显式勾选 allowInternal，授权内网地址
+ * - 现有内网服务（10.x / 192.168.x）继续可用
+ *
+ * 拦截点：链路本地（含云 metadata）、本机回环、未指定地址
+ * 内网地址（RFC1918）走显式授权路径
+ */
+function validateSsrfSafe(url: string, allowInternal = true): boolean {
   try {
     const u = new URL(url)
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+    // 链路本地/回环/未指定 → 永久拦截
     if (isBlacklisted(u.hostname)) return false
+    // 内网地址需要显式授权（默认 allowInternal=true 保持向后兼容）
+    if (!allowInternal && isIP(u.hostname) && isPrivateIp(u.hostname)) return false
     return true
   } catch { return false }
+}
+
+/** 判断是否为 RFC1918 私有地址 */
+function isPrivateIp(ip: string): boolean {
+  if (isIP(ip) !== 4) return false
+  const n = ipToInt(ip)
+  // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10 (CGNAT)
+  return (n >= ipToInt('10.0.0.0') && n <= ipToInt('10.255.255.255')) ||
+         (n >= ipToInt('172.16.0.0') && n <= ipToInt('172.31.255.255')) ||
+         (n >= ipToInt('192.168.0.0') && n <= ipToInt('192.168.255.255')) ||
+         (n >= ipToInt('100.64.0.0') && n <= ipToInt('100.127.255.255'))
 }
 
 const STATUSES = ['online', 'offline', 'maintenance']
@@ -68,7 +92,7 @@ function toApi(row: any) {
 // 1. 获取服务列表
 router.get('/', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  const pageSize = Math.min(500, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const keyword = (req.query.keyword as string) || ''
   const category = req.query.category as string
   const status = req.query.status as string
@@ -357,13 +381,42 @@ async function concurrentPool<T, R>(
 }
 
 // 7. 批量检测连通性（含缓存 + 并发控制）
-let checkAllCache: { timestamp: number; data: any } | null = null
+// 多进程共享缓存：改用 DB 表 service_check_cache (#41)
+// 所有 worker 共享同一份缓存，invalidateCheckAllCache 通过 DELETE 触发其他 worker 重新填充
 
 export function invalidateCheckAllCache() {
+  try {
+    db.prepare("DELETE FROM service_check_cache WHERE key = 'check_all'").run()
+  } catch { /* 表不存在时静默 */ }
   checkAllCache = null
 }
 
 const CHECK_CACHE_TTL = 60_000 // 60 秒
+
+// 内存缓存（单进程快速命中）+ DB 缓存（多进程共享）
+let checkAllCache: { timestamp: number; data: any } | null = null
+
+function loadCacheFromDb(): { timestamp: number; data: any } | null {
+  try {
+    const row = db.prepare("SELECT value, updated_at FROM service_check_cache WHERE key = 'check_all'").get() as any
+    if (!row) return null
+    const ts = new Date(row.updated_at).getTime()
+    if (Date.now() - ts >= CHECK_CACHE_TTL) return null
+    return { timestamp: ts, data: JSON.parse(row.value) }
+  } catch { return null }
+}
+
+function saveCacheToDb(data: any): void {
+  try {
+    db.prepare(`
+      INSERT INTO service_check_cache (key, value, updated_at)
+      VALUES ('check_all', ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+    `).run(JSON.stringify(data))
+  } catch (e) {
+    console.warn('[services] 缓存写入失败:', e)
+  }
+}
 
 // 单个服务检测（HEAD 优先，回退 GET，统一在 check-all 与 /:id/check 复用）
 const checkOne = async (svc: any): Promise<any> => {
@@ -388,9 +441,15 @@ const checkOne = async (svc: any): Promise<any> => {
 }
 
 router.post('/check-all', async (_req: Request, res: Response) => {
-  // 缓存命中
+  // 内存缓存命中
   if (checkAllCache && Date.now() - checkAllCache.timestamp < CHECK_CACHE_TTL) {
     return res.json({ code: 200, data: checkAllCache.data, cached: true })
+  }
+  // DB 缓存命中（多进程共享）
+  const dbCache = loadCacheFromDb()
+  if (dbCache) {
+    checkAllCache = dbCache
+    return res.json({ code: 200, data: dbCache.data, cached: true })
   }
 
   const services = db.prepare("SELECT * FROM services WHERE status != 'maintenance'").all() as any[]
@@ -424,6 +483,7 @@ router.post('/check-all', async (_req: Request, res: Response) => {
 
   const data = { results: allResults, summary }
   checkAllCache = { timestamp: Date.now(), data }
+  saveCacheToDb(data)
   res.json({ code: 200, data })
 })
 

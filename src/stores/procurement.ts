@@ -49,17 +49,21 @@ export const useComputerProcurementStore = defineStore('computerProcurement', ()
   const computers = ref<ComputerProcurement[]>([])
   const total = ref(0)  // 后端总记录数，由 loadComputers 写入
   const loading = ref(false)
+  // #16: 请求序号竞态保护，旧响应丢弃
+  let computerReqSeq = 0
 
   async function loadComputers(params?: { page?: number; pageSize?: number; search?: string; department?: string }) {
+    const seq = ++computerReqSeq
     loading.value = true
     try {
       const { list, total: t } = await computerApi.fetchComputers({ pageSize: 9999, ...params })
+      if (seq !== computerReqSeq) return  // 旧响应丢弃
       computers.value = list
       total.value = t
     } catch (e: any) {
-      ElMessage.error(e.message || '加载电脑采购数据失败')
+      if (seq === computerReqSeq) ElMessage.error(e.message || '加载电脑采购数据失败')
     } finally {
-      loading.value = false
+      if (seq === computerReqSeq) loading.value = false
     }
   }
 
@@ -99,17 +103,21 @@ export const usePhoneProcurementStore = defineStore('phoneProcurement', () => {
   const phones = ref<PhoneProcurement[]>([])
   const total = ref(0)  // 后端总记录数，由 loadPhones 写入
   const loading = ref(false)
+  // #16: 请求序号竞态保护，旧响应丢弃
+  let phoneReqSeq = 0
 
   async function loadPhones(params?: { page?: number; pageSize?: number; search?: string; department?: string; purchaseType?: string }) {
+    const seq = ++phoneReqSeq
     loading.value = true
     try {
       const { list, total: t } = await phoneApi.fetchPhones({ pageSize: 9999, ...params })
+      if (seq !== phoneReqSeq) return  // 旧响应丢弃
       phones.value = list
       total.value = t
     } catch (e: any) {
-      ElMessage.error(e.message || '加载手机采购数据失败')
+      if (seq === phoneReqSeq) ElMessage.error(e.message || '加载手机采购数据失败')
     } finally {
-      loading.value = false
+      if (seq === phoneReqSeq) loading.value = false
     }
   }
 

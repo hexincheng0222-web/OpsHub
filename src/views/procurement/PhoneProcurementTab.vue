@@ -287,6 +287,7 @@ import { fetchLogs } from '../../api/admin'
 import { useAuthStore } from '../../stores/auth'
 import { downloadCsv, escapeCsvField } from '../../utils/csv'
 import { downloadXlsx, parseXlsx } from '../../utils/excel'
+import { escapeHtml } from '../../utils/sanitize'
 import { fetchPhoneTrash, restorePhone, purgePhone } from '../../api/phone-procurement'
 
 const store = usePhoneProcurementStore()
@@ -783,10 +784,10 @@ async function processImportFromGrid(headers: string[], rows: string[][]) {
       return
     }
     const skippedTotal = skippedEmpty + skippedDupImei
-    const summaryLines: string[] = [`将导入 <b style="color:var(--ops-accent-blue)">${outRows.length}</b> 条记录`]
-    if (matchedFields.length < 17) summaryLines.push(`识别 <b>${matchedFields.length}/17</b> 列`)
-    if (skippedTotal) summaryLines.push(`跳过 <b style="color:#e6a23c">${skippedTotal}</b> 行（空行 ${skippedEmpty} / IMEI 重复 ${skippedDupImei}）`)
-    if (skippedDupImeiLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);margin-top:8px">IMEI 重复行：${skippedDupImeiLines.join(', ')}</div>`)
+    const summaryLines: string[] = [`将导入 <b style="color:var(--ops-accent-blue)">${escapeHtml(outRows.length)}</b> 条记录`]
+    if (matchedFields.length < 17) summaryLines.push(`识别 <b>${escapeHtml(matchedFields.length)}/17</b> 列`)
+    if (skippedTotal) summaryLines.push(`跳过 <b style="color:#e6a23c">${escapeHtml(skippedTotal)}</b> 行（空行 ${escapeHtml(skippedEmpty)} / IMEI 重复 ${escapeHtml(skippedDupImei)}）`)
+    if (skippedDupImeiLines.length) summaryLines.push(`<div style="font-size:12px;color:var(--ops-text-tertiary);margin-top:8px">IMEI 重复行：${skippedDupImeiLines.map(escapeHtml).join(', ')}</div>`)
     try {
       await ElMessageBox.confirm(summaryLines.join('<br>'), '导入预览', {
         dangerouslyUseHTMLString: true, confirmButtonText: '确认导入', cancelButtonText: '取消',
@@ -823,7 +824,7 @@ function handleImport(e: Event) {
     const rows = lines.slice(1).map(line => line.split(',').map(c => c.replace(/^"|"$/g, '').trim()))
     await processImportFromGrid(headers, rows)
   }
-  r.readAsText(f)
+  r.readAsText(f, 'utf-8')
 }
 
 // 按记录 id 打开详情抽屉（供概览跳转调用）
