@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import crypto from 'crypto'
 import db from '../db'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -145,31 +146,6 @@ const tables: Record<string, TableConfig> = {
   },
 }
 
-// 记录操作日志（增强：IP / UA / 状态 / 错误 / 请求方法 / 路径 / 耗时）
-function logOperation(params: {
-  module: string
-  action: string
-  target: string
-  detail?: string
-  operator?: string
-  ip?: string
-  userAgent?: string
-  status?: 'success' | 'fail'
-  errorMessage?: string
-  requestMethod?: string
-  requestPath?: string
-  durationMs?: number
-}) {
-  db.prepare(
-    `INSERT INTO operation_logs (module, action, target, detail, operator, ip_address, user_agent, status, error_message, request_method, request_path, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    params.module, params.action, params.target, params.detail || '', params.operator || '',
-    params.ip || '', params.userAgent || '', params.status || 'success',
-    params.errorMessage || '', params.requestMethod || '', params.requestPath || '', params.durationMs || 0
-  )
-}
-
 // ========== 系统配置（必须在 /:table 之前） ==========
 
 // GET /api/v1/admin/config/list — 获取所有配置项
@@ -207,7 +183,7 @@ router.put('/config', (req: Request, res: Response) => {
   })
   tx()
 
-  logOperation({ module: '系统配置', action: '修改', target: configs.map(c => c.key).join(', '), detail: sanitizeDetail(configs), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+  logOperation({ module: '系统配置', action: '修改', target: configs.map(c => c.key).join(', '), detail: sanitizeDetail(configs), operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, message: '配置已保存' })
 })
 
@@ -245,7 +221,7 @@ router.delete('/:table/batch', (req: Request, res: Response) => {
   const ph = ids.map(() => '?').join(',')
   try {
     const n = db.prepare(`DELETE FROM ${config.table} WHERE id IN (${ph})`).run(...ids)
-    logOperation({ module: config.module, action: '批量删除', target: `${ids.length} 条记录`, detail: '', operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '批量删除', target: `${ids.length} 条记录`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, message: `已删除 ${n.changes} 条` })
   } catch (err: any) {
     if (err.message?.includes('FOREIGN KEY')) return res.status(409).json({ code: 409, message: '部分记录被引用，无法删除' })
@@ -267,7 +243,7 @@ router.post('/:table', (req: Request, res: Response) => {
   try {
     const result = db.prepare(`INSERT INTO ${config.table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...values)
     const row = db.prepare(`SELECT ${config.listColumns} FROM ${config.table} WHERE id = ?`).get(result.lastInsertRowid)
-    logOperation({ module: config.module, action: '新增', target: String(req.body.name || ''), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '新增', target: String(req.body.name || ''), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
@@ -314,7 +290,7 @@ router.put('/:table/:id', (req: Request, res: Response) => {
       }
     }
 
-    logOperation({ module: config.module, action: '修改', target: String(req.body.name || `ID:${req.params.id}`), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '修改', target: String(req.body.name || `ID:${req.params.id}`), detail: sanitizeDetail(req.body), operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: row })
   } catch (err: any) {
     if (err.message?.includes('UNIQUE')) {
@@ -333,9 +309,20 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
   const existing = db.prepare(`SELECT ${nameCol} FROM ${config.table} WHERE id = ?`).get(req.params.id) as any
   if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
+  // CASCADE 删除保护：若其他表以本表为外键目标，存在子记录时拒绝删除（#审查 I4）
+  for (const [, refConfig] of Object.entries(tables)) {
+    const fk = (refConfig as any).foreignKey as { table: string; column: string; ref: string } | undefined
+    if (fk && fk.table === config.table) {
+      const childCount = (db.prepare(`SELECT COUNT(*) as cnt FROM ${refConfig.table} WHERE ${fk.column} = ?`).get(req.params.id) as { cnt: number }).cnt
+      if (childCount > 0) {
+        return res.status(409).json({ code: 409, message: `该记录下有 ${childCount} 条「${refConfig.module}」子记录，请先删除子记录后再删除本记录` })
+      }
+    }
+  }
+
   try {
     db.prepare(`DELETE FROM ${config.table} WHERE id = ?`).run(req.params.id)
-    logOperation({ module: config.module, action: '删除', target: existing[nameCol] || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+    logOperation({ module: config.module, action: '删除', target: existing[nameCol] || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     if (err.message?.includes('FOREIGN KEY')) {
@@ -380,7 +367,7 @@ router.get('/logs/modules', (_req: Request, res: Response) => {
 // DELETE /api/v1/admin/logs/clear  — 清空日志
 router.delete('/logs/clear', (req: Request, res: Response) => {
   db.prepare('DELETE FROM operation_logs').run()
-  logOperation({ module: '系统', action: '清空日志', target: '所有操作日志', detail: '', operator: req.user?.username || '', ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress, userAgent: req.headers['user-agent'] as string, requestMethod: req.method, requestPath: req.path })
+  logOperation({ module: '系统', action: '清空日志', target: '所有操作日志', detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, message: '日志已清空' })
 })
 
