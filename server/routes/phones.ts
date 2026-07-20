@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import db from '../db'
 import http from 'http'
 import crypto from 'crypto'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -404,7 +405,7 @@ router.put('/:id/account', async (req: Request, res: Response) => {
 
   try {
     const result = await atcomPost(phone.ip, 'user_set_account_basic', params.join('&'))
-    logOp('话机配置', '修改', `${phone.extension} 账号配置`, params.join('&'))
+    logOperation({ module: '话机配置', action: '修改', target: `${phone.extension} 账号配置`, detail: params.join('&'), operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: result, message: '配置已同步到话机' })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '同步失败' })
@@ -424,7 +425,7 @@ router.put('/:id/remote-phonebook', async (req: Request, res: Response) => {
   try {
     const params = `phonebook1_remote_url=${encodeURIComponent(xmlUrl)}&phonebook1_display_name=${encodeURIComponent(name || '公司电话簿')}`
     const result = await atcomPost(phone.ip, 'user_set_xml_remote_phonebook', params)
-    logOp('话机配置', '修改', `${phone.extension} 远程电话本`, `URL: ${xmlUrl}`)
+    logOperation({ module: '话机配置', action: '修改', target: `${phone.extension} 远程电话本`, detail: `URL: ${xmlUrl}`, operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: result, message: '远程电话本配置已同步到话机' })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '同步失败' })
@@ -440,7 +441,7 @@ router.post('/:id/reboot', async (req: Request, res: Response) => {
 
   try {
     await atcomPost(phone.ip, 'reboot', '')
-    logOp('话机管理', '重启', phone.extension)
+    logOperation({ module: '话机管理', action: '重启', target: phone.extension, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, message: '重启指令已发送' })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '重启失败' })
@@ -460,7 +461,7 @@ router.put('/:id/remark', async (req: Request, res: Response) => {
        VALUES (?, ?, datetime('now'))
        ON CONFLICT(extension) DO UPDATE SET remark = excluded.remark, updated_at = datetime('now')`
     ).run(phone.extension, remark)
-    logOp('话机管理', '修改备注', phone.extension, remark ? `备注已更新：${remark.slice(0, 50)}` : '备注已清空')
+    logOperation({ module: '话机管理', action: '修改备注', target: phone.extension, detail: remark ? `备注已更新：${remark.slice(0, 50)}` : '备注已清空', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: { extension: phone.extension, remark } })
   } catch (err: any) {
     console.error('[server] 修改话机备注失败:', err.message)
@@ -479,10 +480,6 @@ function atcomPost(ip: string, command: string, data: string, username?: string,
 }
 
 // ========== 电话簿 ==========
-
-function logOp(module: string, action: string, target: string, detail: string = '') {
-  db.prepare('INSERT INTO operation_logs (module, action, target, detail) VALUES (?, ?, ?, ?)').run(module, action, target, detail)
-}
 
 // GET /phonebook — 联系人列表
 router.get('/phonebook', (req: Request, res: Response) => {
@@ -503,7 +500,7 @@ router.post('/phonebook', (req: Request, res: Response) => {
   try {
     const r = db.prepare('INSERT INTO phonebook_contacts (name,number,department,position,type,notes) VALUES (?,?,?,?,?,?)')
       .run(d.name, d.number, d.department||'', d.position||'', d.type||'external', d.notes||'')
-    logOp('电话簿', '新增', d.name)
+    logOperation({ module: '电话簿', action: '新增', target: d.name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(r.lastInsertRowid)
     res.status(201).json({ code: 201, data: row })
   } catch (e: any) {
@@ -524,7 +521,7 @@ router.put('/phonebook/:id', (req: Request, res: Response) => {
     fields.push("updated_at = datetime('now')")
     values.push(req.params.id)
     db.prepare(`UPDATE phonebook_contacts SET ${fields.join(', ')} WHERE id = ?`).run(...values)
-    logOp('电话簿', '修改', d.name || `ID:${req.params.id}`)
+    logOperation({ module: '电话簿', action: '修改', target: d.name || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     const row = db.prepare('SELECT * FROM phonebook_contacts WHERE id = ?').get(req.params.id)
     res.json({ code: 200, data: row })
   } catch (err: any) {
@@ -539,7 +536,7 @@ router.delete('/phonebook/:id', (req: Request, res: Response) => {
     const existing = db.prepare('SELECT name FROM phonebook_contacts WHERE id = ?').get(req.params.id) as any
     if (!existing) return res.status(404).json({ code: 404, message: '联系人不存在' })
     db.prepare('DELETE FROM phonebook_contacts WHERE id = ?').run(req.params.id)
-    logOp('电话簿', '删除', existing.name || `ID:${req.params.id}`)
+    logOperation({ module: '电话簿', action: '删除', target: existing.name || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除联系人失败:', err.message)
@@ -557,7 +554,7 @@ router.post('/phonebook/batch-delete', (req: Request, res: Response) => {
     if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
     const ph = cleanIds.map(() => '?').join(',')
     db.prepare(`DELETE FROM phonebook_contacts WHERE id IN (${ph})`).run(...cleanIds)
-    logOp('电话簿', '批量删除', `${cleanIds.length} 条`)
+    logOperation({ module: '电话簿', action: '批量删除', target: `${cleanIds.length} 条`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, message: `已删除 ${cleanIds.length} 条` })
   } catch (err: any) {
     console.error('[server] 批量删除联系人失败:', err.message)
@@ -581,7 +578,7 @@ router.post('/phonebook/import', (req: Request, res: Response) => {
     }
   })
   batch()
-  logOp('电话簿', '导入', `${imported} 条`)
+  logOperation({ module: '电话簿', action: '导入', target: `${imported} 条`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: { imported, errors } })
 })
 
@@ -617,7 +614,7 @@ router.post('/phonebook/sync-from-pbx', async (_req: Request, res: Response) => 
       }
     })
     batch()
-    logOp('电话簿', 'PBX同步', `${synced} 个分机`)
+    logOperation({ module: '电话簿', action: 'PBX同步', target: `${synced} 个分机`, detail: '', operator: _req.user?.username || '', ...logCtx(_req) })
     res.json({ code: 200, data: { synced } })
   } catch (err: any) {
     res.status(502).json({ code: 502, message: err.message || '同步失败' })
@@ -673,7 +670,7 @@ router.post('/phonebook/deploy', async (req: Request, res: Response) => {
       results.push({ id: phone.id, extension: phone.extension, status: 'failed', error: e.message })
     }
   }
-  logOp('电话簿', '推送', `${targetPhones.length} 台话机`, JSON.stringify(results))
+  logOperation({ module: '电话簿', action: '推送', target: `${targetPhones.length} 台话机`, detail: JSON.stringify(results), operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: { total: targetPhones.length, success: results.filter(r => r.status === 'success').length, failed: results.filter(r => r.status === 'failed').length, results } })
 })
 
