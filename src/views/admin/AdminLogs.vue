@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { fetchLogs, clearLogs, fetchLogModules } from '../../api/admin'
+import { fetchLogs, clearLogs, fetchLogModules, fetchLogOperators } from '../../api/admin'
 import { Search } from '@element-plus/icons-vue'
 import { formatTime } from '../../utils/format'
 
@@ -11,9 +11,11 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const filterModule = ref('')
+const filterOperator = ref('')
 const searchText = ref('')
 const dateRange = ref<[string, string] | null>(null)
 const moduleOptions = ref<string[]>([])
+const operatorOptions = ref<string[]>([])
 
 async function loadModules() {
   try {
@@ -24,6 +26,15 @@ async function loadModules() {
   }
 }
 
+async function loadOperators() {
+  try {
+    operatorOptions.value = await fetchLogOperators()
+  } catch {
+    // 失败时使用空数组，操作用户筛选不可用但不影响列表
+    operatorOptions.value = []
+  }
+}
+
 const filteredLogs = computed(() => {
   if (!searchText.value) return logs.value
   const q = searchText.value.toLowerCase()
@@ -31,7 +42,8 @@ const filteredLogs = computed(() => {
     (row.module || '').toLowerCase().includes(q) ||
     (row.action || '').toLowerCase().includes(q) ||
     (row.target || '').toLowerCase().includes(q) ||
-    (row.detail || '').toLowerCase().includes(q)
+    (row.detail || '').toLowerCase().includes(q) ||
+    (row.operator || '').toLowerCase().includes(q)
   )
 })
 
@@ -42,6 +54,7 @@ async function loadLogs() {
       page: page.value,
       pageSize: pageSize.value,
       module: filterModule.value || undefined,
+      operator: filterOperator.value || undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined,
     })
@@ -56,10 +69,16 @@ async function loadLogs() {
 
 onMounted(() => {
   loadModules()
+  loadOperators()
   loadLogs()
 })
 
 watch(filterModule, () => {
+  page.value = 1
+  loadLogs()
+})
+
+watch(filterOperator, () => {
   page.value = 1
   loadLogs()
 })
@@ -113,6 +132,15 @@ function getActionType(action: string): string {
       >
         <el-option v-for="m in moduleOptions" :key="m" :label="m" :value="m" />
       </el-select>
+      <el-select
+        v-model="filterOperator"
+        placeholder="操作用户"
+        clearable
+        size="small"
+        style="width: 130px"
+      >
+        <el-option v-for="u in operatorOptions" :key="u" :label="u" :value="u" />
+      </el-select>
       <el-date-picker
         v-model="dateRange"
         type="daterange"
@@ -135,6 +163,11 @@ function getActionType(action: string): string {
       <el-table-column prop="action" label="操作" width="70">
         <template #default="{ row }">
           <span class="cell-action" :class="getActionType(row.action)">{{ row.action }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="operator" label="操作用户" width="90">
+        <template #default="{ row }">
+          <span class="cell-operator">{{ row.operator || '—' }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="target" label="目标" min-width="160" show-overflow-tooltip />
@@ -166,6 +199,7 @@ function getActionType(action: string): string {
 .total-text { font-size: 12px; color: var(--ops-text-tertiary); }
 .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .cell-module { font-size: 12px; color: var(--ops-text-tertiary); }
+.cell-operator { font-size: 12px; color: var(--ops-text-secondary); }
 .cell-action { font-size: 12px; font-weight: 500; }
 .cell-action.success { color: var(--ops-accent-green); }
 .cell-action.warning { color: var(--ops-accent-yellow); }
