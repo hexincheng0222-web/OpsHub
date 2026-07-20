@@ -3,6 +3,7 @@ import { isIP } from 'node:net'
 import db from '../db'
 import { authRequired } from '../middleware/auth'
 import { encryptSecret, decryptSecret, credKeyReady } from '../utils/crypto'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -244,6 +245,7 @@ router.post('/', (req: Request, res: Response) => {
     ).run(name, url, description, notes, icon, category, status, req.body.hostId || null)
 
     const created = db.prepare('SELECT * FROM services WHERE id = ?').get(result.lastInsertRowid)
+    logOperation({ module: '服务主机', action: '新增', target: name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: toApi(created) })
   } catch (err: any) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -276,6 +278,7 @@ router.put('/:id', (req: Request, res: Response) => {
     ).run(name, url, description, notes, icon, category, status || 'online', req.body.hostId || null, id)
 
     const updated = db.prepare('SELECT * FROM services WHERE id = ?').get(id)
+    logOperation({ module: '服务主机', action: '修改', target: name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: toApi(updated) })
   } catch (err: any) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -352,10 +355,10 @@ router.patch('/:id', (req: Request, res: Response) => {
 router.delete('/:id', (req: Request, res: Response) => {
   const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的服务 ID' })
-  const result = db.prepare('DELETE FROM services WHERE id = ?').run(id)
-  if (result.changes === 0) {
-    return res.status(404).json({ code: 404, message: '服务不存在' })
-  }
+  const existing = db.prepare('SELECT name FROM services WHERE id = ?').get(id) as { name: string } | undefined
+  if (!existing) return res.status(404).json({ code: 404, message: '服务不存在' })
+  db.prepare('DELETE FROM services WHERE id = ?').run(id)
+  logOperation({ module: '服务主机', action: '删除', target: existing.name || `ID:${id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.status(204).send()
 })
 
