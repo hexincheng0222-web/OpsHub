@@ -56,7 +56,8 @@ steps:
       - cp -r scripts/. /data/opshub-v1.0/OpsHub/scripts/
       - cp package.json package-lock.json ecosystem.config.cjs /data/opshub-v1.0/OpsHub/
       # 容器内重装 + rebuild 原生模块（better-sqlite3 与容器内核对齐）
-      - docker exec opshub-api sh -c "cd /data/opshub-v1.0/OpsHub && npm ci --omit=dev && npm rebuild better-sqlite3 --build-from-source"
+      # 容器内工作目录是 /app（宿主机 /data/opshub-v1.0/OpsHub 挂载到容器 /app）
+      - docker exec opshub-api sh -c "cd /app && npm ci --omit=dev && npm rebuild better-sqlite3 --build-from-source"
       # PM2 重载（与 ecosystem.config.cjs 对齐，触发优雅关闭 #17）；失败则回退 restart
       - docker exec opshub-api sh -c "pm2 reload opshub --update-env || pm2 restart opshub"
     when:
