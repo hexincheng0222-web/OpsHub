@@ -1,27 +1,9 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
 import '../middleware/auth'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
-
-function logOperation(params: {
-  module: string; action: string; target: string; detail?: string; operator?: string
-  ip?: string; userAgent?: string; status?: 'success' | 'fail'; errorMessage?: string
-  requestMethod?: string; requestPath?: string; durationMs?: number
-}) {
-  db.prepare(
-    `INSERT INTO operation_logs (module, action, target, detail, operator, ip_address, user_agent, status, error_message, request_method, request_path, duration_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(params.module, params.action, params.target, params.detail || '', params.operator || '', params.ip || '', params.userAgent || '', params.status || 'success', params.errorMessage || '', params.requestMethod || '', params.requestPath || '', params.durationMs || 0)
-}
-
-const logCtx = (req: any) => ({
-  ip: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
-  userAgent: req.headers['user-agent'] as string,
-  requestMethod: req.method,
-  requestPath: req.path,
-  operator: req.user?.username || '',
-})
 
 function toApi(row: any) {
   return {
@@ -84,7 +66,8 @@ router.post('/trash/restore', (req: Request, res: Response) => {
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
     const ph = ids.map(() => '?').join(',')
     db.prepare(`UPDATE phone_procurement SET deleted = 0, deleted_at = NULL WHERE id IN (${ph})`).run(...ids)
-    logOperation({ module: '手机采购', action: '恢复', target: `${ids.length} 条记录`, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '恢复', target: `${ids.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.json({ code: 200, message: `已恢复 ${ids.length} 条` })
   } catch (err: any) {
     res.status(500).json({ code: 500, message: '恢复失败' })
@@ -96,7 +79,8 @@ router.delete('/trash/purge', (req: Request, res: Response) => {
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
     const ph = ids.map(() => '?').join(',')
     db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph}) AND deleted = 1`).run(...ids)
-    logOperation({ module: '手机采购', action: '永久删除', target: `${ids.length} 条记录`, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '永久删除', target: `${ids.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.json({ code: 200, message: `已永久删除 ${ids.length} 条` })
   } catch (err: any) {
     res.status(500).json({ code: 500, message: '永久删除失败' })
@@ -122,7 +106,8 @@ router.post('/', (req: Request, res: Response) => {
       d.brand||'', d.model||'', d.assetLink||'', d.department||'', d.handler||'', d.recipient||'',
       d.dingtalkCreator||'', d.purchaseType||'新购', d.dingtalkFlow||'', d.originalOwner||'', d.notes||'')
     const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ?').get(result.lastInsertRowid)
-    logOperation({ module: '手机采购', action: '新增', target: d.model || assetNumber, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '新增', target: d.model || assetNumber, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.status(201).json({ code: 201, data: toApi(row) })
   } catch (err: any) {
     console.error('[server] 新增手机采购失败:', err.message)
@@ -152,7 +137,8 @@ router.put('/:id', (req: Request, res: Response) => {
     values.push(req.params.id)
     db.prepare('UPDATE phone_procurement SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
     const row = db.prepare('SELECT * FROM phone_procurement WHERE id = ? AND deleted = 0').get(req.params.id)
-    logOperation({ module: '手机采购', action: '修改', target: (row as any).model || `ID:${req.params.id}`, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '修改', target: (row as any).model || `ID:${req.params.id}`, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.json({ code: 200, data: toApi(row) })
   } catch (err: any) {
     console.error('[server] 更新手机采购失败:', err.message)
@@ -167,7 +153,8 @@ router.delete('/:id', (req: Request, res: Response) => {
     if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
     db.prepare('UPDATE phone_procurement SET deleted = 1, deleted_at = datetime(\'now\') WHERE id = ?').run(req.params.id)
-    logOperation({ module: '手机采购', action: '删除', target: existing.model || existing.asset_number || `ID:${req.params.id}`, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '删除', target: existing.model || existing.asset_number || `ID:${req.params.id}`, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除手机采购失败:', err.message)
@@ -184,7 +171,8 @@ router.post('/batch-delete', (req: Request, res: Response) => {
     if (validIds.length === 0) return res.status(400).json({ code: 400, message: '无有效 ID' })
     const ph = validIds.map(() => '?').join(',')
     db.prepare(`UPDATE phone_procurement SET deleted = 1, deleted_at = datetime('now') WHERE id IN (${ph}) AND deleted = 0`).run(...validIds)
-    logOperation({ module: '手机采购', action: '批量删除', target: `${validIds.length} 条记录`, detail: '', status: 'success', ...logCtx(req) })
+    logOperation({ module: '手机采购', action: '批量删除', target: `${validIds.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+    ...logCtx(req) })
     res.json({ code: 200, message: `已删除 ${validIds.length} 条` })
   } catch (err: any) {
     console.error('[server] 批量删除失败:', err.message)
