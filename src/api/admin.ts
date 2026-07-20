@@ -46,11 +46,12 @@ export async function deleteDict(table: string, id: number) {
 }
 
 // 操作日志
-export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; startDate?: string; endDate?: string } = {}) {
+export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; operator?: string; startDate?: string; endDate?: string } = {}) {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.pageSize) qs.set('pageSize', String(params.pageSize))
   if (params.module) qs.set('module', params.module)
+  if (params.operator) qs.set('operator', params.operator)
   if (params.startDate) qs.set('startDate', params.startDate)
   if (params.endDate) qs.set('endDate', params.endDate)
   return request(`${BASE}/logs/list?${qs}`)
@@ -63,6 +64,11 @@ export async function clearLogs() {
 // 操作日志模块选项（动态）
 export async function fetchLogModules(): Promise<string[]> {
   return request(`${BASE}/logs/modules`)
+}
+
+// 操作日志操作用户选项（去重，排除空值）
+export async function fetchLogOperators(): Promise<string[]> {
+  return request(`${BASE}/logs/operators`)
 }
 
 // 概览统计
