@@ -339,6 +339,7 @@ router.get('/logs/list', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const module_ = (req.query.module as string) || ''
+  const operator = (req.query.operator as string) || ''
   const startDate = (req.query.startDate as string) || ''
   const endDate = (req.query.endDate as string) || ''
   const offset = (page - 1) * pageSize
@@ -346,6 +347,7 @@ router.get('/logs/list', (req: Request, res: Response) => {
   const conditions: string[] = []
   const params: any[] = []
   if (module_) { conditions.push('module = ?'); params.push(module_) }
+  if (operator) { conditions.push('operator = ?'); params.push(operator) }
   if (startDate) { conditions.push("created_at >= ?"); params.push(startDate + ' 00:00:00') }
   if (endDate) { conditions.push("created_at <= ?"); params.push(endDate + ' 23:59:59') }
 
@@ -362,6 +364,12 @@ router.get('/logs/list', (req: Request, res: Response) => {
 router.get('/logs/modules', (_req: Request, res: Response) => {
   const rows = db.prepare('SELECT DISTINCT module FROM operation_logs ORDER BY module ASC').all() as { module: string }[]
   res.json({ code: 200, data: rows.map(r => r.module).filter(Boolean) })
+})
+
+// GET /api/v1/admin/logs/operators — 操作用户下拉选项（去重，排除空值）
+router.get('/logs/operators', (_req: Request, res: Response) => {
+  const rows = db.prepare('SELECT DISTINCT operator FROM operation_logs WHERE operator != ? ORDER BY operator ASC').all('') as { operator: string }[]
+  res.json({ code: 200, data: rows.map(r => r.operator) })
 })
 
 // DELETE /api/v1/admin/logs/clear  — 清空日志
