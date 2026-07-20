@@ -116,6 +116,19 @@ const tables: Record<string, TableConfig> = {
     listColumns: 'id, name, sort_order, created_at, updated_at',
     module: '电脑型号',
   },
+  'computer-purchase-models': {
+    table: 'computer_purchase_models',
+    columns: ['name', 'sort_order'],
+    listColumns: 'id, name, sort_order, created_at, updated_at',
+    module: '电脑采购型号',
+  },
+  'computer-device-models': {
+    table: 'computer_device_models',
+    columns: ['purchase_model_id', 'name', 'sort_order'],
+    listColumns: 'id, purchase_model_id, name, sort_order, created_at, updated_at',
+    module: '电脑设备型号',
+    foreignKey: { table: 'computer_purchase_models', column: 'purchase_model_id', ref: 'purchase_model' },
+  },
   'phone-remarks': {
     table: 'phone_remarks',
     columns: ['extension', 'remark'],

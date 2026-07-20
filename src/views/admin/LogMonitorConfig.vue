@@ -115,6 +115,7 @@ const form = ref<any>({
   devices: [],
   llm: {},
   scheduler: {},
+  alert: { enabled: false, webhook: '', silent_hours: '', cooldown_minutes: 0 },
 })
 const loading = ref(false)
 const saving = ref(false)

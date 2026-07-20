@@ -1,25 +1,93 @@
+# Woodpecker CI — OpsHub
+# 分支策略：
+#   - 任何分支 push / PR：跑 typecheck + build（快速卡门槛，防坏构建合入）
+#   - hxc 分支 push：额外跑 deploy（生产发布）+ backup-db（数据保命）
+# 步骤依赖：deploy 依赖 build 成功；backup 依赖 deploy 成功
+# 防御性配置：better-sqlite3 原生模块在 node:22 需 rebuild，typecheck:server 与 build 分开跑便于定位失败
+
 steps:
-  - name: build
+  # ========== 阜期门槛：类型检查（前端 + 服务端并行）==========
+  # 不依赖 build 产物，独立并行，失败立即终止后续 build/deploy
+
+  - name: typecheck-client
     image: node:22
+    pull: true
     commands:
       - npm ci
-      - npm run build
+      - npm run build:client -- --noEmit  # vue-tsc 类型检查，不产出 dist
+    when:
+      event: [push, pull_request, manual]
+
+  - name: typecheck-server
+    image: node:22
+    pull: true
+    commands:
+      - npm ci
+      - npm run typecheck:server  # vue-tsc -p tsconfig.server.json --noEmit (#18 服务端 typecheck 落地)
+    when:
+      event: [push, pull_request, manual]
+
+  # ========== 构建产物（仅 hxc 分支：deploy 需要 dist）==========
+  - name: build
+    image: node:22
+    pull: true
+    commands:
+      - npm ci
+      # better-sqlite3 是原生模块，确保在 node:22 下 rebuild
+      - npm rebuild better-sqlite3 --build-from-source
+      - npm run build  # vue-tsc -b && vite build，产出 dist/
     when:
       branch: hxc
-      event: push
+      event: [push, manual]
 
+  # ========== 部署到生产（hxc 分支 push 触发）==========
+  # 依赖 build 步骤成功（Woodpecker 默认串行，上一步失败即停）
+  # 与 PM2 配置对齐：docker 容器内用 PM2 启动，不再 docker restart + nginx reload 两套并存
   - name: deploy
     image: docker:27
+    pull: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /data/opshub:/data/opshub
+      - /data/opshub-v1.0/OpsHub:/data/opshub-v1.0/OpsHub
     commands:
-      - cp -r dist/. /data/opshub/dist/
-      - cp -r server/. /data/opshub/server/
-      - cp package.json package-lock.json /data/opshub/
-      - docker restart opshub-api
-      - docker exec opshub-nginx nginx -s reload
+      # 同步构建产物 + 服务端代码 + 依赖清单到挂载卷
+      - cp -r dist/. /data/opshub-v1.0/OpsHub/dist/
+      - cp -r server/. /data/opshub-v1.0/OpsHub/server/
+      - cp -r scripts/. /data/opshub-v1.0/OpsHub/scripts/
+      - cp package.json package-lock.json ecosystem.config.cjs /data/opshub-v1.0/OpsHub/
+      # 容器内重装 + rebuild 原生模块（better-sqlite3 与容器内核对齐）
+      - docker exec opshub-api sh -c "cd /data/opshub-v1.0/OpsHub && npm ci --omit=dev && npm rebuild better-sqlite3 --build-from-source"
+      # PM2 重载（与 ecosystem.config.cjs 对齐，触发优雅关闭 #17）；失败则回退 restart
+      - docker exec opshub-api sh -c "pm2 reload opshub --update-env || pm2 restart opshub"
     when:
       branch: hxc
-      event: push
+      event: [push, manual]
 
+  # ========== 数据保命：部署后立即备份 SQLite (#17) ==========
+  # 依赖 deploy 成功；备份脚本生成带校验的压缩包，保留 N 天
+  - name: backup-db
+    image: node:22
+    pull: true
+    volumes:
+      - /data/opshub-v1.0/OpsHub:/data/opshub-v1.0/OpsHub
+    commands:
+      - cd /data/opshub-v1.0/OpsHub
+      - node scripts/backup-db.mjs  # 生成 data/backups/opshub-YYYYMMDD-HHmmss.db.bak.gz
+    when:
+      branch: hxc
+      event: [push, manual]
+
+  # ========== 失败通知（任何步骤失败即推送）==========
+  # 占位：根据团队群（钉钉/企微/Telegram）替换 webhook URL
+  # Woodpecker 用 ${VAR} 替换，不支持 bash ${VAR:0:7} 子串，故放完整 SHA
+  - name: notify-on-failure
+    image: curlimages/curl:8.10.1
+    pull: true
+    commands:
+      - |
+        curl -s -X POST "${WOODPECKER_WEBHOOK_URL}" \
+          -H "Content-Type: application/json" \
+          -d "{\"text\": \"🚨 OpsHub CI 失败：分支=${CI_COMMIT_BRANCH} 步骤=${CI_BUILD_STEP} 提交=${CI_COMMIT_SHA} 作者=${CI_COMMIT_AUTHOR}\"}"
+    when:
+      event: [push, pull_request, manual]
+      status: [failure]  # 仅失败时触发

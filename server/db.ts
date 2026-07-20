@@ -290,6 +290,24 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS computer_purchase_models (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS computer_device_models (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    purchase_model_id INTEGER NOT NULL REFERENCES computer_purchase_models(id) ON DELETE CASCADE,
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cdm_purchase_model ON computer_device_models (purchase_model_id);
+
   CREATE TABLE IF NOT EXISTS phone_procurement (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     asset_number     VARCHAR(32)  NOT NULL UNIQUE,
@@ -1274,10 +1292,42 @@ if (deptCount.cnt === 0) {
     const cpmNames = ['MacBook Pro 16"', 'MacBook Pro 14"', 'MacBook Air 15"', 'MacBook Air 13"', 'Dell XPS 15', 'Dell XPS 13', 'Dell Latitude 5540', 'ThinkPad X1 Carbon', 'ThinkPad T14', 'ThinkPad E14', 'HP EliteBook 840', 'HP ProBook 450']
     cpmNames.forEach((n, i) => insertCPM.run(n, i))
 
-    console.log('[db] 已初始化采购字典数据')
+    console.log('[info] [db] 已初始化采购字典数据')
   })
   seedProcDicts()
 }
+
+// 电脑采购型号 + 设备型号字典（独立守卫：无论采购字典是否初始化，只要本表为空就种子）
+function seedComputerModelsIfNotExists() {
+  const cpmCount = db.prepare('SELECT COUNT(*) as cnt FROM computer_purchase_models').get() as { cnt: number }
+  if (cpmCount.cnt > 0) return
+
+  const insertPMM = db.prepare('INSERT INTO computer_purchase_models (name, sort_order) VALUES (?, ?)')
+  const pmNames = ['苹果 MacBook Pro', '苹果 MacBook Air', '戴尔 XPS', '戴尔 Latitude', 'ThinkPad', 'HP EliteBook', 'HP ProBook', '组装兼容机']
+  pmNames.forEach((n, i) => insertPMM.run(n, i))
+
+  const insertDMM = db.prepare('INSERT INTO computer_device_models (name, purchase_model_id, sort_order) VALUES (?, ?, ?)')
+  const pmId = (name: string) => {
+    const row = db.prepare('SELECT id FROM computer_purchase_models WHERE name = ?').get(name) as { id: number } | undefined
+    if (!row) throw new Error(`[db] 种子失败：找不到采购型号 "${name}"`)
+    return row.id
+  }
+  const dmMap: Record<string, string[]> = {
+    '苹果 MacBook Pro': ['MacBook Pro M4 Max 16"', 'MacBook Pro M4 Pro 14"', 'MacBook Pro M3 Max 16"', 'MacBook Pro M3 Pro 14"'],
+    '苹果 MacBook Air': ['MacBook Air M3 15"', 'MacBook Air M3 13"', 'MacBook Air M2 15"', 'MacBook Air M2 13"'],
+    '戴尔 XPS': ['Dell XPS 16 9640', 'Dell XPS 14 9440', 'Dell XPS 13 9340', 'Dell XPS 15 9530'],
+    '戴尔 Latitude': ['Dell Latitude 5550', 'Dell Latitude 5450', 'Dell Latitude 7440', 'Dell Latitude 5540'],
+    'ThinkPad': ['ThinkPad X1 Carbon Gen 11', 'ThinkPad T14s Gen 4', 'ThinkPad X13 Gen 4', 'ThinkPad E14 Gen 5'],
+    'HP EliteBook': ['HP EliteBook 860 G11', 'HP EliteBook 840 G11', 'HP EliteBook 640 G11'],
+    'HP ProBook': ['HP ProBook 450 G11', 'HP ProBook 440 G11'],
+    '组装兼容机': ['办公台式机', '设计工作站', '服务器'],
+  }
+  for (const [pmName, dms] of Object.entries(dmMap)) {
+    dms.forEach((n, i) => insertDMM.run(n, pmId(pmName), i))
+  }
+  console.log('[info] [db] 已初始化电脑采购型号/设备型号字典')
+}
+seedComputerModelsIfNotExists()
 
 // 采购数据初始化（种子数据，仅在表为空时插入；真实数据通过 scripts/import-procurement.mjs 导入）
 const cpCount = db.prepare('SELECT COUNT(*) as cnt FROM computer_procurement').get() as { cnt: number }
