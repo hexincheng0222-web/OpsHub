@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import crypto from 'crypto'
 import db from '../db'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -29,6 +30,7 @@ router.post('/folders', (req: Request, res: Response) => {
     const id = 'folder-' + crypto.randomUUID()
     db.prepare('INSERT INTO manual_folders (id, name) VALUES (?, ?)').run(id, name)
     const row = db.prepare('SELECT * FROM manual_folders WHERE id = ?').get(id) as any
+    logOperation({ module: '知识库文件夹', action: '新增', target: name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: { id: row.id, name: row.name, icon: '' } })
   } catch (err: any) {
     console.error('[server] 创建文件夹失败:', err.message)
@@ -47,6 +49,7 @@ router.put('/folders/:id', (req: Request, res: Response) => {
 
     db.prepare("UPDATE manual_folders SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, req.params.id)
     const row = db.prepare('SELECT * FROM manual_folders WHERE id = ?').get(req.params.id) as any
+    logOperation({ module: '知识库文件夹', action: '修改', target: name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: { id: row.id, name: row.name, icon: '' } })
   } catch (err: any) {
     console.error('[server] 更新文件夹失败:', err.message)
@@ -57,7 +60,7 @@ router.put('/folders/:id', (req: Request, res: Response) => {
 // DELETE /api/v1/operations/folders/:id
 router.delete('/folders/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT id FROM manual_folders WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT id, name FROM manual_folders WHERE id = ?').get(req.params.id) as { id: string; name: string } | undefined
     if (!existing) return res.status(404).json({ code: 404, message: '文件夹不存在' })
 
     // 使用事务保证原子性
@@ -67,6 +70,7 @@ router.delete('/folders/:id', (req: Request, res: Response) => {
     })
     remove()
 
+    logOperation({ module: '知识库文件夹', action: '删除', target: existing.name || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除文件夹失败:', err.message)
@@ -137,6 +141,7 @@ router.post('/docs', (req: Request, res: Response) => {
       .run(title, content || '', folderId, req.body.author || '')
 
     const row = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(result.lastInsertRowid) as any
+    logOperation({ module: '知识库文档', action: '新增', target: title, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: {
       id: row.id, title: row.title, content: row.content,
       folderId: row.folder_id, author: row.author,
@@ -181,6 +186,7 @@ router.put('/docs/:id', (req: Request, res: Response) => {
 
     db.prepare('UPDATE manual_docs SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
     const row = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(req.params.id) as any
+    logOperation({ module: '知识库文档', action: '修改', target: req.body.title || existing.title, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: {
       id: row.id, title: row.title, content: row.content,
       folderId: row.folder_id, author: row.author,
@@ -233,6 +239,7 @@ router.post('/docs/:id/versions/:versionId/rollback', (req: Request, res: Respon
       .run(version.title, version.content, req.params.id)
 
     const row = db.prepare('SELECT * FROM manual_docs WHERE id = ?').get(req.params.id) as any
+    logOperation({ module: '知识库文档', action: '回滚', target: `${existing.title} → v${version.version_number}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: {
       id: row.id, title: row.title, content: row.content,
       folderId: row.folder_id, author: row.author,
@@ -247,10 +254,11 @@ router.post('/docs/:id/versions/:versionId/rollback', (req: Request, res: Respon
 // DELETE /api/v1/operations/docs/:id
 router.delete('/docs/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT id FROM manual_docs WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT id, title FROM manual_docs WHERE id = ?').get(req.params.id) as { id: string; title: string } | undefined
     if (!existing) return res.status(404).json({ code: 404, message: '文档不存在' })
 
     db.prepare('DELETE FROM manual_docs WHERE id = ?').run(req.params.id)
+    logOperation({ module: '知识库文档', action: '删除', target: existing.title || `ID:${req.params.id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除文档失败:', err.message)
