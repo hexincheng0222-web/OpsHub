@@ -14,7 +14,7 @@ steps:
     pull: true
     commands:
       - npm ci
-      - npm run build:client -- --noEmit  # vue-tsc 类型检查，不产出 dist
+      - npm run typecheck:client  # vue-tsc -p tsconfig.app.json --noEmit，纯类型检查不产出 dist
     when:
       event: [push, pull_request, manual]
 

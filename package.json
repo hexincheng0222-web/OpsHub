@@ -11,6 +11,7 @@
     "build:client": "vue-tsc -b && vite build",
     "build:server": "vue-tsc -p tsconfig.server.json",
     "typecheck:server": "vue-tsc -p tsconfig.server.json --noEmit",
+    "typecheck:client": "vue-tsc -p tsconfig.app.json --noEmit",
     "start": "node --import tsx server/index.ts",
     "preview": "vite preview",
     "backup-db": "node scripts/backup-db.mjs"

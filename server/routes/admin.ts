@@ -146,6 +146,25 @@ const tables: Record<string, TableConfig> = {
   },
 }
 
+interface ChildConflict {
+  module: string
+  count: number
+}
+
+/** CASCADE 删除保护：统计以 config.table 为外键目标的子表记录数，返回存在子记录的冲突列表（#审查 I4） */
+function findChildConflicts(config: TableConfig, ids: number[]): ChildConflict[] {
+  const conflicts: ChildConflict[] = []
+  for (const [, refConfig] of Object.entries(tables)) {
+    const fk = (refConfig as any).foreignKey as { table: string; column: string; ref: string } | undefined
+    if (fk && fk.table === config.table) {
+      const ph = ids.map(() => '?').join(',')
+      const row = db.prepare(`SELECT COUNT(*) as cnt FROM ${refConfig.table} WHERE ${fk.column} IN (${ph})`).get(...ids) as { cnt: number }
+      if (row.cnt > 0) conflicts.push({ module: refConfig.module, count: row.cnt })
+    }
+  }
+  return conflicts
+}
+
 // ========== 系统配置（必须在 /:table 之前） ==========
 
 // GET /api/v1/admin/config/list — 获取所有配置项
@@ -218,6 +237,14 @@ router.delete('/:table/batch', (req: Request, res: Response) => {
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
   const { ids } = req.body
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+
+  // CASCADE 删除保护：与单条删除保持一致，存在子记录时拒绝批量删除（#审查 I4）
+  const conflicts = findChildConflicts(config, ids as number[])
+  if (conflicts.length > 0) {
+    const { module, count } = conflicts[0]
+    return res.status(409).json({ code: 409, message: `选中记录下有 ${count} 条「${module}」子记录，请先删除子记录后再删除` })
+  }
+
   const ph = ids.map(() => '?').join(',')
   try {
     const n = db.prepare(`DELETE FROM ${config.table} WHERE id IN (${ph})`).run(...ids)
@@ -310,14 +337,10 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
   if (!existing) return res.status(404).json({ code: 404, message: '记录不存在' })
 
   // CASCADE 删除保护：若其他表以本表为外键目标，存在子记录时拒绝删除（#审查 I4）
-  for (const [, refConfig] of Object.entries(tables)) {
-    const fk = (refConfig as any).foreignKey as { table: string; column: string; ref: string } | undefined
-    if (fk && fk.table === config.table) {
-      const childCount = (db.prepare(`SELECT COUNT(*) as cnt FROM ${refConfig.table} WHERE ${fk.column} = ?`).get(req.params.id) as { cnt: number }).cnt
-      if (childCount > 0) {
-        return res.status(409).json({ code: 409, message: `该记录下有 ${childCount} 条「${refConfig.module}」子记录，请先删除子记录后再删除本记录` })
-      }
-    }
+  const conflicts = findChildConflicts(config, [Number(req.params.id)])
+  if (conflicts.length > 0) {
+    const { module, count } = conflicts[0]
+    return res.status(409).json({ code: 409, message: `该记录下有 ${count} 条「${module}」子记录，请先删除子记录后再删除本记录` })
   }
 
   try {
