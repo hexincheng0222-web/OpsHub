@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     user.value = null
     localStorage.removeItem('token')
+    clearBusinessCache()
     // 记录当前位置，登录后可跳回（避免落在 /login 上）
     const from = route.fullPath
     if (from && from !== '/login') {
@@ -41,6 +42,29 @@ export const useAuthStore = defineStore('auth', () => {
       logoutInProgress = false
       unhook()
     })
+  }
+
+  /**
+   * 清空业务数据缓存（防跨用户数据残留 #审查 M2）
+   * 登出时若不清，共享终端上后登录的用户会读到前一用户缓存的
+   * 知识库全文/服务列表/打印机/话机数据，绕过服务端权限过滤。
+   * 仅清理业务缓存，保留 theme / admin_menu_opened 等 UI 偏好。
+   */
+  function clearBusinessCache() {
+    try {
+      const BUSINESS_KEYS = [
+        'opshub_ops_cache',        // 知识库（可能含内网配置/口令）
+        'opshub_services_cache',   // 服务列表
+        'opshub_printers_cache',   // 打印机清单
+        'opshub_phones_cache',     // 话机列表（含内网 IP）
+      ]
+      for (const key of BUSINESS_KEYS) localStorage.removeItem(key)
+      // 知识库编辑草稿（动态键 ops_draft_<id> / ops_draft_new）
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i)
+        if (k && k.startsWith('ops_draft_')) localStorage.removeItem(k)
+      }
+    } catch { /* localStorage 不可用时忽略 */ }
   }
 
   async function fetchMe() {

@@ -14,6 +14,7 @@ interface ConfigItem {
 const loading = ref(true)
 const saving = ref(false)
 const configs = ref<ConfigItem[]>([])
+const hasPbxPass = ref(false)
 const form = ref({
   pbx_ip: '192.168.35.250',
   pbx_user: 'admin',
@@ -27,7 +28,11 @@ onMounted(async () => {
     for (const cfg of data) {
       if (cfg.key === 'atcom_pbx_ip') form.value.pbx_ip = cfg.value
       if (cfg.key === 'atcom_pbx_user') form.value.pbx_user = cfg.value
-      if (cfg.key === 'atcom_pbx_pass') form.value.pbx_pass = cfg.value
+      if (cfg.key === 'atcom_pbx_pass') {
+        // 密码不回传明文：仅标记是否已配置，输入框保持留空（留空=不修改）
+        hasPbxPass.value = !!cfg.has_value
+        form.value.pbx_pass = ''
+      }
     }
   } catch (e) {
     console.error('加载配置失败:', e)
@@ -40,12 +45,18 @@ onMounted(async () => {
 async function handleSave() {
   saving.value = true
   try {
-    await saveConfig([
+    const configsToSave = [
       { key: 'atcom_pbx_ip', value: form.value.pbx_ip },
       { key: 'atcom_pbx_user', value: form.value.pbx_user },
-      { key: 'atcom_pbx_pass', value: form.value.pbx_pass },
-    ])
+    ]
+    // 仅当用户实际输入了新密码才提交（留空 = 不修改）
+    if (form.value.pbx_pass) {
+      configsToSave.push({ key: 'atcom_pbx_pass', value: form.value.pbx_pass })
+    }
+    await saveConfig(configsToSave)
     ElMessage.success('配置已保存')
+    hasPbxPass.value = !!form.value.pbx_pass || hasPbxPass.value
+    form.value.pbx_pass = ''
   } catch (e: any) {
     ElMessage.error(e.message || '保存失败')
   } finally {
@@ -115,7 +126,10 @@ function getLastUpdated() {
             clearable
             style="max-width: 360px;"
           />
-          <div class="form-tip">IPPBX200 Web 管理界面登录密码</div>
+          <div class="form-tip">
+            <span v-if="hasPbxPass" style="color: var(--ops-accent-green, #3fb950)">✅ 已配置密码（留空保存则不修改）</span>
+            <span v-else>尚未配置密码，请填写后保存</span>
+          </div>
         </el-form-item>
 
         <el-form-item>

@@ -74,6 +74,9 @@ export async function request<T = any>(
       useAuthStore().logout()
     } catch {
       localStorage.removeItem('token')
+      // 兜底：同步清理业务缓存，防共享终端跨用户数据残留（#审查 M2）
+      const businessKeys = ['opshub_ops_cache', 'opshub_services_cache', 'opshub_printers_cache', 'opshub_phones_cache']
+      for (const k of businessKeys) localStorage.removeItem(k)
       const redirect = encodeURIComponent(location.pathname + location.search)
       window.location.href = `/login?redirect=${redirect}`
     }

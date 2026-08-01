@@ -44,7 +44,11 @@
         <el-input v-model="form.llm.model" placeholder="Qwen3.5-9B-AWQ" />
       </el-form-item>
       <el-form-item label="API Key" prop="llm.api_key">
-        <el-input v-model="form.llm.api_key" placeholder="EMPTY" show-password />
+        <el-input v-model="form.llm.api_key" placeholder="留空则不修改" show-password style="width: 380px" />
+        <div class="form-tip">
+          <span v-if="hasApiKey" style="color: var(--ops-accent-green, #3fb950)">✅ 已配置（留空保存则不修改）</span>
+          <span v-else>尚未配置 API Key</span>
+        </div>
       </el-form-item>
       <el-form-item label="Temperature" prop="llm.temperature">
         <el-input-number v-model="form.llm.temperature" :min="0" :max="2" :step="0.1" />
@@ -121,15 +125,19 @@ const loading = ref(false)
 const saving = ref(false)
 const discovering = ref(false)
 const testingLoki = ref(false)
+const hasApiKey = ref(false)
 
 async function loadConfig() {
   loading.value = true
   try {
     const cfg = await getConfig()
-    // 兼容老配置：补全告警推送默认值
+    // API Key 不回传明文：标记是否已配置，输入框留空（留空=不修改）
+    hasApiKey.value = !!(cfg.llm?.has_api_key || cfg.llm?.api_key)
+    const { api_key, ...llmRest } = cfg.llm || {}
     form.value = {
       alert: { enabled: false, webhook: '', silent_hours: '', cooldown_minutes: 0 },
       ...cfg,
+      llm: { ...llmRest, api_key: '' },
     }
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -190,8 +198,15 @@ async function handleTestLoki() {
 async function handleSave() {
   saving.value = true
   try {
-    await updateConfig(form.value)
+    const payload = { ...form.value }
+    // api_key 留空 = 不修改，剪枝避免覆盖已有 key
+    if (!payload.llm?.api_key) {
+      delete payload.llm.api_key
+    }
+    await updateConfig(payload)
     ElMessage.success('配置已保存')
+    hasApiKey.value = !!payload.llm?.api_key || hasApiKey.value
+    if (form.value.llm) form.value.llm.api_key = ''
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {

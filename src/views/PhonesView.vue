@@ -118,7 +118,7 @@
             <el-button v-else link type="default" size="small" @click="pbEditing = false">取消</el-button>
           </div>
           <template v-if="pbEditing">
-            <div class="form-row"><span class="form-label">XML URL</span><el-input v-model="pbForm.xmlUrl" size="small" style="width:280px" placeholder="http://服务器IP:端口/api/v1/phones/phonebook.xml" /></div>
+            <div class="form-row"><span class="form-label">XML URL</span><el-input v-model="pbForm.xmlUrl" size="small" style="width:280px" placeholder="http://服务器IP:端口/api/v1/phones-public/phonebook.xml" /></div>
             <div class="form-row"><span class="form-label">名称</span><el-input v-model="pbForm.name" size="small" style="width:280px" placeholder="公司电话簿" /></div>
             <div style="margin-top:12px;display:flex;gap:8px">
               <el-button type="primary" size="small" @click="savePbConfig" :loading="pbSaving">保存并同步</el-button>
@@ -179,7 +179,7 @@
       <!-- 配置态 -->
       <template v-if="!deployRunning && !deployDone">
         <div class="deploy-form-row"><span class="deploy-label">XML URL</span>
-          <el-input v-model="deployForm.xmlUrl" size="small" style="width:420px" placeholder="http://服务器IP:端口/api/v1/phones/phonebook.xml" />
+          <el-input v-model="deployForm.xmlUrl" size="small" style="width:420px" placeholder="http://服务器IP:端口/api/v1/phones-public/phonebook.xml" />
         </div>
         <div class="deploy-form-row"><span class="deploy-label">名称</span>
           <el-input v-model="deployForm.name" size="small" style="width:420px" placeholder="公司电话簿" />
@@ -369,7 +369,7 @@ const pbName = ref('')
 
 function startPbEdit() {
   pbForm.value = {
-    xmlUrl: pbUrl.value || `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`,
+    xmlUrl: pbUrl.value || `${window.location.protocol}//${window.location.host}/api/v1/phones-public/phonebook.xml`,
     name: pbName.value || '公司电话簿',
   }
   pbEditing.value = true
@@ -513,7 +513,7 @@ const deployDone = ref(false)
 const deployCancelled = ref(false)
 // 表单
 const deployForm = ref({
-  xmlUrl: `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`,
+  xmlUrl: `${window.location.protocol}//${window.location.host}/api/v1/phones-public/phonebook.xml`,
   name: '公司电话簿',
   concurrency: 5,
 })
@@ -566,7 +566,7 @@ function openDeployDialog() {
   deployFailedList.value = []
   // 默认填入当前 host 的 XML URL（若用户改过保留）
   if (!deployForm.value.xmlUrl) {
-    deployForm.value.xmlUrl = `${window.location.protocol}//${window.location.host}/api/v1/phones/phonebook.xml`
+    deployForm.value.xmlUrl = `${window.location.protocol}//${window.location.host}/api/v1/phones-public/phonebook.xml`
   }
   deployVisible.value = true
 }

@@ -174,6 +174,8 @@ router.post('/import', (req: Request, res: Response) => {
   const { rows, autoCreateDict = false } = req.body
   if (!Array.isArray(rows) || rows.length === 0)
     return res.status(400).json({ code: 400, message: 'rows 必填' })
+  if (rows.length > 1000)
+    return res.status(400).json({ code: 400, message: '单次最多导入 1000 条' })
 
   const insert = db.prepare(
     'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -223,6 +225,8 @@ router.post('/batch-create', (req: Request, res: Response) => {
   const { rows } = req.body
   if (!Array.isArray(rows) || rows.length === 0)
     return res.status(400).json({ code: 400, message: 'rows 必填' })
+  if (rows.length > 1000)
+    return res.status(400).json({ code: 400, message: '单次最多创建 1000 条' })
   const insert = db.prepare(
     'INSERT INTO printers (floor, location, manufacturer, model, toner_model, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
   )

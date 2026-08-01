@@ -50,7 +50,10 @@ steps:
       - /var/run/docker.sock:/var/run/docker.sock
       - /data/opshub-v1.0/OpsHub:/data/opshub-v1.0/OpsHub
     commands:
+      # 首次部署/空卷时目标目录可能不存在，先确保存在（#审查 部署10）
+      - mkdir -p /data/opshub-v1.0/OpsHub/dist /data/opshub-v1.0/OpsHub/server /data/opshub-v1.0/OpsHub/scripts
       # 同步构建产物 + 服务端代码 + 依赖清单到挂载卷
+      # ⚠️ .env 不随 CI 同步（含生产密钥），由容器 /app/.env 手工维护；缺失时启动校验会明确报错
       - cp -r dist/. /data/opshub-v1.0/OpsHub/dist/
       - cp -r server/. /data/opshub-v1.0/OpsHub/server/
       - cp -r scripts/. /data/opshub-v1.0/OpsHub/scripts/
@@ -60,20 +63,32 @@ steps:
       - docker exec opshub-api sh -c "cd /app && npm ci --omit=dev && npm rebuild better-sqlite3 --build-from-source"
       # PM2 重载（与 ecosystem.config.cjs 对齐，触发优雅关闭 #17）；失败则回退 restart
       - docker exec opshub-api sh -c "pm2 reload opshub --update-env || pm2 restart opshub"
+      # 部署后健康检查：进程启动即崩时 PM2 可能仍返回成功，必须验证 /api/health（#审查 部署3）
+      - |
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if curl -sf http://127.0.0.1:3001/api/health >/dev/null 2>&1; then
+            echo "[deploy] 健康检查通过"
+            break
+          fi
+          [ "$i" = "10" ] && { echo "[deploy] FATAL: 部署后 30 秒健康检查未通过，服务未正常启动" >&2; exit 1; }
+          sleep 3
+        done
     when:
       branch: hxc
       event: [push, manual]
 
   # ========== 数据保命：部署后立即备份 SQLite (#17) ==========
   # 依赖 deploy 成功；备份脚本生成带校验的压缩包，保留 N 天
+  # DB_PATH 从容器内读取（与运行时 .env 一致），避免备份到错误路径（#审查 部署6）
   - name: backup-db
-    image: node:22
+    image: docker:27
     pull: true
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - /data/opshub-v1.0/OpsHub:/data/opshub-v1.0/OpsHub
     commands:
-      - cd /data/opshub-v1.0/OpsHub
-      - node scripts/backup-db.mjs  # 生成 data/backups/opshub-YYYYMMDD-HHmmss.db.bak.gz
+      # 在容器内执行备份：ABI 与运行时一致（better-sqlite3 已由 deploy 安装），DB_PATH 用容器 .env 的值
+      - docker exec opshub-api sh -c "cd /app && node scripts/backup-db.mjs"
     when:
       branch: hxc
       event: [push, manual]

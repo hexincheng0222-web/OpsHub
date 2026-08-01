@@ -180,6 +180,7 @@ router.post('/batch-delete', (req: Request, res: Response) => {
 router.post('/import', (req: Request, res: Response) => {
   const { rows } = req.body
   if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ code: 400, message: 'rows 必填' })
+  if (rows.length > 1000) return res.status(400).json({ code: 400, message: '单次最多导入 1000 条' })
   const insert = db.prepare(
     `INSERT INTO computer_procurement (model,department,applicant,mac_address,device_model,ce_number,actual_user,approval_number,receive_date,asset_number,delivery_date,delivery_person,pickup_approval,ce_processed,price)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`

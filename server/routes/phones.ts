@@ -566,6 +566,7 @@ router.post('/phonebook/batch-delete', (req: Request, res: Response) => {
 router.post('/phonebook/import', (req: Request, res: Response) => {
   const { rows } = req.body
   if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ code: 400, message: '无数据' })
+  if (rows.length > 1000) return res.status(400).json({ code: 400, message: '单次最多导入 1000 条' })
   const insert = db.prepare('INSERT OR IGNORE INTO phonebook_contacts (name, number, department, position, type, notes) VALUES (?, ?, ?, ?, ?, ?)')
   let imported = 0
   const errors: string[] = []
@@ -621,8 +622,12 @@ router.post('/phonebook/sync-from-pbx', async (_req: Request, res: Response) => 
   }
 })
 
+// ========== 公开电话簿 XML（话机设备无鉴权拉取） ==========
+// 挂载在 /api/v1/phones-public，绕过 authRequired（话机本身不带 JWT）
+export const publicPhonesRouter = Router()
+
 // GET /phonebook.xml — XML 电话簿（话机拉取用）
-router.get('/phonebook.xml', (_req: Request, res: Response) => {
+publicPhonesRouter.get('/phonebook.xml', (_req: Request, res: Response) => {
   const contacts = db.prepare('SELECT name, number, department FROM phonebook_contacts ORDER BY sort_order ASC, id ASC').all() as any[]
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <IPPhoneDirectory>
@@ -649,7 +654,7 @@ router.post('/phonebook/deploy', async (req: Request, res: Response) => {
   // XML URL：优先用前端传入，否则用本机地址构建
   const host = req.headers.host?.split(':')[0] || 'localhost'
   const port = req.headers.host?.split(':')[1] || '3001'
-  const xmlUrl = customXmlUrl || `http://${host}:${port}/api/v1/phones/phonebook.xml`
+  const xmlUrl = customXmlUrl || `http://${host}:${port}/api/v1/phones-public/phonebook.xml`
   const phonebookName = customName || '公司电话簿'
 
   const results: any[] = []

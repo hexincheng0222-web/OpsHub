@@ -11,16 +11,26 @@ import {
 
 const router = Router()
 
-// 1. 获取配置
+// 1. 获取配置（LLM API Key 掩码：不回传明文，仅返回是否已配置）
 router.get('/config', (_req: Request, res: Response) => {
-  res.json({ code: 200, data: loadConfig() })
+  const cfg = loadConfig()
+  const hasApiKey = !!(cfg.llm?.api_key)
+  if (cfg.llm) cfg.llm.api_key = ''
+  res.json({ code: 200, data: { ...cfg, llm: { ...cfg.llm, has_api_key: hasApiKey } } })
 })
 
-// 2. 更新配置
+// 2. 更新配置（api_key 传空 = 保留原值不修改）
 router.put('/config', (req: Request, res: Response) => {
   try {
-    const updated = saveConfigPartial(req.body)
-    res.json({ code: 200, data: updated })
+    const body = { ...req.body }
+    const existing = loadConfig()
+    if (body.llm && body.llm.api_key === '') {
+      body.llm.api_key = existing.llm?.api_key || ''
+    }
+    const updated = saveConfigPartial(body)
+    const hasApiKey = !!(updated.llm?.api_key)
+    if (updated.llm) updated.llm.api_key = ''
+    res.json({ code: 200, data: { ...updated, llm: { ...updated.llm, has_api_key: hasApiKey } } })
   } catch (e: any) {
     res.status(500).json({ code: 500, message: e.message })
   }

@@ -82,8 +82,16 @@ export async function fetchOverviewTrend(days: number = 7): Promise<{ days: numb
 }
 
 // 系统配置
+export interface ConfigItem {
+  key: string
+  value: string
+  description: string
+  updated_at: string
+  has_value?: boolean  // 敏感配置项不回传 value，仅标记是否已配置
+}
+
 export async function fetchConfig() {
-  return request(`${BASE}/config/list`)
+  return request<ConfigItem[]>(`${BASE}/config/list`)
 }
 
 export async function saveConfig(configs: Array<{ key: string; value: string }>) {

@@ -167,17 +167,24 @@ function findChildConflicts(config: TableConfig, ids: number[]): ChildConflict[]
 
 // ========== 系统配置（必须在 /:table 之前） ==========
 
-// GET /api/v1/admin/config/list — 获取所有配置项
+// 敏感配置键：值不回传前端（避免密码/密钥明文暴露，配合前端「留空不修改」）
+const SENSITIVE_CONFIG_KEYS = new Set(['atcom_pbx_pass', 'jwt_secret'])
+
+// GET /api/v1/admin/config/list — 获取所有配置项（敏感项值以 has_value 布尔占位）
 router.get('/config/list', (_req: Request, res: Response) => {
-  const rows = db.prepare('SELECT key, value, description, updated_at FROM system_config ORDER BY key').all()
-  res.json({ code: 200, data: rows })
+  const rows = db.prepare('SELECT key, value, description, updated_at FROM system_config ORDER BY key').all() as { key: string; value: string; description: string; updated_at: string }[]
+  const data = rows.map(r => SENSITIVE_CONFIG_KEYS.has(r.key)
+    ? { ...r, value: '', has_value: !!r.value }
+    : { ...r, has_value: false })
+  res.json({ code: 200, data })
 })
 
-// GET /api/v1/admin/config/:key — 获取单个配置项
+// GET /api/v1/admin/config/:key — 获取单个配置项（敏感项值掩码）
 router.get('/config/:key', (req: Request, res: Response) => {
-  const row = db.prepare('SELECT key, value, description FROM system_config WHERE key = ?').get(req.params.key)
+  const row = db.prepare('SELECT key, value, description FROM system_config WHERE key = ?').get(req.params.key) as { key: string; value: string; description: string } | undefined
   if (!row) return res.status(404).json({ code: 404, message: '配置项不存在' })
-  res.json({ code: 200, data: row })
+  const sensitive = SENSITIVE_CONFIG_KEYS.has(row.key)
+  res.json({ code: 200, data: sensitive ? { ...row, value: '', has_value: !!row.value } : { ...row } })
 })
 
 // PUT /api/v1/admin/config — 更新配置（批量或单个）
@@ -237,6 +244,7 @@ router.delete('/:table/batch', (req: Request, res: Response) => {
   if (!config) return res.status(404).json({ code: 404, message: '未知表' })
   const { ids } = req.body
   if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
+  if (ids.length > 1000) return res.status(400).json({ code: 400, message: '单次最多操作 1000 条' })
 
   // CASCADE 删除保护：与单条删除保持一致，存在子记录时拒绝批量删除（#审查 I4）
   const conflicts = findChildConflicts(config, ids as number[])

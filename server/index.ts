@@ -14,7 +14,7 @@ import operationsRouter from './routes/operations'
 import printersRouter from './routes/printers'
 import computerProcRouter from './routes/computer-procurement'
 import phoneProcRouter from './routes/phone-procurement'
-import phonesRouter from './routes/phones'
+import phonesRouter, { publicPhonesRouter } from './routes/phones'
 import logMonitorRouter from './routes/log-monitor'
 import authRouter from './routes/auth'
 import usersRouter from './routes/users'
@@ -22,7 +22,7 @@ import dashboardRouter from './routes/dashboard'
 import cron from 'node-cron'
 import db from './db'
 import { startServicesScheduler, stopServicesScheduler } from './servicesScheduler'
-import { authRequired, requireRole } from './middleware/auth'
+import { authRequired, requireRole, jwtSecretReady } from './middleware/auth'
 import { credKeyReady } from './utils/crypto'
 import type { Server } from 'http'
 
@@ -63,17 +63,24 @@ app.get('/api/health', (_req, res) => {
 // API 路由
 // 顺序：先注册不需要鉴权的路由（auth 登录、health），其余统一加 authRequired
 app.use('/api/v1/auth', authRouter)
+// 权限模型：写操作（增删改/导入/删除）默认仅 admin/superadmin
+// - services / operations：所有登录用户可读，收藏/知识库写操作对全员开放（前端未限定）
+// - 其余业务模块：前端仅 admin 可见，服务端整体挂 requireRole 兜底，杜绝普通用户直调 API
+// - phones：整体 admin，但 phonebook.xml 是话机设备无鉴权拉取的端点，需在 router 内单独放行
+const adminOnly = requireRole('admin', 'superadmin')
 app.use('/api/v1/services', authRequired, servicesRouter)
-app.use('/api/v1/racks', authRequired, racksRouter)
-app.use('/api/v1/devices', authRequired, devicesRouter)
-app.use('/api/v1/admin', authRequired, requireRole('admin', 'superadmin'), adminRouter)
+app.use('/api/v1/racks', authRequired, adminOnly, racksRouter)
+app.use('/api/v1/devices', authRequired, adminOnly, devicesRouter)
+app.use('/api/v1/admin', authRequired, adminOnly, adminRouter)
 app.use('/api/v1/operations', authRequired, operationsRouter)
-app.use('/api/v1/printers', authRequired, printersRouter)
-app.use('/api/v1/computer-procurement', authRequired, computerProcRouter)
-app.use('/api/v1/phone-procurement', authRequired, phoneProcRouter)
-app.use('/api/v1/phones', authRequired, phonesRouter)
-app.use('/api/v1/users', authRequired, usersRouter)
-app.use('/api/v1/log-monitor', authRequired, logMonitorRouter)
+app.use('/api/v1/printers', authRequired, adminOnly, printersRouter)
+app.use('/api/v1/computer-procurement', authRequired, adminOnly, computerProcRouter)
+app.use('/api/v1/phone-procurement', authRequired, adminOnly, phoneProcRouter)
+app.use('/api/v1/phones', authRequired, adminOnly, phonesRouter)
+// 话机 XML 电话簿：话机设备无鉴权拉取（不含敏感数据，仅姓名/号码/部门）
+app.use('/api/v1/phones-public', publicPhonesRouter)
+app.use('/api/v1/users', authRequired, adminOnly, usersRouter)
+app.use('/api/v1/log-monitor', authRequired, adminOnly, logMonitorRouter)
 app.use('/api/v1/dashboard', authRequired, dashboardRouter)
 
 // ========== 静态前端托管（生产模式） ==========
@@ -114,6 +121,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // #35 AES 凭据加密密钥启动校验：生产环境未配置则拒绝启动，避免凭据加密静默失效
 if (process.env.NODE_ENV === 'production' && !credKeyReady()) {
   console.error('[server] FATAL: 生产环境未配置 OPS_CRED_KEY（需 32 字节 hex），凭据加密将静默失效。请配置后重启。')
+  process.exit(1)
+}
+// #审查 H4：JWT_SECRET 与 OPS_CRED_KEY 同级校验——生产缺省时登录全线 500，比凭据加密失效更难排查，直接拒启动
+if (process.env.NODE_ENV === 'production' && !jwtSecretReady()) {
+  console.error('[server] FATAL: 生产环境未配置 JWT_SECRET，登录将全部失败。请配置后重启。')
   process.exit(1)
 }
 if (!credKeyReady()) {

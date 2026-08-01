@@ -64,11 +64,14 @@ router.post('/trash/restore', (req: Request, res: Response) => {
   try {
     const { ids } = req.body
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-    const ph = ids.map(() => '?').join(',')
-    db.prepare(`UPDATE phone_procurement SET deleted = 0, deleted_at = NULL WHERE id IN (${ph})`).run(...ids)
-    logOperation({ module: '手机采购', action: '恢复', target: `${ids.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+    if (ids.length > 1000) return res.status(400).json({ code: 400, message: '单次最多操作 1000 条' })
+    const cleanIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
+    if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
+    const ph = cleanIds.map(() => '?').join(',')
+    db.prepare(`UPDATE phone_procurement SET deleted = 0, deleted_at = NULL WHERE id IN (${ph})`).run(...cleanIds)
+    logOperation({ module: '手机采购', action: '恢复', target: `${cleanIds.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
     ...logCtx(req) })
-    res.json({ code: 200, message: `已恢复 ${ids.length} 条` })
+    res.json({ code: 200, message: `已恢复 ${cleanIds.length} 条` })
   } catch (err: any) {
     res.status(500).json({ code: 500, message: '恢复失败' })
   }
@@ -77,11 +80,14 @@ router.delete('/trash/purge', (req: Request, res: Response) => {
   try {
     const { ids } = req.body
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ code: 400, message: 'ids 必填' })
-    const ph = ids.map(() => '?').join(',')
-    db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph}) AND deleted = 1`).run(...ids)
-    logOperation({ module: '手机采购', action: '永久删除', target: `${ids.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+    if (ids.length > 1000) return res.status(400).json({ code: 400, message: '单次最多操作 1000 条' })
+    const cleanIds = ids.filter((id: any) => Number.isInteger(id) && id > 0)
+    if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
+    const ph = cleanIds.map(() => '?').join(',')
+    db.prepare(`DELETE FROM phone_procurement WHERE id IN (${ph}) AND deleted = 1`).run(...cleanIds)
+    logOperation({ module: '手机采购', action: '永久删除', target: `${cleanIds.length} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
     ...logCtx(req) })
-    res.json({ code: 200, message: `已永久删除 ${ids.length} 条` })
+    res.json({ code: 200, message: `已永久删除 ${cleanIds.length} 条` })
   } catch (err: any) {
     res.status(500).json({ code: 500, message: '永久删除失败' })
   }
@@ -184,6 +190,7 @@ router.post('/batch-delete', (req: Request, res: Response) => {
 router.post('/import', (req: Request, res: Response) => {
   const { rows } = req.body
   if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ code: 400, message: 'rows 必填' })
+  if (rows.length > 1000) return res.status(400).json({ code: 400, message: '单次最多导入 1000 条' })
   const insert = db.prepare(
     `INSERT INTO phone_procurement (asset_number,part_no,serial_no,imei,arrival_date,pickup_date,brand,model,asset_link,department,handler,recipient,dingtalk_creator,purchase_type,dingtalk_flow,original_owner,notes)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`

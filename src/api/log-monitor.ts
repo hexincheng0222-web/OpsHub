@@ -9,6 +9,7 @@ export interface LogConfig {
     base_url: string; model: string; api_key: string
     temperature: number; max_tokens: number; timeout: number
     retries: number; system_prompt: string
+    has_api_key?: boolean  // API Key 不回传明文，仅标记是否已配置
   }
   scheduler: { interval: number; window: number }
   scheduler_running: boolean

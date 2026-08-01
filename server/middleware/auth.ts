@@ -87,3 +87,8 @@ export function requireRole(...roles: string[]) {
 
 // 导出获取 secret 的函数供路由使用
 export { getJwtSecret }
+
+/** 启动期校验：生产模式未配置 JWT_SECRET 时由 index.ts 拒绝启动（#审查 H4） */
+export function jwtSecretReady(): boolean {
+  return !!process.env.JWT_SECRET
+}
