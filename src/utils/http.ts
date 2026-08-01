@@ -68,6 +68,19 @@ export async function request<T = any>(
 
   // 401 未登录/登录过期 → 通知 auth store 退出（避免整页跳转丢失 SPA 状态）
   if (res.status === 401) {
+    // 先尝试读取服务端真实消息，区分"凭据错误"与"会话过期"（#登录过期误报修复）
+    let serverMessage = ''
+    try {
+      const errBody = await res.json()
+      serverMessage = (errBody && typeof errBody === 'object' && 'message' in errBody && typeof errBody.message === 'string') ? errBody.message : ''
+    } catch { /* 响应体非 JSON */ }
+
+    // 登录接口的 401 是业务错误（用户名或密码错误/账号锁定等），不是会话过期：
+    // 透传服务端真实消息，且不做退出清理（本来就在登录页）
+    if (url.includes('/auth/login')) {
+      throw new Error(serverMessage || '登录失败')
+    }
+
     try {
       // 动态导入避免循环依赖
       const { useAuthStore } = await import('../stores/auth')
