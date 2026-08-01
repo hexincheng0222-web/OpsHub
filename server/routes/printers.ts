@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
 import { validateRequired } from '../utils/validate'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -89,6 +90,7 @@ router.post('/', (req: Request, res: Response) => {
     ).run(floor, location, manufacturer, model, tonerModel || '', notes || '', status || '正常')
 
     const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(result.lastInsertRowid)
+    logOperation({ module: '打印机', action: '新增', target: `${floor}/${location}/${manufacturer}/${model}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: toApi(row) })
   } catch (err: any) {
     console.error('[server] 新增打印机失败:', err.message)
@@ -132,6 +134,7 @@ router.put('/:id', (req: Request, res: Response) => {
 
     db.prepare('UPDATE printers SET ' + fields.join(', ') + ' WHERE id = ?').run(...values)
     const row = db.prepare('SELECT * FROM printers WHERE id = ?').get(req.params.id)
+    logOperation({ module: '打印机', action: '修改', target: `ID:${req.params.id}`, detail: JSON.stringify(req.body), operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: toApi(row) })
   } catch (err: any) {
     console.error('[server] 更新打印机失败:', err.message)
@@ -142,9 +145,10 @@ router.put('/:id', (req: Request, res: Response) => {
 // DELETE /api/v1/printers/:id  — 删除单台
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT id FROM printers WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT id, location, manufacturer, model FROM printers WHERE id = ?').get(req.params.id) as any
     if (!existing) return res.status(404).json({ code: 404, message: '打印机不存在' })
     db.prepare('DELETE FROM printers WHERE id = ?').run(req.params.id)
+    logOperation({ module: '打印机', action: '删除', target: `${existing.location || ''}/${existing.manufacturer || ''}/${existing.model || ''}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除打印机失败:', err.message)
@@ -162,6 +166,7 @@ router.post('/batch-delete', (req: Request, res: Response) => {
     if (!cleanIds.length) return res.status(400).json({ code: 400, message: 'ids 参数无效' })
     const placeholders = cleanIds.map(() => '?').join(',')
     db.prepare(`DELETE FROM printers WHERE id IN (${placeholders})`).run(...cleanIds)
+    logOperation({ module: '打印机', action: '批量删除', target: `${cleanIds.length} 台`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, message: `已删除 ${cleanIds.length} 台` })
   } catch (err: any) {
     console.error('[server] 批量删除打印机失败:', err.message)
@@ -217,6 +222,7 @@ router.post('/import', (req: Request, res: Response) => {
     }
   })
   tx()
+  logOperation({ module: '打印机', action: '导入', target: `${imported} 条`, detail: JSON.stringify({ errors: errors.slice(0, 20) }), operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: { imported, errors } })
 })
 
@@ -243,6 +249,7 @@ router.post('/batch-create', (req: Request, res: Response) => {
     }
   })
   tx()
+  logOperation({ module: '打印机', action: '批量新增', target: `${imported} 条`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: { imported, errors } })
 })
 

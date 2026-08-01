@@ -269,7 +269,6 @@ import { Refresh, Phone, Search, SuccessFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchPhones, fetchPhoneDetail, updatePhoneAccount, updatePhoneRemark, updateRemotePhonebook, rebootPhone as rebootPhoneApi } from '@/api/phones'
 import { deployPhonebook } from '@/api/phonebook'
-import { request } from '@/utils/http'
 import BackButton from '../components/BackButton.vue'
 
 const route = useRoute()
@@ -346,8 +345,7 @@ async function saveRemark() {
     try { localStorage.removeItem(CACHE_KEY) } catch {}
     remarkEditing.value = false
     ElMessage.success('备注已保存')
-    // 记录操作日志（不影响主流程）
-    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'update_remark', detail: `话机 ${selectedPhone.value.extension} 备注已更新` }) }).catch(() => {})
+    // 操作日志由后端 PUT /:id/remark 自动记录
   } catch (e: any) {
     ElMessage.error(e.message || '保存失败')
   } finally {
@@ -426,8 +424,7 @@ async function saveAccount() {
   try {
     await updatePhoneAccount(selectedPhone.value.id, editForm.value)
     ElMessage.success('配置已同步到话机')
-    // 记录操作日志（不影响主流程）
-    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'update_account', detail: `话机 ${selectedPhone.value.extension} 配置已更新` }) }).catch(() => {})
+    // 操作日志由后端 PUT /:id/account 自动记录
     editing.value = false
     openDetail(selectedPhone.value)
   } catch (e: any) { ElMessage.error(e.message || '同步失败') }
@@ -441,8 +438,7 @@ async function handleRebootPhone() {
   try {
     await rebootPhoneApi(selectedPhone.value.id)
     ElMessage.success('重启指令已发送')
-    // 记录操作日志
-    request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({ module: 'phones', action: 'reboot', detail: `话机 ${selectedPhone.value.extension} 已重启` }) }).catch(() => {})
+    // 操作日志由后端 POST /:id/reboot 自动记录
   } catch (e: any) { ElMessage.error(e.message || '重启失败') }
 }
 
@@ -626,15 +622,7 @@ async function startDeploy() {
 
   deployRunning.value = false
   deployDone.value = true
-  // 记录操作日志（含失败明细，便于后台 /admin/logs 排查）
-  const failedDetail = deployFailedList.value.length
-    ? `，失败: ${deployFailedList.value.map(f => `${f.extension}(${f.error})`).join(', ')}`
-    : ''
-  request('/api/v1/admin/logs', { method: 'POST', body: JSON.stringify({
-    module: '电话簿', action: '批量下发',
-    target: `${deploySuccessCount.value}/${selected.length} 台成功`,
-    detail: `URL: ${deployForm.value.xmlUrl}${failedDetail}`,
-  }) }).catch(() => {})
+  // 操作日志（含失败明细）由后端 POST /phonebook/deploy 自动记录
 }
 
 // 重推失败的话机：把失败明细的 id 重新作为选中态，直接走推送流程

@@ -57,6 +57,11 @@ export function updateConfig(data: Partial<LogConfig>) {
   })
 }
 
+// 读取单条审计的外置日志文件（file/db 双来源回退）
+export function fetchAuditLogs(id: number) {
+  return request<{ logs: any[]; source: string; expired?: boolean }>(`${BASE}/audit/${id}/logs`)
+}
+
 // 分页查询审计
 export function getAuditList(params: {
   page?: number

@@ -207,6 +207,8 @@ router.post('/import', (req: Request, res: Response) => {
     }
   })
   batch()
+  logOperation({ module: '电脑采购', action: '导入', target: `${imported} 条记录`, detail: '', status: 'success', operator: req.user?.username || '',
+  ...logCtx(req) })
   res.json({ code: 200, data: { imported, errors } })
 })
 

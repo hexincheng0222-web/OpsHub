@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import fs from 'node:fs'
 import db from '../db'
+import { logOperation, logCtx } from '../logOperation'
 import {
   loadConfig, saveConfigPartial, fetchLokiLogs, analyzeLogs,
   saveAudit, cleanupAudit, healthCheck, startScheduler,
@@ -30,6 +31,13 @@ router.put('/config', (req: Request, res: Response) => {
     const updated = saveConfigPartial(body)
     const hasApiKey = !!(updated.llm?.api_key)
     if (updated.llm) updated.llm.api_key = ''
+    // 只记录修改了哪些配置键，不记录值（api_key 等敏感字段绝不明文落日志）
+    const changedKeys = Object.keys(body).flatMap(k =>
+      body[k] && typeof body[k] === 'object'
+        ? Object.keys(body[k]).map(sub => `${k}.${sub}`)
+        : [k]
+    )
+    logOperation({ module: '日志监控', action: '修改配置', target: changedKeys.join(', ') || 'config', detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: { ...updated, llm: { ...updated.llm, has_api_key: hasApiKey } } })
   } catch (e: any) {
     res.status(500).json({ code: 500, message: e.message })
@@ -93,6 +101,7 @@ router.get('/audit/:id/logs', (req: Request, res: Response) => {
 router.delete('/audit', (req: Request, res: Response) => {
   const days = parseInt(req.query.days as string) || 90
   const deleted = cleanupAudit(days)
+  logOperation({ module: '日志监控', action: '清理审计', target: `${deleted} 条（${days} 天前）`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: { deleted } })
 })
 
@@ -179,13 +188,15 @@ router.post('/analyze-device', async (req: Request, res: Response) => {
 })
 
 // 6. 调度器控制
-router.post('/scheduler/start', (_req: Request, res: Response) => {
+router.post('/scheduler/start', (req: Request, res: Response) => {
   startScheduler()
+  logOperation({ module: '日志监控', action: '启动调度器', target: '自动分析调度器', detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, message: '调度器已启动' })
 })
 
-router.post('/scheduler/stop', (_req: Request, res: Response) => {
+router.post('/scheduler/stop', (req: Request, res: Response) => {
   stopScheduler()
+  logOperation({ module: '日志监控', action: '停止调度器', target: '自动分析调度器', detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, message: '调度器已停止' })
 })
 

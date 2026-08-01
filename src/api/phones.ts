@@ -63,11 +63,6 @@ export async function updatePhoneRemark(id: string, remark: string) {
   })
 }
 
-/** 获取话机远程电话本配置 */
-export async function fetchRemotePhonebook(id: string) {
-  return request<any>(`${BASE}/${id}/remote-phonebook`)
-}
-
 /** 更新话机远程电话本配置 */
 export async function updateRemotePhonebook(id: string, data: { xmlUrl: string; name: string }) {
   return request<any>(`${BASE}/${id}/remote-phonebook`, {

@@ -119,11 +119,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, View } from '@element-plus/icons-vue'
 import TrendChart, { type TrendDevice } from '../../components/TrendChart.vue'
-import { getAuditList, getTrend } from '../../api/log-monitor'
-import { request } from '../../utils/http'
+import { getAuditList, getTrend, fetchAuditLogs } from '../../api/log-monitor'
 import BackButton from '../../components/BackButton.vue'
-
-const BASE = '/api/v1/log-monitor'
 
 const filter = ref({ device: '', abnormal: '', start_date: '', end_date: '' })
 const records = ref<any[]>([])
@@ -157,9 +154,7 @@ async function loadAuditLogs(id: number) {
   parsedLogs.value = []
   displayCount.value = 50
   try {
-    const res = await request<{ logs: any[]; source: string; expired?: boolean }>(
-      `${BASE}/audit/${id}/logs`
-    )
+    const res = await fetchAuditLogs(id)
     parsedLogs.value = res.logs
     logExpired.value = res.expired === true && res.logs.length === 0
     if (logExpired.value) ElMessage.info('该批次日志已超 7 天保留期，仅保留摘要')

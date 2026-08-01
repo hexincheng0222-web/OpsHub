@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -261,6 +262,7 @@ router.post('/', (req: Request, res: Response) => {
     insertMany()
 
     const rack = db.prepare('SELECT * FROM racks WHERE id = ?').get(rackId)
+    logOperation({ module: '机柜', action: '新增', target: name, detail: JSON.stringify({ floor, totalU }), operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: rack })
   } catch (err: any) {
     if (err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
@@ -283,6 +285,7 @@ router.put('/:id', (req: Request, res: Response) => {
     db.prepare("UPDATE racks SET name = ?, floor = ?, updated_at = datetime('now') WHERE id = ?").run(name, floor || (existing as any).floor, id)
 
     const updated = db.prepare('SELECT * FROM racks WHERE id = ?').get(id)
+    logOperation({ module: '机柜', action: '修改', target: (existing as any).name, detail: JSON.stringify({ name, floor }), operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: updated })
   } catch (err: any) {
     console.error('[server] 更新机柜失败:', err.message)
@@ -294,8 +297,10 @@ router.put('/:id', (req: Request, res: Response) => {
 router.delete('/:id', (req: Request, res: Response) => {
   try {
     const id = req.params.id
+    const existing = db.prepare('SELECT name FROM racks WHERE id = ?').get(id) as { name: string } | undefined
     const result = db.prepare('DELETE FROM racks WHERE id = ?').run(id)
     if (result.changes === 0) return res.status(404).json({ code: 404, message: '机柜不存在' })
+    logOperation({ module: '机柜', action: '删除', target: existing?.name || `ID:${id}`, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除机柜失败:', err.message)
@@ -349,6 +354,7 @@ router.post('/:rackId/devices', (req: Request, res: Response) => {
 
     const deviceId = addDevice()
     const device = db.prepare('SELECT * FROM devices WHERE id = ?').get(deviceId)
+    logOperation({ module: '机柜', action: '添加设备', target: name, detail: JSON.stringify({ rack: rackId, uOffset, u }), operator: req.user?.username || '', ...logCtx(req) })
     res.status(201).json({ code: 201, data: device })
   } catch (err: any) {
     console.error('[server] 添加设备到机柜失败:', err.message)

@@ -365,12 +365,13 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
 
 // ========== 操作日志 ==========
 
-// GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选
+// GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选 + 关键词搜索
 router.get('/logs/list', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const module_ = (req.query.module as string) || ''
   const operator = (req.query.operator as string) || ''
+  const keyword = (req.query.keyword as string)?.trim() || ''
   const startDate = (req.query.startDate as string) || ''
   const endDate = (req.query.endDate as string) || ''
   const offset = (page - 1) * pageSize
@@ -379,6 +380,12 @@ router.get('/logs/list', (req: Request, res: Response) => {
   const params: any[] = []
   if (module_) { conditions.push('module = ?'); params.push(module_) }
   if (operator) { conditions.push('operator = ?'); params.push(operator) }
+  if (keyword) {
+    // 服务端关键词搜索：跨分页生效，匹配模块/操作/目标/详情/操作用户
+    conditions.push('(module LIKE ? OR action LIKE ? OR target LIKE ? OR detail LIKE ? OR operator LIKE ?)')
+    const kw = `%${keyword}%`
+    params.push(kw, kw, kw, kw, kw)
+  }
   if (startDate) { conditions.push("created_at >= ?"); params.push(startDate + ' 00:00:00') }
   if (endDate) { conditions.push("created_at <= ?"); params.push(endDate + ' 23:59:59') }
 

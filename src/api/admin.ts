@@ -46,7 +46,7 @@ export async function deleteDict(table: string, id: number) {
 }
 
 // 操作日志
-export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; operator?: string; startDate?: string; endDate?: string } = {}) {
+export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; operator?: string; startDate?: string; endDate?: string; keyword?: string } = {}) {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.pageSize) qs.set('pageSize', String(params.pageSize))
@@ -54,6 +54,7 @@ export async function fetchLogs(params: { page?: number; pageSize?: number; modu
   if (params.operator) qs.set('operator', params.operator)
   if (params.startDate) qs.set('startDate', params.startDate)
   if (params.endDate) qs.set('endDate', params.endDate)
+  if (params.keyword) qs.set('keyword', params.keyword)
   return request(`${BASE}/logs/list?${qs}`)
 }
 

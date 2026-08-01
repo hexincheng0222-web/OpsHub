@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchLogs, clearLogs, fetchLogModules, fetchLogOperators } from '../../api/admin'
 import { Search } from '@element-plus/icons-vue'
 import { formatTime } from '../../utils/format'
+import { useDebouncedSearch } from '../../composables/useDebouncedSearch'
 
 const logs = ref<any[]>([])
 const loading = ref(false)
@@ -12,10 +13,12 @@ const page = ref(1)
 const pageSize = ref(20)
 const filterModule = ref('')
 const filterOperator = ref('')
-const searchText = ref('')
 const dateRange = ref<[string, string] | null>(null)
 const moduleOptions = ref<string[]>([])
 const operatorOptions = ref<string[]>([])
+
+// 防抖搜索：searchText 绑定输入框，searchKeyword 是防抖后的最终值（服务端过滤）
+const { searchInput: searchText, search: searchKeyword } = useDebouncedSearch()
 
 async function loadModules() {
   try {
@@ -35,18 +38,6 @@ async function loadOperators() {
   }
 }
 
-const filteredLogs = computed(() => {
-  if (!searchText.value) return logs.value
-  const q = searchText.value.toLowerCase()
-  return logs.value.filter(row =>
-    (row.module || '').toLowerCase().includes(q) ||
-    (row.action || '').toLowerCase().includes(q) ||
-    (row.target || '').toLowerCase().includes(q) ||
-    (row.detail || '').toLowerCase().includes(q) ||
-    (row.operator || '').toLowerCase().includes(q)
-  )
-})
-
 async function loadLogs() {
   loading.value = true
   try {
@@ -57,6 +48,7 @@ async function loadLogs() {
       operator: filterOperator.value || undefined,
       startDate: dateRange.value?.[0] || undefined,
       endDate: dateRange.value?.[1] || undefined,
+      keyword: searchKeyword.value || undefined,
     })
     logs.value = data.rows
     total.value = data.total
@@ -84,6 +76,11 @@ watch(filterOperator, () => {
 })
 
 watch(dateRange, () => {
+  page.value = 1
+  loadLogs()
+})
+
+watch(searchKeyword, () => {
   page.value = 1
   loadLogs()
 })
@@ -154,7 +151,7 @@ function getActionType(action: string): string {
       <el-input v-model="searchText" placeholder="搜索..." clearable size="small" :prefix-icon="Search" style="width: 220px" />
     </div>
 
-    <el-table :data="filteredLogs" v-loading="loading" style="width: 100%" size="small">
+    <el-table :data="logs" v-loading="loading" style="width: 100%" size="small">
       <el-table-column prop="module" label="模块" width="110">
         <template #default="{ row }">
           <span class="cell-module">{{ row.module }}</span>

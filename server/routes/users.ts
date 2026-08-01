@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import db from '../db'
 import { authRequired, requireRole } from '../middleware/auth'
 import { validatePasswordStrength } from './auth'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -81,6 +82,7 @@ router.post('/', (req: Request, res: Response) => {
     'SELECT id, username, display_name, role, is_active, created_at FROM users WHERE id = ?'
   ).get(result.lastInsertRowid)
 
+  logOperation({ module: '用户管理', action: '新增', target: username, detail: JSON.stringify({ display_name: display_name || '', role: targetRole }), operator: req.user?.username || '', ...logCtx(req) })
   res.status(201).json({ code: 201, data: user })
 })
 
@@ -139,6 +141,8 @@ router.put('/:id', (req: Request, res: Response) => {
     'SELECT id, username, display_name, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = ?'
   ).get(targetId)
 
+  // 不记录 password 等敏感字段，仅记录被修改的非敏感属性
+  logOperation({ module: '用户管理', action: '修改', target: target.username, detail: JSON.stringify({ display_name, role, is_active }), operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, data: user })
 })
 
@@ -162,6 +166,7 @@ router.delete('/:id', (req: Request, res: Response) => {
   }
 
   db.prepare('DELETE FROM users WHERE id = ?').run(targetId)
+  logOperation({ module: '用户管理', action: '删除', target: target.username, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.status(204).send()
 })
 
@@ -196,6 +201,8 @@ router.put('/:id/reset-password', (req: Request, res: Response) => {
     targetId
   )
 
+  // 只记录"谁重置了谁的密码"，绝不记录新密码本身
+  logOperation({ module: '用户管理', action: '重置密码', target: target.username, detail: '', operator: req.user?.username || '', ...logCtx(req) })
   res.json({ code: 200, message: '密码重置成功' })
 })
 

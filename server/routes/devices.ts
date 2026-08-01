@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
+import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
 
@@ -52,6 +53,7 @@ router.put('/:id', (req: Request, res: Response) => {
     )
 
     const updated = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
+    logOperation({ module: '设备', action: '修改', target: (existing as any).name, detail: JSON.stringify({ name, type, model, status }), operator: req.user?.username || '', ...logCtx(req) })
     res.json({ code: 200, data: updated })
   } catch (err: any) {
     console.error('[server] 更新设备失败:', err.message)
@@ -75,6 +77,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     })
     remove()
 
+    logOperation({ module: '设备', action: '删除', target: (existing as any).name, detail: '', operator: req.user?.username || '', ...logCtx(req) })
     res.status(204).send()
   } catch (err: any) {
     console.error('[server] 删除设备失败:', err.message)
@@ -140,6 +143,8 @@ router.post('/:id/move', (req: Request, res: Response) => {
       }
     })
     move()
+
+    logOperation({ module: '设备', action: '移动', target: device.name, detail: JSON.stringify({ from: sourceRackId, to: targetRackId, uOffset: targetUOffset }), operator: req.user?.username || '', ...logCtx(req) })
 
     // 返回更新后的两个 rack 的 slots
     const sourceSlots = db.prepare(`
