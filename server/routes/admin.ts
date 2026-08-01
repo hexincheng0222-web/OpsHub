@@ -368,7 +368,8 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
 // GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选 + 关键词搜索
 router.get('/logs/list', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20))
+  // 上限 1000：采购页行日志按 target 全量拉取需要（#审查 日志上限）
+  const pageSize = Math.min(1000, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const module_ = (req.query.module as string) || ''
   const operator = (req.query.operator as string) || ''
   const keyword = (req.query.keyword as string)?.trim() || ''

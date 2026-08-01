@@ -94,9 +94,41 @@
       </span>
       <template v-if="auth.isLoggedIn">
         <span class="top-action-user">{{ auth.user?.display_name || auth.user?.username }}</span>
-        <span class="top-action-item logout-item" @click="auth.logout">登出</span>
+        <el-dropdown trigger="click" @command="onUserCommand">
+          <span class="top-action-item">账户 ▾</span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="change-password">修改密码</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>登出</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
     </div>
+
+    <!-- 修改密码对话框 -->
+    <el-dialog
+      v-model="pwdVisible"
+      title="修改密码"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <el-form label-width="80px" @submit.prevent>
+        <el-form-item label="当前密码">
+          <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="8-64 位，需包含字母和数字" />
+        </el-form-item>
+        <el-form-item label="确认密码">
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pwdVisible = false">取消</el-button>
+        <el-button type="primary" :loading="pwdSaving" @click="submitPassword">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -105,9 +137,43 @@ import { ref, computed, onMounted } from 'vue'
 import { Monitor, Phone, DataAnalysis, Link, Operation, Cpu, Printer, ShoppingCart } from '@element-plus/icons-vue'
 import { useThemeStore } from '../stores/theme'
 import { useAuthStore } from '../stores/auth'
+import { changePassword } from '../api/auth'
 import { fetchDashboardStats } from '../api/dashboard'
+import { ElMessage } from 'element-plus'
 const themeStore = useThemeStore()
 const auth = useAuthStore()
+
+// 账户下拉菜单命令
+function onUserCommand(cmd: string) {
+  if (cmd === 'logout') { auth.logout(); return }
+  if (cmd === 'change-password') {
+    pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+    pwdVisible.value = true
+  }
+}
+
+// 修改密码
+const pwdVisible = ref(false)
+const pwdSaving = ref(false)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+async function submitPassword() {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
+  if (!oldPassword || !newPassword) return ElMessage.warning('请输入当前密码和新密码')
+  if (newPassword.length < 8 || newPassword.length > 64) return ElMessage.warning('新密码长度需 8-64 字符')
+  if (!/[a-zA-Z]/.test(newPassword) || !/\d/.test(newPassword)) return ElMessage.warning('新密码必须同时包含字母和数字')
+  if (newPassword !== confirmPassword) return ElMessage.warning('两次输入的新密码不一致')
+  pwdSaving.value = true
+  try {
+    await changePassword(oldPassword, newPassword)
+    ElMessage.success('密码修改成功')
+    pwdVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '修改失败')
+  } finally {
+    pwdSaving.value = false
+  }
+}
 
 // 首页卡片统计（通过单次 dashboard 接口加载）
 const serviceCount = ref(0)
