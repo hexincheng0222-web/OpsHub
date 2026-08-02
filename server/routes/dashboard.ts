@@ -1,12 +1,11 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
-import http from 'http'
 import { getCachedPhones, ensurePhoneCache } from './phones'
 
 const router = Router()
 
 // GET /api/v1/dashboard/stats — 首页汇总统计
-router.get('/stats', async (_req: Request, res: Response) => {
+router.get('/stats', (_req: Request, res: Response) => {
   const services = (db.prepare('SELECT COUNT(*) as cnt FROM services').get() as { cnt: number }).cnt
   const manuals = (db.prepare('SELECT COUNT(*) as cnt FROM manual_docs').get() as { cnt: number }).cnt
   const devices = (db.prepare('SELECT COUNT(*) as cnt FROM devices').get() as { cnt: number }).cnt
@@ -24,25 +23,15 @@ router.get('/stats', async (_req: Request, res: Response) => {
     }
   } catch { /* ignore */ }
 
-  // ATCOM 话机统计（缓存为空时自动触发首次发现）
-  // 限制超时，避免 PBX 不可达时阻塞整个首页
-  let phones = 0
-  let phonesOnline = 0
-  try {
-    let cached = getCachedPhones()
-    if (!cached) {
-      const timeoutMs = 5000
-      await Promise.race([
-        ensurePhoneCache(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('pbx-timeout')), timeoutMs)),
-      ]).catch(() => {}) // 超时或失败都不影响首页其它统计
-      cached = getCachedPhones()
-    }
-    if (cached) {
-      phones = cached.length
-      phonesOnline = cached.filter((d: any) => d.online).length
-    }
-  } catch { /* ignore */ }
+  // ATCOM 话机统计：只读缓存 + 后台异步预热，不阻塞首页（#2026-08-02 性能优化）
+  // 缓存缺失时立即返回 0/0 占位，由 fire-and-forget 预热填充，后续请求拿到真实值
+  const cached = getCachedPhones()
+  let phones = cached ? cached.length : 0
+  let phonesOnline = cached ? cached.filter((d: any) => d.online).length : 0
+  if (!cached) {
+    // 不 await：后台异步发现，供后续请求使用；失败不影响首页
+    ensurePhoneCache().catch(() => {})
+  }
 
   res.json({
     code: 200,
