@@ -35,43 +35,15 @@
         </el-button>
       </div>
 
-      <!-- LLM 配置 -->
+      <!-- LLM 配置：已移至独立页面 -->
       <el-divider content-position="left">LLM 配置</el-divider>
-      <el-form-item label="API 端点" prop="llm.base_url">
-        <el-input v-model="form.llm.base_url" placeholder="http://10.3.0.200:17002/v1" />
-      </el-form-item>
-      <el-form-item label="模型名称" prop="llm.model">
-        <el-input v-model="form.llm.model" placeholder="Qwen3.5-9B-AWQ" />
-      </el-form-item>
-      <el-form-item label="API Key" prop="llm.api_key">
-        <el-input v-model="form.llm.api_key" placeholder="留空则不修改" show-password style="width: 380px" />
-        <div class="form-tip">
-          <span v-if="hasApiKey" style="color: var(--ops-accent-green, #3fb950)">✅ 已配置（留空保存则不修改）</span>
-          <span v-else>尚未配置 API Key</span>
+      <el-form-item label="LLM 配置">
+        <div class="llm-redirect">
+          <span class="form-tip">LLM 参数（端点/模型/API Key/提示词）已移至独立页面统一管理</span>
+          <el-button type="primary" size="small" @click="$router.push('/admin/log-monitor/llm-test')">
+            前往 LLM 配置
+          </el-button>
         </div>
-      </el-form-item>
-      <el-form-item label="Temperature" prop="llm.temperature">
-        <el-input-number v-model="form.llm.temperature" :min="0" :max="2" :step="0.1" />
-      </el-form-item>
-      <el-form-item label="最大 Tokens" prop="llm.max_tokens">
-        <el-input-number v-model="form.llm.max_tokens" :min="1" :max="16384" />
-      </el-form-item>
-      <el-form-item label="超时(秒)" prop="llm.timeout">
-        <el-input-number v-model="form.llm.timeout" :min="1" :max="600" />
-      </el-form-item>
-      <el-form-item label="重试次数" prop="llm.retries">
-        <el-input-number v-model="form.llm.retries" :min="0" :max="10" />
-      </el-form-item>
-
-      <!-- 分析约束 -->
-      <el-divider content-position="left">分析约束（System Prompt）</el-divider>
-      <el-form-item label="提示词" prop="llm.system_prompt">
-        <el-input
-          v-model="form.llm.system_prompt"
-          type="textarea"
-          :rows="10"
-          placeholder="定义 LLM 如何分析日志、关注哪些异常类型"
-        />
       </el-form-item>
 
       <!-- 调度配置 -->
@@ -125,19 +97,17 @@ const loading = ref(false)
 const saving = ref(false)
 const discovering = ref(false)
 const testingLoki = ref(false)
-const hasApiKey = ref(false)
 
 async function loadConfig() {
   loading.value = true
   try {
     const cfg = await getConfig()
-    // API Key 不回传明文：标记是否已配置，输入框留空（留空=不修改）
-    hasApiKey.value = !!(cfg.llm?.has_api_key || cfg.llm?.api_key)
-    const { api_key, ...llmRest } = cfg.llm || {}
+    // API Key 不回传明文：LLM 配置已移至独立页面，此处仅保留非 llm 字段
+    const { llm: _llm, ...rest } = cfg
     form.value = {
       alert: { enabled: false, webhook: '', silent_hours: '', cooldown_minutes: 0 },
-      ...cfg,
-      llm: { ...llmRest, api_key: '' },
+      ...rest,
+      llm: {}, // 保留空块占位，避免 form 引用不存在
     }
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -199,14 +169,10 @@ async function handleSave() {
   saving.value = true
   try {
     const payload = { ...form.value }
-    // api_key 留空 = 不修改，剪枝避免覆盖已有 key
-    if (!payload.llm?.api_key) {
-      delete payload.llm.api_key
-    }
+    // LLM 配置由独立页面管理，此处保存时移除 llm 块，避免覆盖已保存的 LLM 配置
+    delete payload.llm
     await updateConfig(payload)
     ElMessage.success('配置已保存')
-    hasApiKey.value = !!payload.llm?.api_key || hasApiKey.value
-    if (form.value.llm) form.value.llm.api_key = ''
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {
@@ -222,4 +188,5 @@ onMounted(loadConfig)
 .page-header { margin-bottom: 16px; }
 .device-row { display: flex; align-items: center; }
 .form-tip { font-size: 12px; color: var(--el-text-color-placeholder); margin-top: 4px; line-height: 1.4; }
+.llm-redirect { display: flex; align-items: center; gap: 12px; }
 </style>
