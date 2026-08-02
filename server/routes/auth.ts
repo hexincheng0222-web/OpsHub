@@ -102,14 +102,18 @@ router.post('/login', (req: Request, res: Response) => {
 // GET /api/v1/auth/me — 获取当前用户信息
 router.get('/me', authRequired, (req: Request, res: Response) => {
   const user = db.prepare(
-    'SELECT id, username, display_name, role, last_login_at FROM users WHERE id = ?'
-  ).get(req.user!.id)
+    'SELECT id, username, display_name, role, password_hash, last_login_at FROM users WHERE id = ?'
+  ).get(req.user!.id) as any
 
   if (!user) {
     return res.status(404).json({ code: 404, message: '用户不存在' })
   }
 
-  res.json({ code: 200, data: user })
+  // 默认密码检测：仍使用 admin123 时标记，前端据此引导修改（安全加固 #审查）
+  const isDefault = user.username === 'admin' && bcrypt.compareSync('admin123', user.password_hash)
+
+  const { password_hash, ...safeUser } = user
+  res.json({ code: 200, data: { ...safeUser, is_default_password: isDefault } })
 })
 
 // PUT /api/v1/auth/password — 修改自己的密码

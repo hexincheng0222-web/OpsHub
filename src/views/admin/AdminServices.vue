@@ -297,10 +297,15 @@ async function handleImport(file: File): Promise<boolean> {
       return obj
     }).filter(o => o['名称'] && o['名称'].trim()) // 跳过空行
 
+    // 主机名 → id 映射，导入时按"主机"列解析部署主机
+    const hostMap = new Map(hosts.value.map((h: any) => [h.name, h.id]))
+
     let ok = 0, fail = 0
     const failNames: string[] = []
     for (const r of records) {
       try {
+        const hostName = (r['主机'] || '').trim()
+        const hostId = hostName ? (hostMap.get(hostName) ?? null) : null
         await servicesStore.addService({
           name: r['名称'].trim(),
           url: r['地址'] ?? '',
@@ -309,7 +314,7 @@ async function handleImport(file: File): Promise<boolean> {
           description: r['描述'] ?? '',
           notes: r['备注'] ?? '',
           icon: r['图标'] || 'Setting',
-          hostId: null, // 主机名→id 解析超出范围，填 null，用户可后续手动编辑
+          hostId, // 按主机名解析；未匹配到则置 null，可后续手动编辑
         })
         ok++
       } catch (e: any) {

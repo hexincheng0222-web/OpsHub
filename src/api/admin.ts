@@ -46,16 +46,30 @@ export async function deleteDict(table: string, id: number) {
 }
 
 // 操作日志
-export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; operator?: string; startDate?: string; endDate?: string; keyword?: string } = {}) {
+export async function fetchLogs(params: { page?: number; pageSize?: number; module?: string; operator?: string; status?: string; startDate?: string; endDate?: string; keyword?: string } = {}) {
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.pageSize) qs.set('pageSize', String(params.pageSize))
   if (params.module) qs.set('module', params.module)
   if (params.operator) qs.set('operator', params.operator)
+  if (params.status) qs.set('status', params.status)
   if (params.startDate) qs.set('startDate', params.startDate)
   if (params.endDate) qs.set('endDate', params.endDate)
   if (params.keyword) qs.set('keyword', params.keyword)
   return request(`${BASE}/logs/list?${qs}`)
+}
+
+// 导出日志 CSV（按当前筛选条件，服务端生成带 BOM 的 CSV）
+export function exportLogs(params: { module?: string; operator?: string; status?: string; startDate?: string; endDate?: string; keyword?: string } = {}) {
+  const qs = new URLSearchParams()
+  if (params.module) qs.set('module', params.module)
+  if (params.operator) qs.set('operator', params.operator)
+  if (params.status) qs.set('status', params.status)
+  if (params.startDate) qs.set('startDate', params.startDate)
+  if (params.endDate) qs.set('endDate', params.endDate)
+  if (params.keyword) qs.set('keyword', params.keyword)
+  // 走 window.open 触发浏览器下载（服务端返回 CSV 附件）
+  window.open(`${BASE}/logs/export?${qs.toString()}`, '_blank')
 }
 
 export async function clearLogs() {

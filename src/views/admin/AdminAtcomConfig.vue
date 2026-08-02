@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchConfig, saveConfig } from '../../api/admin'
+import { testAtcomConnection } from '../../api/phones'
 import { Phone, Connection, Loading } from '@element-plus/icons-vue'
 
 interface ConfigItem {
@@ -13,6 +14,8 @@ interface ConfigItem {
 
 const loading = ref(true)
 const saving = ref(false)
+const testing = ref(false)
+const testResult = ref<{ success: boolean; error?: string } | null>(null)
 const configs = ref<ConfigItem[]>([])
 const hasPbxPass = ref(false)
 const form = ref({
@@ -61,6 +64,21 @@ async function handleSave() {
     ElMessage.error(e.message || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+async function handleTest() {
+  testing.value = true
+  testResult.value = null
+  try {
+    // 测试前先保存表单里的配置，确保后端用最新值探活
+    await handleSave()
+    const res = await testAtcomConnection()
+    testResult.value = res
+  } catch (e: any) {
+    testResult.value = { success: false, error: e.message || '测试失败' }
+  } finally {
+    testing.value = false
   }
 }
 
@@ -141,6 +159,29 @@ function getLastUpdated() {
           >
             保存配置
           </el-button>
+          <el-button
+            type="success"
+            :loading="testing"
+            @click="handleTest"
+          >
+            测试连接
+          </el-button>
+        </el-form-item>
+
+        <el-form-item v-if="testResult">
+          <el-alert
+            :title="testResult.success ? '连接成功：IPPBX200 可达' : '连接失败'"
+            :type="testResult.success ? 'success' : 'error'"
+            :closable="false"
+            show-icon
+          >
+            <template v-if="!testResult.success && testResult.error">
+              <div style="margin-top: 4px">
+                <span style="color: var(--el-text-color-secondary)">错误：</span>
+                <code>{{ testResult.error }}</code>
+              </div>
+            </template>
+          </el-alert>
         </el-form-item>
       </el-form>
     </el-card>

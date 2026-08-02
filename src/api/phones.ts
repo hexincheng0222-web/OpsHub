@@ -39,6 +39,14 @@ export async function fetchPhoneDetail(id: string) {
   return request<any>(`${BASE}/${id}/details`)
 }
 
+/** 测试 IPPBX200 连通性（后端用已保存配置探活） */
+export async function testAtcomConnection() {
+  return request<{ success: boolean; detail?: any; error?: string }>(`${BASE}/atcom/test`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
 /** 编辑话机账号配置 */
 export async function updatePhoneAccount(id: string, data: any) {
   return request<any>(`${BASE}/${id}/account`, {

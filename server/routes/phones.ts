@@ -359,6 +359,26 @@ router.get('/refresh', async (_req: Request, res: Response) => {
   }
 })
 
+// POST /api/v1/phones/atcom/test — 测试 IPPBX200 连通性（用当前已保存配置探活）
+router.post('/atcom/test', async (req: Request, res: Response) => {
+  try {
+    const cfg = getConfig()
+    if (!cfg.pass) {
+      return res.json({ code: 200, data: { success: false, error: '尚未配置 PBX 密码，请先保存配置' } })
+    }
+    // 用探活命令验证：能拿到话机状态即连通
+    const result = await atcomGet(cfg.ip, 'status_get', cfg.user, cfg.pass)
+    res.json({ code: 200, data: { success: true, detail: result } })
+  } catch (err: any) {
+    const msg = err.message || '连接失败'
+    const userMsg = msg === 'timeout' ? '连接超时，请检查 PBX IP 和网络' :
+                    msg.includes('ECONNREFUSED') ? '无法连接 PBX，请检查 IP 地址' :
+                    msg.includes('登录失败') || msg.includes('401') || msg.includes('403') ? '登录失败，请检查用户名和密码' :
+                    msg
+    res.json({ code: 200, data: { success: false, error: userMsg } })
+  }
+})
+
 // GET /api/v1/phones/:id/details — 获取单台话机详情
 router.get('/:id/details', async (req: Request, res: Response) => {
   const devices = cache?.data || []

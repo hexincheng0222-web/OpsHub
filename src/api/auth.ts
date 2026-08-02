@@ -9,6 +9,7 @@ export interface UserInfo {
   is_active?: number
   created_at?: string
   updated_at?: string
+  is_default_password?: boolean
 }
 
 export interface LoginResponse {

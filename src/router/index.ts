@@ -93,7 +93,8 @@ const router = createRouter({
         { path: 'procurement/computer-models', name: 'AdminComputerModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'computer-models', title: '电脑型号' } },
         { path: 'atcom-config', name: 'AdminAtcomConfig', component: () => import('../views/admin/AdminAtcomConfig.vue'), meta: { title: 'ATCOM话机配置' } },
         { path: 'log-monitor', name: 'AdminLogMonitor', component: () => import('../views/admin/LogMonitorConfig.vue'), meta: { title: '日志监控配置' } },
-        { path: 'log-monitor/llm-test', name: 'AdminLogMonitorLlmTest', component: () => import('../views/admin/LogMonitorLlmTest.vue'), meta: { title: 'LLM 连通测试' } },
+        { path: 'log-monitor/llm-test', name: 'AdminLogMonitorLlmTest', component: () => import('../views/admin/LogMonitorLlmTest.vue'), meta: { title: 'LLM 配置' } },
+        { path: 'backup', name: 'AdminBackup', component: () => import('../views/admin/AdminBackup.vue'), meta: { title: '数据备份' } },
       ]
     },
     {

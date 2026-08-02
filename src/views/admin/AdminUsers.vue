@@ -17,8 +17,18 @@ const dialogVisible = ref(false)
 const resetDialogVisible = ref(false)
 const isEdit = ref(false)
 const form = ref({ username: '', password: '', display_name: '', role: 'user' as string })
-const resetForm = ref({ userId: 0, userName: '', newPassword: '' })
+const resetForm = ref({ userId: 0, userName: '', newPassword: '', confirmPassword: '' })
 const editingUser = ref<UserInfo | null>(null)
+
+// 前端密码强度校验（与后端 validatePasswordStrength 保持一致）
+function validatePassword(pwd: string): string | null {
+  if (!pwd) return '请输入密码'
+  if (pwd.length < 8) return '密码长度至少 8 字符'
+  if (pwd.length > 64) return '密码长度最多 64 字符'
+  if (!/[a-zA-Z]/.test(pwd)) return '密码必须包含字母'
+  if (!/\d/.test(pwd)) return '密码必须包含数字'
+  return null
+}
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -97,6 +107,13 @@ function handleEdit(user: UserInfo) {
 
 async function handleSubmit() {
   try {
+    if (!isEdit.value) {
+      const pwdErr = validatePassword(form.value.password)
+      if (pwdErr) {
+        ElMessage.warning(pwdErr)
+        return
+      }
+    }
     if (isEdit.value && editingUser.value) {
       await updateUser(editingUser.value.id, {
         display_name: form.value.display_name,
@@ -145,13 +162,22 @@ async function handleDelete(user: UserInfo) {
 }
 
 function handleResetPassword(user: UserInfo) {
-  resetForm.value = { userId: user.id, userName: user.display_name || user.username, newPassword: '' }
+  resetForm.value = { userId: user.id, userName: user.display_name || user.username, newPassword: '', confirmPassword: '' }
   resetDialogVisible.value = true
 }
 
 async function handleResetSubmit() {
   if (!resetForm.value.newPassword) {
     ElMessage.warning('请输入新密码')
+    return
+  }
+  const pwdErr = validatePassword(resetForm.value.newPassword)
+  if (pwdErr) {
+    ElMessage.warning(pwdErr)
+    return
+  }
+  if (resetForm.value.newPassword !== resetForm.value.confirmPassword) {
+    ElMessage.warning('两次输入的密码不一致')
     return
   }
   try {
@@ -217,6 +243,11 @@ function formatTime(time: string | null | undefined) {
           <span class="cell-time">{{ formatTime(row.last_login_at) }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="创建时间" width="150">
+        <template #default="{ row }">
+          <span class="cell-time">{{ formatTime(row.created_at) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" min-width="220" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
@@ -273,7 +304,10 @@ function formatTime(time: string | null | undefined) {
         为「{{ resetForm.userName }}」设置新密码
       </p>
       <el-form-item label="新密码">
-        <el-input v-model="resetForm.newPassword" type="password" placeholder="请输入新密码" show-password />
+        <el-input v-model="resetForm.newPassword" type="password" placeholder="请输入新密码（8-64 位，含字母和数字）" show-password />
+      </el-form-item>
+      <el-form-item label="确认密码">
+        <el-input v-model="resetForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password />
       </el-form-item>
       <template #footer>
         <el-button @click="resetDialogVisible = false">取消</el-button>

@@ -39,7 +39,7 @@ const statCards = computed<StatCard[]>(() => [
   { label: '采购经手人', value: stats.value.procurementHandlers ?? 0, icon: DataBoard, color: '#d29922', route: '/admin/procurement/handlers' },
   { label: '手机品牌', value: stats.value.phoneBrands ?? 0, icon: Cellphone, color: '#58a6ff', route: '/admin/procurement/phone-brands' },
   { label: '手机型号', value: stats.value.phoneModels ?? 0, icon: Cellphone, color: '#3fb950', route: '/admin/procurement/phone-models' },
-  { label: '电脑型号', value: stats.value.computerPurchaseModels ?? 0, icon: Monitor, color: '#a371f7', route: '/admin/procurement/computer-models' },
+  { label: '电脑型号', value: stats.value.computerModels ?? 0, icon: Monitor, color: '#a371f7', route: '/admin/procurement/computer-models' },
   { label: '操作日志', value: stats.value.totalLogs ?? 0, icon: Document, color: '#8b949e', route: '/admin/logs' },
 ])
 

@@ -64,9 +64,10 @@ const menuItems: MenuItem[] = [
     key: 'log-monitor', label: '日志监控', icon: DataAnalysis,
     children: [
       { key: 'log-monitor', label: '监控配置', route: '/admin/log-monitor' },
-      { key: 'log-monitor/llm-test', label: 'LLM 测试', route: '/admin/log-monitor/llm-test' },
+      { key: 'log-monitor/llm-test', label: 'LLM 配置', route: '/admin/log-monitor/llm-test' },
     ],
   },
+  { key: 'backup', label: '数据备份', icon: Document },
 ]
 
 const activeMenu = computed(() => {

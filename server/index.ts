@@ -19,6 +19,7 @@ import logMonitorRouter from './routes/log-monitor'
 import authRouter from './routes/auth'
 import usersRouter from './routes/users'
 import dashboardRouter from './routes/dashboard'
+import backupRouter from './routes/backup'
 import cron from 'node-cron'
 import db from './db'
 import { startServicesScheduler, stopServicesScheduler } from './servicesScheduler'
@@ -82,6 +83,7 @@ app.use('/api/v1/phones-public', publicPhonesRouter)
 app.use('/api/v1/users', authRequired, adminOnly, usersRouter)
 app.use('/api/v1/log-monitor', authRequired, adminOnly, logMonitorRouter)
 app.use('/api/v1/dashboard', authRequired, dashboardRouter)
+app.use('/api/v1/backup', authRequired, adminOnly, backupRouter)
 
 // ========== 静态前端托管（生产模式） ==========
 // 托管同项目下的 dist/（Vue 构建产物），不存在时跳过（dev 模式下由 Vite 独立托管）

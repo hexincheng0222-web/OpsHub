@@ -365,13 +365,14 @@ router.delete('/:table/:id', (req: Request, res: Response) => {
 
 // ========== 操作日志 ==========
 
-// GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选 + 关键词搜索
+// GET /api/v1/admin/logs/list  — 日志列表 + 日期范围 + 模块筛选 + 关键词搜索 + 状态筛选
 router.get('/logs/list', (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
   // 上限 1000：采购页行日志按 target 全量拉取需要（#审查 日志上限）
   const pageSize = Math.min(1000, Math.max(1, parseInt(req.query.pageSize as string) || 20))
   const module_ = (req.query.module as string) || ''
   const operator = (req.query.operator as string) || ''
+  const status = (req.query.status as string) || ''
   const keyword = (req.query.keyword as string)?.trim() || ''
   const startDate = (req.query.startDate as string) || ''
   const endDate = (req.query.endDate as string) || ''
@@ -381,6 +382,7 @@ router.get('/logs/list', (req: Request, res: Response) => {
   const params: any[] = []
   if (module_) { conditions.push('module = ?'); params.push(module_) }
   if (operator) { conditions.push('operator = ?'); params.push(operator) }
+  if (status) { conditions.push('status = ?'); params.push(status) }
   if (keyword) {
     // 服务端关键词搜索：跨分页生效，匹配模块/操作/目标/详情/操作用户
     conditions.push('(module LIKE ? OR action LIKE ? OR target LIKE ? OR detail LIKE ? OR operator LIKE ?)')
@@ -397,6 +399,47 @@ router.get('/logs/list', (req: Request, res: Response) => {
   ).all(...params, pageSize, offset)
 
   res.json({ code: 200, data: { rows, total, page, pageSize } })
+})
+
+// GET /api/v1/admin/logs/export — 按筛选条件导出全部日志为 CSV（带 BOM，Excel 中文兼容）
+router.get('/logs/export', (req: Request, res: Response) => {
+  const module_ = (req.query.module as string) || ''
+  const operator = (req.query.operator as string) || ''
+  const status = (req.query.status as string) || ''
+  const keyword = (req.query.keyword as string)?.trim() || ''
+  const startDate = (req.query.startDate as string) || ''
+  const endDate = (req.query.endDate as string) || ''
+
+  const conditions: string[] = []
+  const params: any[] = []
+  if (module_) { conditions.push('module = ?'); params.push(module_) }
+  if (operator) { conditions.push('operator = ?'); params.push(operator) }
+  if (status) { conditions.push('status = ?'); params.push(status) }
+  if (keyword) {
+    conditions.push('(module LIKE ? OR action LIKE ? OR target LIKE ? OR detail LIKE ? OR operator LIKE ?)')
+    const kw = `%${keyword}%`
+    params.push(kw, kw, kw, kw, kw)
+  }
+  if (startDate) { conditions.push("created_at >= ?"); params.push(startDate + ' 00:00:00') }
+  if (endDate) { conditions.push("created_at <= ?"); params.push(endDate + ' 23:59:59') }
+
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
+  const rows = db.prepare(
+    `SELECT module, action, operator, target, detail, status, error_message, ip_address, request_method, request_path, created_at FROM operation_logs ${where} ORDER BY created_at DESC`
+  ).all(...params) as any[]
+
+  const BOM = '\uFEFF'
+  const header = '时间,模块,操作,操作用户,目标,详情,状态,错误信息,IP,方法,路径'
+  const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const lines = rows.map(r => [
+    r.created_at, r.module, r.action, r.operator, r.target, r.detail,
+    r.status, r.error_message, r.ip_address, r.request_method, r.request_path,
+  ].map(esc).join(','))
+  const csv = BOM + header + '\n' + lines.join('\n')
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', 'attachment; filename=opshub-logs.csv')
+  res.send(csv)
 })
 
 // GET /api/v1/admin/logs/modules  — 模块下拉选项（去重）
