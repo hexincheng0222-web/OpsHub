@@ -1144,9 +1144,141 @@ tx()
 
 ---
 
+### 任务 14：22 台真实设备批量录入 + 端到端验收
+
+**文件：**
+- 创建：`scripts/sync-librenms-devices.ts`（一次性录入脚本，不加入 `start` 运行链）
+- 修改：`server/db.ts`（若录入时需处理机柜/槽位关联）
+
+**目标：** 把 22 台 LibreNMS 真实设备写入 OpsHub `devices` 表并启用监控，验证监控全链路可用。
+
+- [ ] **步骤 1：确认设备表现状与布局策略**
+
+先检查：`devices` 表当前行数、seed 假设备（10.0.0.x）、`rack_slots` 关联。新增设备若不在机柜槽位中，`DevicesView` 机柜视图不显示，但「设备详情」入口（`DeviceDrawer`）需可达——确认监控端点不依赖机柜布局（`GET /devices/:id/monitor/snapshot` 只查 `devices` 表，✅ 不依赖）。
+
+```bash
+node --import tsx -e "import db from './server/db.ts'; console.log('devices:', db.prepare('SELECT COUNT(*) c FROM devices').get().c, '| slots:', db.prepare('SELECT COUNT(*) c FROM rack_slots WHERE device_id IS NOT NULL').get().c)"
+```
+
+- [ ] **步骤 2：编写完整录入脚本**
+
+创建 `scripts/sync-librenms-devices.ts`，`REAL_DEVICES` 数组含全部 22 台（IP/名称/类型），策略：IP 已存在 → 启用监控 + 更新名称；不存在 → 新增（`monitor_enabled=1`）。类型映射：路由器→`router`，汇聚/核心/楼层/PoE/其他交换机→`switch`，无线AC→`router`（或新增 `controller` 类型）。
+
+```ts
+// scripts/sync-librenms-devices.ts — 一次性录入 22 台 LibreNMS 真实设备
+import db from '../server/db'
+
+// [IP, 名称, 类型]
+const REAL_DEVICES: [string, string, string][] = [
+  ['10.252.0.1', '核心路由器 AR2240C', 'router'],
+  ['192.168.100.1', '核心交换机 S9303', 'switch'],
+  ['192.168.100.254', '核心交换机 S5720-32X-EI', 'switch'],
+  ['192.168.100.10', 'B1F-01 接入交换机', 'switch'],
+  ['192.168.100.12', 'B1F-02 接入交换机', 'switch'],
+  ['192.168.100.13', 'B1F-03 接入交换机', 'switch'],
+  ['192.168.100.14', 'B1F-04 接入交换机', 'switch'],
+  ['192.168.100.15', 'B1F-05 接入交换机', 'switch'],
+  ['192.168.100.16', '1F 接入交换机', 'switch'],
+  ['192.168.100.21', '2F 接入交换机', 'switch'],
+  ['192.168.100.31', '3F-01 接入交换机', 'switch'],
+  ['192.168.100.41', '4F 接入交换机', 'switch'],
+  ['192.168.100.201', '1F PoE 交换机', 'switch'],
+  ['192.168.100.202', '2A PoE 交换机', 'switch'],
+  ['192.168.100.203', '2F PoE 交换机', 'switch'],
+  ['192.168.100.204', '3F-01 PoE 交换机', 'switch'],
+  ['192.168.100.205', '3F-02 PoE 交换机', 'switch'],
+  ['192.168.100.206', '3A PoE 交换机', 'switch'],
+  ['192.168.100.207', '3A 接入交换机', 'switch'],
+  ['192.168.100.208', '1F PoE 交换机 S5735', 'switch'],
+  ['192.168.100.209', '1F 网络交换机 S5730', 'switch'],
+  ['192.168.100.253', '无线AC控制器 AC6005', 'router'],
+]
+
+const find = db.prepare('SELECT id, name FROM devices WHERE ip = ?')
+const update = db.prepare("UPDATE devices SET monitor_enabled = 1, name = ? WHERE id = ?")
+const insert = db.prepare("INSERT INTO devices (name, type, model, u, ports, status, ip, monitor_enabled) VALUES (?, ?, ?, 1, 0, '正常', ?, 1)")
+
+const tx = db.transaction(() => {
+  for (const [ip, name, type] of REAL_DEVICES) {
+    const existing = find.get(ip) as { id: number; name: string } | undefined
+    if (existing) {
+      if (existing.name !== name) update.run(name, existing.id)
+      else db.prepare('UPDATE devices SET monitor_enabled = 1 WHERE id = ?').run(existing.id)
+    } else {
+      insert.run(name, type, type === 'router' ? 'AR2240C-S' : 'S57xx', ip)
+    }
+  }
+})
+tx()
+const n = db.prepare('SELECT COUNT(*) c FROM devices WHERE monitor_enabled = 1').get() as { c: number }
+console.log(`[sync] 完成，启用监控设备数: ${n.c}`)
+```
+
+- [ ] **步骤 3：运行录入脚本**
+
+运行：`node --import tsx scripts/sync-librenms-devices.ts`
+预期：`[sync] 完成，启用监控设备数: N`（含原有 seed 启用 + 新增）
+
+- [ ] **步骤 4：手动采集验证全链路**
+
+运行：`node --import tsx -e "import('dotenv/config').then(async () => { const { runCollect } = await import('./server/deviceMonitor.ts'); const { closeLibrenms } = await import('./server/librenms.ts'); await runCollect(); await closeLibrenms(); console.log('[verify] done'); process.exit(0) })" 2>&1 | grep -E "device-monitor|ER_"`
+预期：`[device-monitor] 采集完成 ok=N/22`（22 台全部采集，含 1 台 DOWN 的 10 号设备会失败但不影响其它）
+
+- [ ] **步骤 5：抽查快照与历史**
+
+抽查 1-2 台 UP 设备（如 10.252.0.1、192.168.100.254）确认快照有值、历史落库：
+
+```bash
+node --import tsx -e "import db from './server/db.ts'; const rows = db.prepare(\"SELECT device_id, cpu_usage, mem_usage, temperature, collected_at FROM device_monitor_history WHERE collected_at >= datetime('now','-10 minutes') ORDER BY id DESC LIMIT 5\").all(); console.log(JSON.stringify(rows, null, 2))"
+```
+
+- [ ] **步骤 6：类型检查 + Commit**
+
+运行：`npm run typecheck:server && npm run typecheck:client`
+预期：两者 PASS
+
+```bash
+git add scripts/sync-librenms-devices.ts
+git commit -m "feat(monitor): 22 台真实设备批量录入脚本（LibreNMS 同步）"
+```
+
+---
+
+### 任务 15：测试遗留清理 + 收尾
+
+**文件：**
+- 运行时数据：`devices` 表（还原测试设备）
+- 检查：`system_config` 凭据是否已清空
+
+**背景：** 验证期间改动了测试数据，需清理还原。
+
+- [ ] **步骤 1：清理测试设备状态**
+
+验证期间把 seed 设备 3（Core-SW-01）IP 临时改为 `10.252.0.1` 并启用监控。录入 22 台真实设备后，该 seed 设备可还原为原始状态或保留其一。确认逻辑：
+- 若真实录入含 `10.252.0.1`，seed 设备 3 的 IP 与真实设备冲突 → 还原 seed 设备 3 为原始假 IP（10.0.0.1）或删除。
+
+```bash
+node --import tsx -e "import db from './server/db.ts'; const d = db.prepare('SELECT id, name, ip, monitor_enabled FROM devices').all(); console.log(JSON.stringify(d.filter(x => x.monitor_enabled || x.ip?.startsWith('10.0.0')), null, 2))"
+```
+
+- [ ] **步骤 2：确认凭据不在库内**
+
+运行：`node --import tsx -e "import db from './server/db.ts'; const rows = db.prepare(\"SELECT key, value FROM system_config WHERE key IN ('librenms_db_user','librenms_db_pass')\").all(); console.log(JSON.stringify(rows))"`
+预期：`[{"key":"librenms_db_user","value":""},{"key":"librenms_db_pass","value":""}]`（已清空，凭据在 `.env`）
+
+- [ ] **步骤 3：部署上线清单核对**
+
+- [ ] 容器 `/app/.env` 已配置 `LIBRENMS_DB_*`（CI 不同步，手工维护）
+- [ ] MySQL 开放远程 + `librenms@'%'` 授权（任务 13 步骤 1-2）
+- [ ] 安全收敛：`librenms` 用户降权只读 / 收紧为容器 IP（强烈建议）
+- [ ] 类型检查通过、commit 已推送 origin + gitea
+- [ ] 生产重启后 `GET /api/v1/devices/:id/monitor/snapshot` 返回真实数据
+
+---
+
 ## 自检
 
-- **规格覆盖度：** 依赖+数据模型+配置（任务1）✅ / MySQL 客户端（任务2）✅ / 调度器（任务3）✅ / 接入启动（任务4）✅ / 端点（任务5）✅ / 前端类型+API（任务6）✅ / 监控区块UI（任务7、9）✅ / 趋势图（任务8）✅ / 环境+验收（任务10）✅ / 采集间隔对齐（任务11）✅ / 凭据收敛（任务12）✅ / 部署前置（任务13）✅
+- **规格覆盖度：** 依赖+数据模型+配置（任务1）✅ / MySQL 客户端（任务2）✅ / 调度器（任务3）✅ / 接入启动（任务4）✅ / 端点（任务5）✅ / 前端类型+API（任务6）✅ / 监控区块UI（任务7、9）✅ / 趋势图（任务8）✅ / 环境+验收（任务10）✅ / 采集间隔对齐（任务11）✅ / 凭据收敛（任务12）✅ / 部署前置（任务13）✅ / 设备批量录入+端到端验收（任务14）✅ / 测试遗留清理+上线清单（任务15）✅
 - **占位符扫描：** 所有步骤含实际代码、命令、预期输出，无 TODO/占位。
 - **类型一致性：** `HealthData`/`PortData`/`DeviceSnapshot`（librenms.ts）↔ `fetchDeviceSnapshot` 返回（api/devices.ts）↔ `MonitorSection`/`MonitorTrend` props 一致；`monitorEnabled` 命名前后一致；`getDeviceSnapshot`/`runCollect`/`startDeviceMonitor`/`stopDeviceMonitor`/`librenmsReady` 签名前后一致。
 - **范围：** 单一子系统，一个计划可覆盖。
