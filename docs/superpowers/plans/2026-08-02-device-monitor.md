@@ -942,9 +942,135 @@ git commit -m "feat(monitor): LibreNMS MySQL 环境变量示例"
 
 ---
 
+### 任务 11：采集间隔对齐 LibreNMS 轮询（5 分钟）
+
+**文件：**
+- 修改：`server/deviceMonitor.ts`
+- 修改：`src/components/devices/MonitorSection.vue`
+- 修改：`server/index.ts`
+
+**背景：** LibreNMS 每 5 分钟更新一次 `ports.ifInOctets/ifOutOctets` 累计 counter。OpsHub 若 60s 采样，同一 LibreNMS 周期内 octets 不变 → 速率大部分 0、偶尔出现放大 5 倍的失真峰值。故采集间隔改为 5 分钟与 LibreNMS 对齐。
+
+- [ ] **步骤 1：调度器 cron + 缓存 TTL 改 5 分钟**
+
+`server/deviceMonitor.ts`：
+- 文件头注释改为「每 5 分钟轮询（与 LibreNMS 轮询周期对齐）」
+- `CACHE_TTL_MS = 5 * 60_000`
+- `cron.schedule('*/5 * * * *', ...)`
+
+- [ ] **步骤 2：MonitorSection 文案**
+
+`src/components/devices/MonitorSection.vue` 未启用提示「每 60 秒」→「每 5 分钟」。
+
+- [ ] **步骤 3：历史清理 cron**
+
+`server/index.ts` 在 `service_health_logs` 清理 cron 后加：
+
+```ts
+// 每日 03:05 清理 30 天前的设备监控历史（LibreNMS 轮询自存）
+cron.schedule('5 3 * * *', () => {
+  try {
+    const n = db.prepare("DELETE FROM device_monitor_history WHERE collected_at < datetime('now', '-30 days')").run()
+    if (n.changes > 0) console.log(`[device-monitor] 清理监控历史 ${n.changes} 条`)
+  } catch (e) { console.warn('[device-monitor] 监控历史清理失败:', e) }
+})
+```
+
+- [ ] **步骤 4：类型检查**
+
+运行：`npm run typecheck:server && npm run typecheck:client`
+预期：两者 PASS
+
+- [ ] **步骤 5：Commit**
+
+```bash
+git add server/deviceMonitor.ts src/components/devices/MonitorSection.vue server/index.ts docs/superpowers/specs/2026-08-02-device-monitor-design.md
+git commit -m "feat(monitor): 采集间隔改为 5 分钟对齐 LibreNMS 轮询 + 历史清理 cron"
+```
+
+---
+
+### 任务 12：凭据收敛——明文不入库，改走环境变量
+
+**文件：**
+- 运行时数据：`system_config` 表
+- 修改：本地 `.env`（gitignore，不入库）
+
+**背景：** 验证期间曾把 `librenms`/`librenms123` 明文写入 `system_config`。凭据应走环境变量（`.env`，已被 gitignore），库内不存明文，避免凭据集中泄露。
+
+- [ ] **步骤 1：`.env` 追加凭据（本地开发）**
+
+本地 `.env` 末尾追加（生产环境在容器 `/app/.env` 手工维护，CI 不同步）：
+
+```
+# LibreNMS 设备监控 MySQL（凭据走环境变量，不入库）
+LIBRENMS_DB_HOST=10.3.0.141
+LIBRENMS_DB_PORT=3306
+LIBRENMS_DB_USER=librenms
+LIBRENMS_DB_PASS=librenms123
+LIBRENMS_DB_NAME=librenms
+```
+
+- [ ] **步骤 2：清空 system_config 里的明文凭据**
+
+运行：`node --import tsx -e "import db from './server/db.ts'; db.prepare(\"UPDATE system_config SET value='' WHERE key IN ('librenms_db_user','librenms_db_pass')\").run()"`
+（`getLibrenmsDbConfig()` 优先级：`system_config` 优先，清空后回退到 `.env`）
+
+- [ ] **步骤 3：验证环境变量生效**
+
+运行：`node --import tsx -e "import('dotenv/config').then(async () => { const m = await import('./server/librenms.ts'); console.log('ready:', m.librenmsReady(), '| user:', m.getLibrenmsDbConfig().user) })"`
+预期：`ready: true | user: librenms`
+
+- [ ] **步骤 4：验证采集（带连接池关闭，避免进程不退出）**
+
+运行：`node --import tsx -e "import('dotenv/config').then(async () => { const { runCollect } = await import('./server/deviceMonitor.ts'); const { closeLibrenms } = await import('./server/librenms.ts'); await runCollect(); await closeLibrenms(); console.log('done'); process.exit(0) })" 2>&1 | grep -E "device-monitor|ER_"`
+预期：`[device-monitor] 采集完成 ok=1/1`（有启用设备时）
+
+---
+
+### 任务 13：部署前置——LibreNMS MySQL 开放远程 + 真实设备 IP 录入
+
+**前置条件（需运维在 LibreNMS 服务器 10.3.0.141 操作）：**
+
+- [ ] **步骤 1：MySQL 监听 0.0.0.0**
+
+```bash
+sudo sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
+sudo systemctl restart mysql
+# 验证
+ss -tlnp | grep 3306   # 应监听 0.0.0.0:3306
+```
+
+- [ ] **步骤 2：librenms 用户授权远程**
+
+```bash
+sudo mysql -e "CREATE USER IF NOT EXISTS 'librenms'@'%' IDENTIFIED BY 'librenms123'; GRANT ALL PRIVILEGES ON librenms.* TO 'librenms'@'%'; FLUSH PRIVILEGES;"
+# 验证（从远端）
+mysql -ulibrenms -plibrenms123 -h 10.3.0.141 -e "SELECT 1"
+```
+
+⚠️ **安全收敛（强烈建议）**：
+- 若 10.3.0.x 非严格内网，将 `%` 收紧为 OpsHub 容器 IP：`'librenms'@'<OpsHub容器IP>'`
+- 降权为只读：`GRANT SELECT ON librenms.* TO ...`（本功能只需 SELECT）
+
+- [ ] **步骤 3：生产 .env 配置**
+
+容器 `/app/.env` 手工配置 `LIBRENMS_DB_*`（CI 的 woodpecker.yml 不同步 .env，注释已说明）。
+
+- [ ] **步骤 4：真实设备 IP 录入**
+
+当前 `devices` 表多为 seed 假 IP（10.0.0.x）。在「数据中心管理 → 设备详情」把真实设备 IP 改为 LibreNMS 的 hostname（如 `10.252.0.1`），开启「启用监控」开关。或批量 UPDATE：
+
+```sql
+-- 示例：把某设备 IP 指向 LibreNMS 真实设备
+UPDATE devices SET ip = '10.252.0.1', monitor_enabled = 1 WHERE id = ?;
+```
+
+---
+
 ## 自检
 
-- **规格覆盖度：** 依赖+数据模型+配置（任务1）✅ / MySQL 客户端（任务2）✅ / 调度器（任务3）✅ / 接入启动（任务4）✅ / 端点（任务5）✅ / 前端类型+API（任务6）✅ / 监控区块UI（任务7、9）✅ / 趋势图（任务8）✅ / 环境+验收（任务10）✅
+- **规格覆盖度：** 依赖+数据模型+配置（任务1）✅ / MySQL 客户端（任务2）✅ / 调度器（任务3）✅ / 接入启动（任务4）✅ / 端点（任务5）✅ / 前端类型+API（任务6）✅ / 监控区块UI（任务7、9）✅ / 趋势图（任务8）✅ / 环境+验收（任务10）✅ / 采集间隔对齐（任务11）✅ / 凭据收敛（任务12）✅ / 部署前置（任务13）✅
 - **占位符扫描：** 所有步骤含实际代码、命令、预期输出，无 TODO/占位。
 - **类型一致性：** `HealthData`/`PortData`/`DeviceSnapshot`（librenms.ts）↔ `fetchDeviceSnapshot` 返回（api/devices.ts）↔ `MonitorSection`/`MonitorTrend` props 一致；`monitorEnabled` 命名前后一致；`getDeviceSnapshot`/`runCollect`/`startDeviceMonitor`/`stopDeviceMonitor`/`librenmsReady` 签名前后一致。
 - **范围：** 单一子系统，一个计划可覆盖。
