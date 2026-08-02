@@ -58,3 +58,31 @@ export async function moveDevice(
     body: JSON.stringify({ targetRackId, targetUOffset }),
   })
 }
+
+// ===== 设备实时监控（LibreNMS）=====
+
+export interface DeviceSnapshot {
+  cpuUsage: number | null
+  memUsage: number | null
+  memUsedMb: number | null
+  memTotalMb: number | null
+  temperature: number | null
+  ports: { name: string; status: 'up' | 'down'; rxBps: number; txBps: number }[]
+  collectedAt: string
+}
+
+export interface MonitorSnapshotResult {
+  available: boolean
+  reason?: 'disabled' | 'pending' | 'unreachable'
+  snapshot?: DeviceSnapshot
+}
+
+// 实时快照（读缓存）
+export async function fetchDeviceSnapshot(id: number): Promise<MonitorSnapshotResult> {
+  return request(`${BASE_DEVICES}/${id}/monitor/snapshot`)
+}
+
+// 历史趋势（查表）
+export async function fetchDeviceHistory(id: number, hours = 24): Promise<{ points: { collectedAt: string; cpuUsage: number | null; memUsage: number | null; temperature: number | null }[] }> {
+  return request(`${BASE_DEVICES}/${id}/monitor/history?hours=${hours}`)
+}

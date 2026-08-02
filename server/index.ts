@@ -23,6 +23,8 @@ import backupRouter from './routes/backup'
 import cron from 'node-cron'
 import db from './db'
 import { startServicesScheduler, stopServicesScheduler } from './servicesScheduler'
+import { startDeviceMonitor, stopDeviceMonitor } from './deviceMonitor'
+import { closeLibrenms } from './librenms'
 import { authRequired, requireRole, jwtSecretReady } from './middleware/auth'
 import { credKeyReady } from './utils/crypto'
 import type { Server } from 'http'
@@ -151,10 +153,13 @@ function gracefulShutdown(signal: string) {
 
     // 2. 停止定时任务
     try { stopServicesScheduler() } catch { /* ignore */ }
+    try { stopDeviceMonitor() } catch { /* ignore */ }
     try { cron.getTasks().forEach((t: any) => t.stop()) } catch { /* ignore */ }
 
     // 3. 关闭数据库
     try { db.close(); console.log('[server] SQLite 已关闭') } catch { /* ignore */ }
+    // 3b. 关闭 LibreNMS MySQL 连接池
+    try { closeLibrenms().catch(() => {}) } catch { /* ignore */ }
 
     process.exit(0)
   })
@@ -176,6 +181,8 @@ server = app.listen(PORT, () => {
 // 定时巡检调度器（生产模式或显式开启时启动，避免开发环境干扰）
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_SVC_CRON === '1') {
   startServicesScheduler(parseInt(process.env.SVC_CRON_MIN || '10'))
+  // 设备监控采集调度器（与巡检同开关）
+  startDeviceMonitor()
 }
 
 // 每日 03:00 清理 30 天前健康日志

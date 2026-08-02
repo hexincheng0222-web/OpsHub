@@ -8,6 +8,7 @@ export interface Device {
   ports: number
   status: '正常' | '停用'
   ip?: string
+  monitorEnabled?: boolean
 }
 
 export interface Rack {

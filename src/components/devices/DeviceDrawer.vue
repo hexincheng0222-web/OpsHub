@@ -18,6 +18,12 @@
           <el-radio value="停用">停用</el-radio>
         </el-radio-group>
       </div>
+      <MonitorSection
+        v-if="device && typeof device.id === 'number'"
+        :device-id="device.id"
+        :enabled="!!device.monitorEnabled"
+        @enable="onEnableMonitor"
+      />
     </div>
     <template #footer>
       <el-button type="danger" @click="$emit('delete', device)">删除设备</el-button>
@@ -27,8 +33,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import type { Device } from '../../types'
 import { DEVICE_TYPE_LABELS } from '../../utils/rack-utils'
+import { updateDevice } from '../../api/devices'
+import MonitorSection from './MonitorSection.vue'
 
 interface DeviceDetail {
   manufacturer?: string
@@ -56,6 +65,17 @@ const typeLabel = computed(() =>
 const modelDetail = computed<DeviceDetail | null>(() =>
   props.deviceModels.find((m: any) => m.name === props.device?.model) || null
 )
+
+async function onEnableMonitor(v: boolean) {
+  if (!props.device) return
+  try {
+    await updateDevice(props.device.id, { monitorEnabled: v })
+    if (props.device) props.device.monitorEnabled = v
+    ElMessage.success(v ? '已启用实时监控' : '已关闭实时监控')
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  }
+}
 </script>
 
 <style scoped>

@@ -1377,6 +1377,18 @@ if (configCount.cnt === 0) {
   console.log('[db] 已初始化 ATCOM 话机管理默认配置')
 }
 
+// LibreNMS 设备监控 MySQL 配置（可选，未配置账号时监控功能自动禁用）
+const lnDbCount = db.prepare("SELECT COUNT(*) as cnt FROM system_config WHERE key LIKE 'librenms_db_%'").get() as { cnt: number }
+if (lnDbCount.cnt === 0) {
+  const insertLNDb = db.prepare("INSERT OR IGNORE INTO system_config (key, value, description) VALUES (?, ?, ?)")
+  insertLNDb.run('librenms_db_host', '10.3.0.141', 'LibreNMS MySQL 主机')
+  insertLNDb.run('librenms_db_port', '3306', 'LibreNMS MySQL 端口')
+  insertLNDb.run('librenms_db_user', '', 'LibreNMS MySQL 只读账号')
+  insertLNDb.run('librenms_db_pass', '', 'LibreNMS MySQL 密码（敏感，掩码）')
+  insertLNDb.run('librenms_db_name', 'librenms', 'LibreNMS MySQL 库名')
+  console.log('[db] 已初始化 LibreNMS MySQL 监控配置')
+}
+
 // 迁移：service_hosts 表将 device_id 替换为 category（服务分类）
 const shColumns = db.prepare("PRAGMA table_info(service_hosts)").all() as { name: string }[]
 if (shColumns.length > 0) {

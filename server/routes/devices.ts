@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
+import { getDeviceSnapshot } from '../deviceMonitor'
+import { librenmsReady } from '../librenms'
 import { logOperation, logCtx } from '../logOperation'
 
 const router = Router()
@@ -27,7 +29,7 @@ router.put('/:id', (req: Request, res: Response) => {
     const existing = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
     if (!existing) return res.status(404).json({ code: 404, message: '设备不存在' })
 
-    const { name, type, model, ports, status, ip } = req.body
+    const { name, type, model, ports, status, ip, monitorEnabled } = req.body
 
     // 字段校验（防超长/非法数据）
     if (name !== undefined) {
@@ -40,7 +42,7 @@ router.put('/:id', (req: Request, res: Response) => {
     if (ports !== undefined && (!Number.isInteger(ports) || ports < 0 || ports > 100)) return res.status(400).json({ code: 400, message: 'ports 必须为 0-100 的整数' })
 
     db.prepare(`
-      UPDATE devices SET name = ?, type = ?, model = ?, ports = ?, status = ?, ip = ?, updated_at = datetime('now')
+      UPDATE devices SET name = ?, type = ?, model = ?, ports = ?, status = ?, ip = ?, monitor_enabled = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       name || (existing as any).name,
@@ -49,6 +51,7 @@ router.put('/:id', (req: Request, res: Response) => {
       ports !== undefined ? ports : (existing as any).ports,
       status || (existing as any).status,
       ip !== undefined ? ip : (existing as any).ip,
+      monitorEnabled !== undefined ? (monitorEnabled ? 1 : 0) : (existing as any).monitor_enabled,
       id
     )
 
@@ -172,6 +175,45 @@ router.post('/:id/move', (req: Request, res: Response) => {
     console.error('[server] 移动设备失败:', err.message)
     res.status(500).json({ code: 500, message: '移动设备失败' })
   }
+})
+
+// ============ 10. 设备实时监控 ============
+
+// GET /api/v1/devices/:id/monitor/snapshot — 实时快照（读缓存）
+router.get('/:id/monitor/snapshot', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id))
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
+  const row = db.prepare('SELECT id, ip, monitor_enabled FROM devices WHERE id = ?').get(id) as any
+  if (!row) return res.status(404).json({ code: 404, message: '设备不存在' })
+  if (!row.monitor_enabled) return res.json({ code: 200, data: { available: false, reason: 'disabled' } })
+  if (!librenmsReady()) return res.json({ code: 200, data: { available: false, reason: 'disabled' } })
+
+  const snap = getDeviceSnapshot(id)
+  if (!snap) return res.json({ code: 200, data: { available: false, reason: 'pending' } })
+  res.json({ code: 200, data: { available: true, snapshot: snap } })
+})
+
+// GET /api/v1/devices/:id/monitor/history?hours=24 — 历史趋势（查表）
+router.get('/:id/monitor/history', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id))
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
+  const hours = Math.min(168, Math.max(1, parseInt(req.query.hours as string) || 24))
+  const rows = db.prepare(
+    `SELECT collected_at, cpu_usage, mem_usage, temperature FROM device_monitor_history
+     WHERE device_id = ? AND collected_at >= datetime('now', ?)
+     ORDER BY collected_at ASC`
+  ).all(id, `-${hours} hours`) as any[]
+  res.json({
+    code: 200,
+    data: {
+      points: rows.map((r) => ({
+        collectedAt: r.collected_at,
+        cpuUsage: r.cpu_usage,
+        memUsage: r.mem_usage,
+        temperature: r.temperature,
+      })),
+    },
+  })
 })
 
 export default router

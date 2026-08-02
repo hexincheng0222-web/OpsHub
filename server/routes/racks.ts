@@ -110,7 +110,7 @@ router.get('/', (req: Request, res: Response) => {
   if (includeDevices) {
     const allSlots = db.prepare(`
       SELECT rs.rack_id, rs.u_offset, rs.u_size, rs.device_id,
-             d.name, d.type, d.model, d.u, d.ports, d.status, d.ip
+             d.name, d.type, d.model, d.u, d.ports, d.status, d.ip, d.monitor_enabled
       FROM rack_slots rs
       LEFT JOIN devices d ON d.id = rs.device_id
       ORDER BY rs.u_offset ASC
@@ -143,7 +143,7 @@ router.get('/', (req: Request, res: Response) => {
       for (let i = 0; i < rack.total_u; i++) {
         const s = slotMap.get(i)
         if (s && s.device_id) {
-          devices.push({ id: s.device_id, name: s.name, type: s.type, model: s.model, u: s.u, ports: s.ports, status: s.status, ip: s.ip })
+          devices.push({ id: s.device_id, name: s.name, type: s.type, model: s.model, u: s.u, ports: s.ports, status: s.status, ip: s.ip, monitorEnabled: !!s.monitor_enabled })
           if (s.u_size > 1) i += s.u_size - 1 // skip spanned U slots
         } else {
           devices.push(null)
