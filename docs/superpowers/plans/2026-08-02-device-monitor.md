@@ -1059,12 +1059,88 @@ mysql -ulibrenms -plibrenms123 -h 10.3.0.141 -e "SELECT 1"
 
 - [ ] **步骤 4：真实设备 IP 录入**
 
-当前 `devices` 表多为 seed 假 IP（10.0.0.x）。在「数据中心管理 → 设备详情」把真实设备 IP 改为 LibreNMS 的 hostname（如 `10.252.0.1`），开启「启用监控」开关。或批量 UPDATE：
+当前 `devices` 表多为 seed 假 IP（10.0.0.x），需录入 LibreNMS 真实设备。完整设备清单（LibreNMS `devices` 表 hostname，共 22 台）：
 
-```sql
--- 示例：把某设备 IP 指向 LibreNMS 真实设备
-UPDATE devices SET ip = '10.252.0.1', monitor_enabled = 1 WHERE id = ?;
+**路由器（1台）**
+| # | IP | 型号 | 系统名 | 位置 | 状态 |
+|---|----|------|--------|------|------|
+| 1 | 10.252.0.1 | AR2240C-S | huawei_router | Shenzhen China | ✅ UP |
+
+**汇聚/核心交换机（2台）**
+| # | IP | 型号 | 系统名 | 位置 | 状态 |
+|---|----|------|--------|------|------|
+| 2 | 192.168.100.1 | S9303 | s9303_yxhx_ww | 机房核心 | ✅ UP |
+| 3 | 192.168.100.254 | S5720-32X-EI | s5720-hx-jifang-wlan | Beijing China | ✅ UP |
+
+**楼层接入交换机（11台）**
+| # | IP | 型号 | 系统名 | 状态 |
+|---|----|------|--------|------|
+| 4 | 192.168.100.10 | S5700S-52P-LI | s5700s-52p_b1f_01_nw | ❌ DOWN |
+| 5 | 192.168.100.12 | S5700S-52P-LI | s5700s-52p_b1f_02_nw | ✅ UP |
+| 6 | 192.168.100.13 | S5700S-28P-LI | s5700s-28p_b1f_03_nw | ✅ UP |
+| 7 | 192.168.100.14 | S5700S-28P-LI | s5700s-28p_b1f_04_nw | ✅ UP |
+| 8 | 192.168.100.15 | S5700S-28P-LI | s5700s-28p_b1f_05_nw | ✅ UP |
+| 9 | 192.168.100.16 | S5700S-52P-LI | s5700s-52p-1f-nw | ✅ UP |
+| 10 | 192.168.100.21 | S5700S-52P-LI | s5700s-52p_2f_nw | ✅ UP |
+| 11 | 192.168.100.31 | S5700S-52P-LI | s5700s-52p_3f_01_nw | ✅ UP |
+| 12 | 192.168.100.41 | S5700S-52P-LI | s5700s-52p_4f_nw | ✅ UP |
+
+**PoE 交换机（6台）**
+| # | IP | 型号 | 系统名 | 状态 |
+|---|----|------|--------|------|
+| 13 | 192.168.100.201 | S5720S-28P-PWR-LI | s5720-1f-poe-1 | ✅ UP |
+| 14 | 192.168.100.202 | S5720S-28P-PWR-LI | s5720-2a-poe-202 | ✅ UP |
+| 15 | 192.168.100.203 | S5720S-28P-PWR-LI | s5720-2f-poe-1 | ✅ UP |
+| 16 | 192.168.100.204 | S5720S-28P-PWR-LI | s5720-3f-poe-1 | ✅ UP |
+| 17 | 192.168.100.205 | S5720S-28P-PWR-LI | s5720-3f-poe-2 | ✅ UP |
+| 18 | 192.168.100.206 | S5720S-28P-PWR-LI | s5720-3a-poe-206 | ✅ UP |
+
+**其他（3台）**
+| # | IP | 型号 | 系统名 | 说明 | 状态 |
+|---|----|------|--------|------|------|
+| 19 | 192.168.100.207 | S5720S-28P-PWR-LI | s5720-3a-207 | 3楼接入 | ✅ UP |
+| 20 | 192.168.100.208 | S5735S-L24P4S-A2 | s5735s-24p--1f-poe | 1楼 PoE | ✅ UP |
+| 21 | 192.168.100.209 | S5735S-L48T4S-A1 | s5730s-48p--1f-nw | 1楼网络 | ✅ UP |
+| 22 | 192.168.100.253 | AC6005-8 | ac6005-jifang | 无线AC控制器 | ✅ UP |
+
+**录入方式**：在「数据中心管理 → 设备详情」逐台把 IP 改为上表 hostname、开启「启用监控」开关；或写一次性脚本按清单批量 UPDATE：
+
+```ts
+// scripts/sync-librenms-devices.ts（一次性录入脚本示例）
+import db from '../server/db'
+
+const REAL_DEVICES: { ip: string; name: string; type: string }[] = [
+  { ip: '10.252.0.1', name: '核心路由器 AR2240C', type: 'router' },
+  { ip: '192.168.100.1', name: '核心交换机 S9303', type: 'switch' },
+  { ip: '192.168.100.254', name: '核心交换机 S5720-32X-EI', type: 'switch' },
+  { ip: '192.168.100.10', name: 'B1F-01 接入交换机', type: 'switch' },
+  // ...（按上方清单补齐 22 台）
+]
+
+// 策略：IP 已存在则启用监控；不存在则新增（新设备默认放最后一个机柜空位）
+const upsert = db.prepare(`
+  INSERT INTO devices (name, type, model, u, ports, status, ip, monitor_enabled)
+  VALUES (?, ?, '', 1, 0, '正常', ?, 1)
+  ON CONFLICT(id) DO UPDATE SET monitor_enabled = 1
+`)
+
+// 注意：devices.ip 无 UNIQUE 约束，需先查重避免重复插入
+const find = db.prepare('SELECT id FROM devices WHERE ip = ?')
+const insert = db.prepare('INSERT INTO devices (name, type, model, u, ports, status, ip, monitor_enabled) VALUES (?, ?, ?, 1, 0, ?, ?, 1)')
+const tx = db.transaction(() => {
+  for (const d of REAL_DEVICES) {
+    const existing = find.get(d.ip)
+    if (existing) {
+      db.prepare('UPDATE devices SET monitor_enabled = 1, name = ? WHERE id = ?').run(d.name, existing.id)
+    } else {
+      insert.run(d.name, d.type, d.model, '正常', d.ip)
+    }
+  }
+})
+tx()
 ```
+
+**注意**：录入后首次采集会在下一个 5 分钟轮询周期触发（`*/5` cron）；若需立即验证，手动运行 `runCollect()`。
 
 ---
 
