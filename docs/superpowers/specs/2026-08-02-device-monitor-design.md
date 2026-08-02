@@ -21,6 +21,7 @@
 | 采集范围 | 仅轮询「启用监控」的设备 |
 | 展示位置 | 设备详情抽屉（DeviceDrawer.vue） |
 | 数据内容 | CPU、内存、温度、端口状态、端口速率 |
+| 采集间隔 | **5 分钟**（与 LibreNMS 自身 SNMP 轮询对齐） |
 
 ## 关键约束（LibreNMS API 能力调查）
 
@@ -57,7 +58,7 @@ LibreNMS MySQL (10.3.0.141, 只读账号)
          └─ checkDeviceExists(host) → devices 表查 hostname
    │
    └── server/deviceMonitor.ts（新建）：采集调度器
-         ├─ 每 60s 轮询 monitor_enabled=1 且 ip 非空的设备
+         ├─ 每 5 分钟轮询 monitor_enabled=1 且 ip 非空的设备（与 LibreNMS 轮询对齐）
          ├─ 查询 MySQL 当前值
          ├─ 用上次 octets 差值算端口速率
          ├─ 写 device_monitor_history 表（自存历史）
@@ -119,7 +120,7 @@ function calcRate(prev: number, curr: number, prevTs: number, currTs: number): n
 
 ```ts
 const snapshotCache = new Map<number, { data: DeviceSnapshot; ts: number }>()
-// TTL 60s（与轮询间隔一致）
+// TTL 5min（与轮询间隔一致）
 ```
 
 ## 采集流程（server/librenms.ts + server/deviceMonitor.ts）
@@ -159,7 +160,7 @@ async function query<T>(sql: string, params: any[]): Promise<T[]> {
 
 ### 采集调度器（deviceMonitor.ts）
 
-- node-cron `* * * * *`（每 60s）；复用 `servicesScheduler` 模式。
+- node-cron `*/5 * * * *`（每 5 分钟，与 LibreNMS 轮询对齐）；复用 `servicesScheduler` 模式。
 - `Promise.allSettled` 隔离单设备失败，不阻塞其它设备。
 - 端口速率：读取本次 octets → 对比 `octetsBaseline` 上次值算 bps → 更新 baseline。
 - 写 `device_monitor_history` + 更新 `snapshotCache`。
@@ -216,7 +217,7 @@ async function query<T>(sql: string, params: any[]): Promise<T[]> {
 
 ## 验收标准
 
-1. 设备详情抽屉能显示启用监控设备的 CPU/内存/温度/端口实时状态（缓存 <60s）。
+1. 设备详情抽屉能显示启用监控设备的 CPU/内存/温度/端口实时状态（缓存 <5min，与采集间隔一致）。
 2. 近 24h CPU/内存/温度趋势图可看。
 3. 未启用/未配置 MySQL/采集失败 三类异常态正确显示。
 4. 端口速率基于两次采样差值计算，counter 翻转安全。

@@ -12,7 +12,7 @@
 
     <!-- 未启用 -->
     <div v-if="!enabled && !pendingEnable" class="monitor-empty">
-      未启用实时监控。开启后 OpsHub 将每 60 秒从 LibreNMS 采集该设备的 CPU/内存/温度/端口状态。
+      未启用实时监控。开启后 OpsHub 将每 5 分钟从 LibreNMS 采集该设备的 CPU/内存/温度/端口状态。
     </div>
 
     <!-- 启用后状态 -->

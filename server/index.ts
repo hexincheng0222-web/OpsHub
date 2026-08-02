@@ -193,6 +193,14 @@ cron.schedule('0 3 * * *', () => {
   } catch (e) { console.warn('[services] 健康日志清理失败:', e) }
 })
 
+// 每日 03:05 清理 30 天前的设备监控历史（LibreNMS 轮询自存）
+cron.schedule('5 3 * * *', () => {
+  try {
+    const n = db.prepare("DELETE FROM device_monitor_history WHERE collected_at < datetime('now', '-30 days')").run()
+    if (n.changes > 0) console.log(`[device-monitor] 清理监控历史 ${n.changes} 条`)
+  } catch (e) { console.warn('[device-monitor] 监控历史清理失败:', e) }
+})
+
 // 每日 04:00 清理 7 天前的 data/log-audit/ 目录
 cron.schedule('0 4 * * *', async () => {
   try {

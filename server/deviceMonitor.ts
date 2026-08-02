@@ -1,14 +1,17 @@
 // server/deviceMonitor.ts — 设备监控采集调度器（LibreNMS MySQL 轮询）
-// 每 60 秒轮询 monitor_enabled=1 且 IP 非空的设备，采集 CPU/内存/温度/端口，
+// 每 5 分钟轮询 monitor_enabled=1 且 IP 非空的设备，采集 CPU/内存/温度/端口，
 // 写入 device_monitor_history 表（自存历史）+ 内存缓存（实时快照）。
+// 采集间隔 5 分钟与 LibreNMS 自身 SNMP 轮询周期对齐：
+//   - LibreNMS 每 5 分钟更新一次 ports.ifInOctets/ifOutOctets 累计 counter
+//   - 同一周期内 octets 不变，更频繁采样只会产生「大部分 0 + 偶尔放大峰值」的失真速率
 // 端口速率基于两次采样的 octets counter 差值计算（counter 翻转安全）。
 import cron from 'node-cron'
 import db from './db'
 import { fetchHealth, fetchPorts, librenmsReady, type DeviceSnapshot } from './librenms'
 
-// 内存缓存：实时快照（与轮询间隔一致，60s 过期）
+// 内存缓存：实时快照（与轮询间隔一致，5 分钟过期）
 const snapshotCache = new Map<number, { data: DeviceSnapshot; ts: number }>()
-const CACHE_TTL_MS = 60_000
+const CACHE_TTL_MS = 5 * 60_000
 
 // 端口速率计算基线：device_id -> Map<ifIndex, { in, out, ts }>
 const octetsBaseline = new Map<number, Map<number, { in: number; out: number; ts: number }>>()
@@ -18,7 +21,8 @@ let lastRun: Date | null = null
 
 export function startDeviceMonitor(): void {
   if (cronTask) return
-  cronTask = cron.schedule('* * * * *', async () => { await runCollect() })
+  // 每 5 分钟轮询一次（与 LibreNMS 轮询周期对齐）
+  cronTask = cron.schedule('*/5 * * * *', async () => { await runCollect() })
 }
 
 export function stopDeviceMonitor(): void {
