@@ -29,16 +29,17 @@ const REAL_DEVICES: [string, string, string][] = [
   ['192.168.100.253', '无线AC控制器 AC6005', 'router'],
 ]
 
-const find = db.prepare('SELECT id, name FROM devices WHERE ip = ?')
-const update = db.prepare("UPDATE devices SET monitor_enabled = 1, name = ? WHERE id = ?")
+const find = db.prepare('SELECT id, name, type FROM devices WHERE ip = ?')
+// 已存在 → 更新名称/类型/型号 + 启用监控（幂等，可重复运行）
+const update = db.prepare("UPDATE devices SET monitor_enabled = 1, name = ?, type = ?, model = ? WHERE id = ?")
 const insert = db.prepare("INSERT INTO devices (name, type, model, u, ports, status, ip, monitor_enabled) VALUES (?, ?, ?, 1, 0, '正常', ?, 1)")
 
 const tx = db.transaction(() => {
   for (const [ip, name, type] of REAL_DEVICES) {
-    const existing = find.get(ip) as { id: number; name: string } | undefined
+    const existing = find.get(ip) as { id: number; name: string; type: string } | undefined
     if (existing) {
-      if (existing.name !== name) update.run(name, existing.id)
-      else db.prepare('UPDATE devices SET monitor_enabled = 1 WHERE id = ?').run(existing.id)
+      const model = type === 'router' ? 'AR2240C-S' : 'S57xx'
+      update.run(name, type, model, existing.id)
     } else {
       insert.run(name, type, type === 'router' ? 'AR2240C-S' : 'S57xx', ip)
     }
