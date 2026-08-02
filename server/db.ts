@@ -436,6 +436,9 @@ try { db.prepare('ALTER TABLE computer_procurement ADD COLUMN deleted_at TEXT').
 try { db.prepare('ALTER TABLE phone_procurement ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0').run() } catch {}
 try { db.prepare('ALTER TABLE phone_procurement ADD COLUMN deleted_at TEXT').run() } catch {}
 
+// 设备监控启用标记（LibreNMS 采集开关）
+try { db.prepare('ALTER TABLE devices ADD COLUMN monitor_enabled INTEGER NOT NULL DEFAULT 0').run() } catch {}
+
 // 如果表为空，插入 mock 数据
 const count = db.prepare('SELECT COUNT(*) as cnt FROM services').get() as { cnt: number }
 if (count.cnt === 0) {
@@ -1577,5 +1580,23 @@ if (userCount === 0) {
   ).run('admin', hash, '超级管理员', 'superadmin')
   console.log("[db] 已创建默认超级管理员账号：admin / " + (process.env.ADMIN_DEFAULT_PASSWORD ? "(来自 ADMIN_DEFAULT_PASSWORD)" : "admin123（警告: 生产环境务必通过 ADMIN_DEFAULT_PASSWORD 修改）"));
 }
+
+// 设备监控历史（LibreNMS 轮询自存，供趋势图查询）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_monitor_history (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id    INTEGER NOT NULL,
+      cpu_usage    REAL,
+      mem_used_mb  REAL,
+      mem_total_mb REAL,
+      mem_usage    REAL,
+      temperature  REAL,
+      ports_json   TEXT,
+      collected_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_dmh_device_time ON device_monitor_history (device_id, collected_at DESC);
+  `)
+} catch (e: any) { console.warn('[db] device_monitor_history 建表失败:', e.message) }
 
 export default db
