@@ -3,8 +3,22 @@ import db from '../db'
 import { getDeviceSnapshot } from '../deviceMonitor'
 import { librenmsReady } from '../librenms'
 import { logOperation, logCtx } from '../logOperation'
+import { recoverAlert } from '../alertEngine'
 
 const router = Router()
+
+/** 从设备最新 ports_json 查找 ifName → ifIndex 映射 */
+function findPortIndexByName(deviceId: number, ifName: string): number | null {
+  const row = db.prepare(
+    'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(deviceId) as { ports_json: string } | undefined
+  if (!row) return null
+  try {
+    const ports = JSON.parse(row.ports_json) as { ifIndex: number; name: string }[]
+    const hit = ports.find(p => p.name === ifName)
+    return hit ? hit.ifIndex : null
+  } catch { return null }
+}
 
 // ============ 1. 获取设备列表 ============
 router.get('/', (req: Request, res: Response) => {
@@ -18,6 +32,88 @@ router.get('/', (req: Request, res: Response) => {
   sql += ' ORDER BY name ASC'
   const rows = db.prepare(sql).all(...params)
   res.json({ code: 200, data: rows })
+})
+
+// ============ 端口豁免白名单（低速端口告警豁免） ============
+
+// GET /api/v1/devices/alerts/port-whitelist — 豁免列表
+router.get('/alerts/port-whitelist', (req: Request, res: Response) => {
+  try {
+    const rows = db.prepare(`
+      SELECT w.id, w.device_id, w.if_index, w.if_name, w.reason, w.created_at,
+             d.name AS device_name, d.ip AS device_ip
+      FROM alert_port_whitelist w
+      LEFT JOIN devices d ON d.id = w.device_id
+      ORDER BY d.name ASC, w.if_name ASC
+    `).all() as any[]
+    res.json({ code: 200, data: rows })
+  } catch (err: any) {
+    console.error('[server] 查询端口豁免失败:', err.message)
+    res.status(500).json({ code: 500, message: '查询端口豁免失败' })
+  }
+})
+
+// POST /api/v1/devices/alerts/port-whitelist — 添加豁免（幂等，成功后立即恢复该端口活跃告警）
+router.post('/alerts/port-whitelist', (req: Request, res: Response) => {
+  try {
+    const { deviceId, ifName, reason } = req.body
+    const did = parseInt(String(deviceId))
+    if (isNaN(did)) return res.status(400).json({ code: 400, message: 'deviceId 无效' })
+    if (typeof ifName !== 'string' || !ifName.trim()) return res.status(400).json({ code: 400, message: 'ifName 不能为空' })
+
+    const device = db.prepare('SELECT id, name FROM devices WHERE id = ?').get(did) as any
+    if (!device) return res.status(404).json({ code: 404, message: '设备不存在' })
+
+    const ifIndex = findPortIndexByName(did, ifName.trim())
+    if (ifIndex == null) return res.status(400).json({ code: 400, message: '未找到该端口的采集数据，无法确定端口索引' })
+
+    // 幂等插入
+    db.prepare('INSERT OR IGNORE INTO alert_port_whitelist (device_id, if_index, if_name, reason) VALUES (?, ?, ?, ?)')
+      .run(did, ifIndex, ifName.trim(), String(reason || ''))
+
+    // 立即恢复该端口已有的活跃低速告警
+    recoverAlert(did, 'port_speed', `${ifIndex}:speed`)
+
+    logOperation({
+      module: '设备告警', action: '添加端口豁免',
+      target: `${device.name} ${ifName.trim()}`,
+      detail: JSON.stringify({ deviceId: did, ifIndex, ifName: ifName.trim(), reason: reason || '' }),
+      operator: req.user?.username || '', ...logCtx(req)
+    })
+
+    const row = db.prepare('SELECT * FROM alert_port_whitelist WHERE device_id = ? AND if_index = ?').get(did, ifIndex)
+    res.json({ code: 200, data: row })
+  } catch (err: any) {
+    console.error('[server] 添加端口豁免失败:', err.message)
+    res.status(500).json({ code: 500, message: '添加端口豁免失败' })
+  }
+})
+
+// DELETE /api/v1/devices/alerts/port-whitelist/:id — 删除豁免
+router.delete('/alerts/port-whitelist/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id))
+    if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的豁免 ID' })
+
+    const row = db.prepare(`
+      SELECT w.*, d.name AS device_name FROM alert_port_whitelist w
+      LEFT JOIN devices d ON d.id = w.device_id WHERE w.id = ?
+    `).get(id) as any
+    if (!row) return res.status(404).json({ code: 404, message: '豁免记录不存在' })
+
+    db.prepare('DELETE FROM alert_port_whitelist WHERE id = ?').run(id)
+
+    logOperation({
+      module: '设备告警', action: '移除端口豁免',
+      target: `${row.device_name || ''} ${row.if_name}`,
+      detail: JSON.stringify({ deviceId: row.device_id, ifIndex: row.if_index, ifName: row.if_name }),
+      operator: req.user?.username || '', ...logCtx(req)
+    })
+    res.status(204).send()
+  } catch (err: any) {
+    console.error('[server] 删除端口豁免失败:', err.message)
+    res.status(500).json({ code: 500, message: '删除端口豁免失败' })
+  }
 })
 
 // ============ 7. 更新设备 ============
@@ -214,6 +310,22 @@ router.get('/:id/monitor/history', (req: Request, res: Response) => {
       })),
     },
   })
+})
+
+// GET /api/v1/devices/:id/monitor/ports — 最新采集的 up 端口列表（豁免弹窗用）
+router.get('/:id/monitor/ports', (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id))
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
+  const row = db.prepare(
+    'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(id) as { ports_json: string } | undefined
+  if (!row) return res.json({ code: 200, data: [] })
+  try {
+    const ports = JSON.parse(row.ports_json) as { name: string; status: string; speedBps: number | null }[]
+    res.json({ code: 200, data: ports.filter(p => p.status === 'up').map(p => ({ name: p.name, speedBps: p.speedBps ?? null })) })
+  } catch {
+    res.json({ code: 200, data: [] })
+  }
 })
 
 export default router
