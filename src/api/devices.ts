@@ -91,7 +91,7 @@ export async function fetchDeviceHistory(id: number, hours = 24): Promise<{ poin
 export interface PortWhitelistItem {
   id: number
   device_id: number
-  device_name: string
+  device_name: string | null
   device_ip: string | null
   if_index: number
   if_name: string
