@@ -8,6 +8,10 @@
 import cron from 'node-cron'
 import db from './db'
 import { fetchHealth, fetchPorts, librenmsReady, type DeviceSnapshot } from './librenms'
+import {
+  evaluateOfflineAlerts, evaluatePortAlerts, evaluateThresholdAlerts,
+  readAlertConfig, readPortWhitelist, type PortSnap,
+} from './alertEngine'
 
 // 内存缓存：实时快照（与轮询间隔一致，5 分钟过期）
 const snapshotCache = new Map<number, { data: DeviceSnapshot; ts: number }>()
@@ -60,7 +64,7 @@ export async function runCollect(): Promise<void> {
           txBps = calcRate(prev.out, p.ifOutOctets, prev.ts, now)
         }
         base.set(p.ifIndex, { in: p.ifInOctets, out: p.ifOutOctets, ts: now })
-        return { ifIndex: p.ifIndex, name: p.name, status: p.status, rxBps, txBps }
+        return { ifIndex: p.ifIndex, name: p.name, status: p.status, rxBps, txBps, speedBps: p.ifSpeed }
       })
       octetsBaseline.set(d.id, base)
 
@@ -74,6 +78,19 @@ export async function runCollect(): Promise<void> {
         collectedAt: new Date().toISOString(),
       }
 
+      // 告警判定：先读上一条 ports_json 做端口对比，再写当前行（顺序关键）
+      const cfg = readAlertConfig()
+      if (cfg.enabled) {
+        const prevRow = db.prepare(
+          'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+        ).get(d.id) as { ports_json: string } | undefined
+        evaluateThresholdAlerts(d.id, snap, cfg)
+        if (prevRow?.ports_json) {
+          const whitelist = readPortWhitelist()
+          try { evaluatePortAlerts(d.id, JSON.parse(prevRow.ports_json) as PortSnap[], snap.ports, whitelist) } catch { /* 旧格式解析失败跳过端口告警 */ }
+        }
+      }
+
       insert.run(d.id, snap.cpuUsage, snap.memUsedMb, snap.memTotalMb, snap.memUsage, snap.temperature, JSON.stringify(snap.ports))
       snapshotCache.set(d.id, { data: snap, ts: Date.now() })
     } catch (e: any) {
@@ -84,6 +101,16 @@ export async function runCollect(): Promise<void> {
 
   const ok = results.filter(r => r.status === 'fulfilled').length
   console.log(`[device-monitor] 采集完成 ok=${ok}/${devices.length}`)
+
+  // 离线告警：全部采集完成后统一评估（此时本轮 history 已写完）
+  // 失败 ≥50% 视为 LibreNMS 整体连接问题，跳过离线评估避免全量误报
+  const cfg = readAlertConfig()
+  if (cfg.enabled && devices.length > 0) {
+    const failed = devices.length - ok
+    if (failed / devices.length < 0.5) {
+      evaluateOfflineAlerts(devices.map(d => d.id), cfg)
+    }
+  }
 }
 
 /** 端口速率计算（counter 差值，秒为单位） */
