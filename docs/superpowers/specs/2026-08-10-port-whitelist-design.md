@@ -104,9 +104,22 @@ if (curr.status === 'up' && curr.speedBps != null) {
 // 2. INSERT OR IGNORE 幂等（唯一约束 device_id+if_index）
 // 3. 成功后：recoverAlert(deviceId, 'port_speed', `${ifIndex}:speed`) → 已活跃告警立即恢复
 //    （ifIndex 存在豁免表中，可精确恢复）
+// 4. 审计：logOperation({ module: '设备告警', action: '添加端口豁免',
+//       target: `${设备名} ${ifName}`, detail: { deviceId, ifIndex, ifName, reason } })
 
-// DELETE 后：该端口不在白名单，下一轮采集重新开始低速告警。
+// DELETE :id
+// 1. 查豁免行（含设备名/端口名），不存在返回 404
+// 2. 删除
+// 3. 审计：logOperation({ module: '设备告警', action: '移除端口豁免',
+//       target: `${设备名} ${ifName}`, detail: { deviceId, ifIndex, ifName } })
+// 4. 删除后：该端口不在白名单，下一轮采集重新开始低速告警。
 ```
+
+**审计日志约定**（复用 `server/logOperation.ts`）：
+- `module: '设备告警'`、`action: '添加端口豁免' | '移除端口豁免'`
+- `target`: `${设备名} ${ifName}`（如 `1F 网络交换机 S5730 GigabitEthernet0/0/5`）
+- `detail`: JSON `{ deviceId, ifIndex, ifName, reason? }`
+- 操作人/IP/UA 沿用 `operator: req.user?.username, ...logCtx(req)`（与 devices 路由现有模式一致）
 
 **注意（端口标识一致性）**：`evaluatePortAlerts` 的 target 用 `ifIndex:speed`，而豁免表存 `if_name`。两者通过 `PortSnap` 的 `name` 字段关联。添加豁免时，API 会先从该设备最新 `ports_json`（或直接查历史表）找 `ifIndex ↔ ifName` 映射；若当前活跃告警的 target 是 `{ifIndex}:speed`，POST 时查库恢复。简化方案：恢复逻辑依赖下一轮采集白名单分支（5 分钟内自动恢复），POST 不立即 recover——用户确认的"立即生效"由**前端刷新 + 下轮采集**共同达成。实现时优先尝试即时恢复。
 
@@ -159,9 +172,9 @@ fetchDeviceUpPorts(deviceId: number): Promise<string[]>  // 从最新 ports_json
 5. 幂等：同一设备同一端口重复添加不产生重复行。
 6. 类型检查 `typecheck:server` / `typecheck:client` 通过。
 7. 后端迁移幂等，重复启动不报错。
+8. 添加/移除豁免均写入 `operation_logs`（module='设备告警'，action 区分添加/移除，detail 含设备 ID、端口、原因）。
 
 ## 范围外
 
 - 按设备整机豁免 / 全局阈值调整（可后续基于同一表扩展 device_id 或 if_name 通配）。
-- 豁免操作的审计日志（当前告警配置本身无审计，保持一致）。
 - 豁免导出一批导入。
