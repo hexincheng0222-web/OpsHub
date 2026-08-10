@@ -3,21 +3,14 @@ import db from '../db'
 import { getDeviceSnapshot } from '../deviceMonitor'
 import { librenmsReady } from '../librenms'
 import { logOperation, logCtx } from '../logOperation'
-import { recoverAlert } from '../alertEngine'
+import { recoverAlert, getLatestPorts } from '../alertEngine'
 
 const router = Router()
 
 /** 从设备最新 ports_json 查找 ifName → ifIndex 映射 */
 function findPortIndexByName(deviceId: number, ifName: string): number | null {
-  const row = db.prepare(
-    'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
-  ).get(deviceId) as { ports_json: string } | undefined
-  if (!row) return null
-  try {
-    const ports = JSON.parse(row.ports_json) as { ifIndex: number; name: string }[]
-    const hit = ports.find(p => p.name === ifName)
-    return hit ? hit.ifIndex : null
-  } catch { return null }
+  const hit = getLatestPorts(deviceId).find(p => p.name === ifName)
+  return hit ? hit.ifIndex : null
 }
 
 // ============ 1. 获取设备列表 ============
@@ -316,16 +309,10 @@ router.get('/:id/monitor/history', (req: Request, res: Response) => {
 router.get('/:id/monitor/ports', (req: Request, res: Response) => {
   const id = parseInt(String(req.params.id))
   if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
-  const row = db.prepare(
-    'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
-  ).get(id) as { ports_json: string } | undefined
-  if (!row) return res.json({ code: 200, data: [] })
-  try {
-    const ports = JSON.parse(row.ports_json) as { name: string; status: string; speedBps: number | null }[]
-    res.json({ code: 200, data: ports.filter(p => p.status === 'up').map(p => ({ name: p.name, speedBps: p.speedBps ?? null })) })
-  } catch {
-    res.json({ code: 200, data: [] })
-  }
+  const device = db.prepare('SELECT id FROM devices WHERE id = ?').get(id)
+  if (!device) return res.status(404).json({ code: 404, message: '设备不存在' })
+  const ports = getLatestPorts(id)
+  res.json({ code: 200, data: ports.filter(p => p.status === 'up').map(p => ({ name: p.name, speedBps: p.speedBps ?? null })) })
 })
 
 export default router

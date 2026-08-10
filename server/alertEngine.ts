@@ -69,6 +69,15 @@ export function readPortWhitelist(): Map<number, Map<number, string>> {
   return m
 }
 
+/** 读取设备最新一次采集的端口快照（无数据或解析失败返回空数组） */
+export function getLatestPorts(deviceId: number): { ifIndex: number; name: string; status: string; speedBps: number | null }[] {
+  const row = db.prepare(
+    'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(deviceId) as { ports_json: string } | undefined
+  if (!row) return []
+  try { return JSON.parse(row.ports_json) } catch { return [] }
+}
+
 const upsert = db.prepare(`
   INSERT INTO device_alerts (device_id, rule_type, severity, status, target, message, detail)
   VALUES (?, ?, ?, 'active', ?, ?, ?)
