@@ -1611,4 +1611,19 @@ try {
   `)
 } catch (e: any) { console.warn('[db] device_monitor_history 建表失败:', e.message) }
 
+// 端口豁免白名单（低速端口告警豁免：网卡本身只有 100M 属正常的端口）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alert_port_whitelist (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id  INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      if_index   INTEGER NOT NULL,
+      if_name    TEXT NOT NULL,
+      reason     TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_apw_device_port ON alert_port_whitelist (device_id, if_index);
+  `)
+} catch (e: any) { console.warn('[db] alert_port_whitelist 建表失败:', e.message) }
+
 export default db
