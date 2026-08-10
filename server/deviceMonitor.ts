@@ -50,6 +50,10 @@ export async function runCollect(): Promise<void> {
      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
   )
 
+  // 告警配置与豁免白名单为本轮常量，上提循环外读取一次，避免每设备重复查库
+  const cfg = readAlertConfig()
+  const whitelist = readPortWhitelist()
+
   const results = await Promise.allSettled(devices.map(async (d) => {
     try {
       const [health, ports] = await Promise.all([fetchHealth(d.ip), fetchPorts(d.ip)])
@@ -79,15 +83,13 @@ export async function runCollect(): Promise<void> {
       }
 
       // 告警判定：先读上一条 ports_json 做端口对比，再写当前行（顺序关键）
-      const cfg = readAlertConfig()
       if (cfg.enabled) {
         const prevRow = db.prepare(
           'SELECT ports_json FROM device_monitor_history WHERE device_id = ? ORDER BY id DESC LIMIT 1'
         ).get(d.id) as { ports_json: string } | undefined
         evaluateThresholdAlerts(d.id, snap, cfg)
         if (prevRow?.ports_json) {
-          const whitelist = readPortWhitelist()
-          try { evaluatePortAlerts(d.id, JSON.parse(prevRow.ports_json) as PortSnap[], snap.ports, whitelist) } catch { /* 旧格式解析失败跳过端口告警 */ }
+          try { evaluatePortAlerts(d.id, JSON.parse(prevRow.ports_json) as PortSnap[], snap.ports, whitelist) } catch (e: any) { console.warn(`[device-monitor] 设备 ${d.ip} 端口告警判定失败: ${e.message}`) }
         }
       }
 
@@ -104,7 +106,6 @@ export async function runCollect(): Promise<void> {
 
   // 离线告警：全部采集完成后统一评估（此时本轮 history 已写完）
   // 失败 ≥50% 视为 LibreNMS 整体连接问题，跳过离线评估避免全量误报
-  const cfg = readAlertConfig()
   if (cfg.enabled && devices.length > 0) {
     const failed = devices.length - ok
     if (failed / devices.length < 0.5) {
