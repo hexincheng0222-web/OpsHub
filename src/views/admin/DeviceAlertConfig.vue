@@ -187,8 +187,12 @@ async function openAddDialog() {
 async function onDeviceChange(deviceId: number) {
   addForm.ifName = ''
   portOptions.value = []
-  try { portOptions.value = await fetchDeviceUpPorts(deviceId) }
-  catch (e: any) { ElMessage.warning('读取端口列表失败: ' + e.message) }
+  try {
+    const ports = await fetchDeviceUpPorts(deviceId)
+    // 竞态保护：响应返回时若已切到其他设备则丢弃
+    if (addForm.deviceId !== deviceId) return
+    portOptions.value = ports
+  } catch (e: any) { ElMessage.warning('读取端口列表失败: ' + e.message) }
 }
 
 async function handleAdd() {
@@ -210,7 +214,7 @@ async function handleRemove(row: PortWhitelistItem) {
     ElMessage.success('豁免已移除，下一轮采集恢复告警')
     loadWhitelist()
   } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error(e.message || '移除失败')
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e.message || '移除失败')
   }
 }
 
