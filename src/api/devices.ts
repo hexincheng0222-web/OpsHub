@@ -86,3 +86,35 @@ export async function fetchDeviceSnapshot(id: number): Promise<MonitorSnapshotRe
 export async function fetchDeviceHistory(id: number, hours = 24): Promise<{ points: { collectedAt: string; cpuUsage: number | null; memUsage: number | null; temperature: number | null }[] }> {
   return request(`${BASE_DEVICES}/${id}/monitor/history?hours=${hours}`)
 }
+
+// 端口豁免白名单
+export interface PortWhitelistItem {
+  id: number
+  device_id: number
+  device_name: string
+  device_ip: string | null
+  if_index: number
+  if_name: string
+  reason: string
+  created_at: string
+}
+
+export async function fetchPortWhitelist(): Promise<PortWhitelistItem[]> {
+  return request(`${BASE_DEVICES}/alerts/port-whitelist`)
+}
+
+export async function addPortWhitelist(data: { deviceId: number; ifName: string; reason?: string }): Promise<void> {
+  await request(`${BASE_DEVICES}/alerts/port-whitelist`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function removePortWhitelist(id: number): Promise<void> {
+  await request(`${BASE_DEVICES}/alerts/port-whitelist/${id}`, { method: 'DELETE' })
+}
+
+/** 读取设备最新采集到的 up 端口列表（用于豁免添加弹窗选择） */
+export async function fetchDeviceUpPorts(deviceId: number): Promise<{ name: string; speedBps: number | null }[]> {
+  return request(`${BASE_DEVICES}/${deviceId}/monitor/ports`)
+}
