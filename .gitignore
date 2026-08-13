@@ -42,3 +42,6 @@ data/
 
 # AtomCode local-scope configs (machine-specific)
 .atomcode/local/
+
+# 本地 git worktree 工作区
+.claude/worktrees/
