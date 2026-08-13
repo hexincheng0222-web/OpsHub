@@ -1611,6 +1611,27 @@ try {
   `)
 } catch (e: any) { console.warn('[db] device_monitor_history 建表失败:', e.message) }
 
+// 设备告警（本地自建，采集器每 5 分钟判定）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_alerts (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id    INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      rule_type    TEXT NOT NULL,
+      severity     TEXT NOT NULL DEFAULT 'warning',
+      status       TEXT NOT NULL DEFAULT 'active',
+      target       TEXT NOT NULL DEFAULT '',
+      message      TEXT NOT NULL DEFAULT '',
+      detail       TEXT NOT NULL DEFAULT '',
+      first_seen   TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen    TEXT NOT NULL DEFAULT (datetime('now')),
+      recovered_at TEXT
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_alerts_active ON device_alerts (device_id, rule_type, target) WHERE status = 'active';
+    CREATE INDEX IF NOT EXISTS idx_alerts_status ON device_alerts (status, last_seen);
+  `)
+} catch (e: any) { console.warn('[db] device_alerts 建表失败:', e.message) }
+
 // 端口豁免白名单（低速端口告警豁免：网卡本身只有 100M 属正常的端口）
 try {
   db.exec(`
@@ -1625,5 +1646,43 @@ try {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_apw_device_port ON alert_port_whitelist (device_id, if_index);
   `)
 } catch (e: any) { console.warn('[db] alert_port_whitelist 建表失败:', e.message) }
+
+// 设备告警阈值配置（alert_% 前缀，后台可配置）
+const alertCfgCount = db.prepare("SELECT COUNT(*) as cnt FROM system_config WHERE key LIKE 'alert_%'").get() as { cnt: number }
+if (alertCfgCount.cnt === 0) {
+  const insertAlert = db.prepare("INSERT OR IGNORE INTO system_config (key, value, description) VALUES (?, ?, ?)")
+  insertAlert.run('alert_enabled', 'true', '设备告警总开关')
+  insertAlert.run('alert_cpu_threshold', '90', 'CPU 使用率阈值(%)')
+  insertAlert.run('alert_mem_threshold', '90', '内存使用率阈值(%)')
+  insertAlert.run('alert_temp_threshold', '75', '温度阈值(°C)')
+  insertAlert.run('alert_offline_minutes', '15', '设备离线判定：超过该分钟无成功采集即判离线')
+  console.log('[db] 已初始化设备告警阈值默认配置')
+}
+
+// 网络拓扑：节点（设备在画布上的位置）+ 连线（设备间连接关系）
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS topology_nodes (
+      device_id  INTEGER PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      x          REAL NOT NULL DEFAULT 0,
+      y          REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS topology_edges (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      source_port      TEXT    NOT NULL DEFAULT '',
+      target_device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      target_port      TEXT    NOT NULL DEFAULT '',
+      protocol         TEXT    NOT NULL DEFAULT '',
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      CONSTRAINT uq_topo_edge UNIQUE (source_device_id, source_port, target_device_id, target_port)
+    );
+    CREATE INDEX IF NOT EXISTS idx_topo_edge_src ON topology_edges (source_device_id);
+    CREATE INDEX IF NOT EXISTS idx_topo_edge_tgt ON topology_edges (target_device_id);
+  `)
+} catch (e: any) { console.warn('[db] topology 表建表失败:', e.message) }
 
 export default db

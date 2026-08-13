@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url'
 import servicesRouter from './routes/services'
 import racksRouter from './routes/racks'
 import devicesRouter from './routes/devices'
+import topologyRouter from './routes/topology'
 import adminRouter from './routes/admin'
 import operationsRouter from './routes/operations'
 import printersRouter from './routes/printers'
@@ -74,6 +75,7 @@ const adminOnly = requireRole('admin', 'superadmin')
 app.use('/api/v1/services', authRequired, servicesRouter)
 app.use('/api/v1/racks', authRequired, adminOnly, racksRouter)
 app.use('/api/v1/devices', authRequired, adminOnly, devicesRouter)
+app.use('/api/v1/topology', authRequired, adminOnly, topologyRouter)
 app.use('/api/v1/admin', authRequired, adminOnly, adminRouter)
 app.use('/api/v1/operations', authRequired, operationsRouter)
 app.use('/api/v1/printers', authRequired, adminOnly, printersRouter)
@@ -199,6 +201,14 @@ cron.schedule('5 3 * * *', () => {
     const n = db.prepare("DELETE FROM device_monitor_history WHERE collected_at < datetime('now', '-30 days')").run()
     if (n.changes > 0) console.log(`[device-monitor] 清理监控历史 ${n.changes} 条`)
   } catch (e) { console.warn('[device-monitor] 监控历史清理失败:', e) }
+})
+
+// 每日 03:10 清理 30 天前已恢复的设备告警（活跃告警保留）
+cron.schedule('10 3 * * *', () => {
+  try {
+    const n = db.prepare("DELETE FROM device_alerts WHERE status = 'recovered' AND recovered_at < datetime('now', '-30 days')").run()
+    if (n.changes > 0) console.log(`[device-monitor] 清理已恢复告警 ${n.changes} 条`)
+  } catch (e) { console.warn('[device-monitor] 告警清理失败:', e) }
 })
 
 // 每日 04:00 清理 7 天前的 data/log-audit/ 目录

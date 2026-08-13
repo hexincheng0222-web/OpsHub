@@ -3,6 +3,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDevicesStore } from '../stores/devices'
+import { useTopologyStore } from '../stores/topology'
 import type { Device, Rack } from '../types'
 import type { SlotInfo } from '../utils/rack-utils'
 import { DEVICE_TYPE_LABELS } from '../utils/rack-utils'
@@ -15,6 +16,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import DevicesKpiBar from '../components/devices/DevicesKpiBar.vue'
 import DevicesToolbar from '../components/devices/DevicesToolbar.vue'
 import DevicesStatsPanel from '../components/devices/DevicesStatsPanel.vue'
+import DeviceAlertsSection from '../components/devices/DeviceAlertsSection.vue'
 import RackEditDialog from '../components/devices/RackEditDialog.vue'
 import DeviceDrawer from '../components/devices/DeviceDrawer.vue'
 import BackButton from '../components/BackButton.vue'
@@ -238,6 +240,18 @@ async function updateDeviceStatus(status: string) {
   }
 }
 
+async function updateDeviceName(name: string) {
+  if (!drawerDevice.value) return
+  try {
+    await store.updateDeviceOnServer(drawerDevice.value.id, { name })
+    ElMessage.success('设备名称已更新')
+    // 同步已打开的拓扑页 store（topology_nodes 不存名称，后端实时 join，刷新即显示新名）
+    try { useTopologyStore().load() } catch { /* 拓扑 store 未使用则忽略 */ }
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新失败')
+  }
+}
+
 // --- Drag and drop ---
 const { onMouseDown } = useDragDrop(
   () => store.racks,
@@ -265,6 +279,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
       <span class="header-divider" />
       <h1 class="page-title">数据中心管理</h1>
       <div style="flex:1" />
+      <button class="add-rack-btn" @click="router.push('/devices/topology')">网络拓扑</button>
       <button class="add-rack-btn" @click="openAddRackDialog">+ 新建机柜</button>
     </div>
 
@@ -301,6 +316,8 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
       />
     </div>
 
+    <DeviceAlertsSection />
+
     <DevicesStatsPanel
       :floors="store.floors"
       :floor-usage="deviceStats.floorUsagePercent"
@@ -331,6 +348,7 @@ function handleDragStart(e: MouseEvent, device: Device, rackId: string) {
       @close="closeDrawer"
       @delete="deleteSelectedDevice"
       @update-status="updateDeviceStatus"
+      @update-name="updateDeviceName"
     />
   </div>
 </template>

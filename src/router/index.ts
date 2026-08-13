@@ -41,6 +41,12 @@ const router = createRouter({
       meta: { title: '设备管理', roles: ['admin', 'superadmin'] }
     },
     {
+      path: '/devices/topology',
+      name: 'DeviceTopology',
+      component: () => import('../views/topology/DeviceTopologyView.vue'),
+      meta: { title: '网络拓扑', roles: ['admin', 'superadmin'] }
+    },
+    {
       path: '/procurement',
       name: 'Procurement',
       component: () => import('../views/procurement/ProcurementView.vue'),
@@ -80,6 +86,7 @@ const router = createRouter({
         { path: 'logs', name: 'AdminLogs', component: () => import('../views/admin/AdminLogs.vue'), meta: { title: '操作日志' } },
         { path: 'devices/types', name: 'AdminDeviceTypes', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-types', title: '设备类型' } },
         { path: 'devices/models', name: 'AdminDeviceModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'device-models', title: '设备型号库' } },
+        { path: 'devices/alerts-config', name: 'AdminDeviceAlertsConfig', component: () => import('../views/admin/DeviceAlertConfig.vue'), meta: { title: '设备告警配置' } },
         { path: 'printers/brands', name: 'AdminPrinterBrands', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'printer-brands', title: '品牌管理' } },
         { path: 'printers/models', name: 'AdminPrinterModels', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'printer-models', title: '型号管理' } },
         { path: 'printers/toners', name: 'AdminPrinterToners', component: () => import('../views/admin/AdminDictTable.vue'), meta: { dict: 'toner-models', title: '墨粉型号' } },
