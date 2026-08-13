@@ -6,6 +6,7 @@ import { fetchDict, createDict, updateDict, deleteDict, batchDeleteDict } from '
 import { Search } from '@element-plus/icons-vue'
 import { dictConfigs } from '../../utils/admin-dict-config'
 import type { ColumnConfig } from '../../utils/admin-dict-config'
+import DeviceMonitorPanel from './DeviceMonitorPanel.vue'
 
 const route = useRoute()
 
@@ -198,6 +199,7 @@ function getColWidth(col: ColumnConfig): number | undefined {
 
 <template>
   <div class="dict-page">
+    <DeviceMonitorPanel v-if="dictKey === 'device-models'" />
     <div class="page-header">
       <div class="header-left">
         <span class="page-title">{{ config.title }}</span>

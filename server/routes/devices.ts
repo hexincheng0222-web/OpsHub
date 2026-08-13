@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import db from '../db'
-import { getDeviceSnapshot } from '../deviceMonitor'
-import { librenmsReady } from '../librenms'
+import { getDeviceSnapshot, getDeviceInfoCached, setDeviceInfoCached } from '../deviceMonitor'
+import { fetchDeviceInfo, librenmsReady } from '../librenms'
 import { logOperation, logCtx } from '../logOperation'
 import { recoverAlert, getLatestPorts } from '../alertEngine'
 
@@ -16,7 +16,7 @@ function findPortIndexByName(deviceId: number, ifName: string): number | null {
 // ============ 1. 获取设备列表 ============
 router.get('/', (req: Request, res: Response) => {
   const type = req.query.type as string
-  let sql = 'SELECT id, name, type, model, ip, status FROM devices'
+  let sql = 'SELECT id, name, type, model, ip, status, monitor_enabled, u, ports FROM devices'
   const params: any[] = []
   if (type) {
     sql += ' WHERE type = ?'
@@ -25,6 +25,42 @@ router.get('/', (req: Request, res: Response) => {
   sql += ' ORDER BY name ASC'
   const rows = db.prepare(sql).all(...params)
   res.json({ code: 200, data: rows })
+})
+
+// ============ 设备告警查询 ============
+// GET /api/v1/devices/alerts?status=active|recovered|all
+router.get('/alerts', (req: Request, res: Response) => {
+  try {
+    const status = (req.query.status as string) || 'active'
+    const params: any[] = []
+    let where = ''
+    if (status !== 'all') {
+      where = 'WHERE a.status = ?'
+      params.push(status)
+    }
+    const rows = db.prepare(`
+      SELECT a.id, a.device_id, a.rule_type, a.severity, a.status, a.target, a.message, a.detail,
+             a.first_seen, a.last_seen, a.recovered_at,
+             d.name AS device_name, d.ip AS device_ip, d.type AS device_type
+      FROM device_alerts a
+      LEFT JOIN devices d ON d.id = a.device_id
+      ${where}
+      ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, a.last_seen DESC
+      LIMIT 200
+    `).all(...params) as any[]
+
+    res.json({
+      code: 200,
+      data: rows.map((r) => {
+        let detail: any = null
+        try { detail = r.detail ? JSON.parse(r.detail) : null } catch { /* 非法 JSON 保留 null */ }
+        return { ...r, detail }
+      }),
+    })
+  } catch (err: any) {
+    console.error('[server] 查询设备告警失败:', err.message)
+    res.status(500).json({ code: 500, message: '查询设备告警失败' })
+  }
 })
 
 // ============ 端口豁免白名单（低速端口告警豁免） ============
@@ -145,7 +181,17 @@ router.put('/:id', (req: Request, res: Response) => {
     )
 
     const updated = db.prepare('SELECT * FROM devices WHERE id = ?').get(id)
-    logOperation({ module: '设备', action: '修改', target: (existing as any).name, detail: JSON.stringify({ name, type, model, status }), operator: req.user?.username || '', ...logCtx(req) })
+    const oldName = (existing as any).name
+    const isRename = name !== undefined && name !== oldName
+    logOperation({
+      module: '设备',
+      action: isRename ? '重命名' : '修改',
+      target: oldName,
+      detail: isRename
+        ? JSON.stringify({ oldName, newName: name })
+        : JSON.stringify({ name, type, model, status, monitorEnabled }),
+      operator: req.user?.username || '', ...logCtx(req)
+    })
     res.json({ code: 200, data: updated })
   } catch (err: any) {
     console.error('[server] 更新设备失败:', err.message)
@@ -165,6 +211,9 @@ router.delete('/:id', (req: Request, res: Response) => {
     // 使用事务保证原子性
     const remove = db.transaction(() => {
       db.prepare('DELETE FROM rack_slots WHERE device_id = ?').run(id)
+      // 拓扑数据显式清理（edges 外键指向 devices，删设备后需一并清拓扑）
+      db.prepare('DELETE FROM topology_edges WHERE source_device_id = ? OR target_device_id = ?').run(id, id)
+      db.prepare('DELETE FROM topology_nodes WHERE device_id = ?').run(id)
       db.prepare('DELETE FROM devices WHERE id = ?').run(id)
     })
     remove()
@@ -303,6 +352,30 @@ router.get('/:id/monitor/history', (req: Request, res: Response) => {
       })),
     },
   })
+})
+
+// GET /api/v1/devices/:id/monitor/info — 设备基础信息（uptime/os 等，独立于监控开关）
+router.get('/:id/monitor/info', async (req: Request, res: Response) => {
+  const id = parseInt(String(req.params.id))
+  if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的设备 ID' })
+  const row = db.prepare('SELECT id, ip, monitor_enabled FROM devices WHERE id = ?').get(id) as any
+  if (!row) return res.status(404).json({ code: 404, message: '设备不存在' })
+  if (!row.ip) return res.json({ code: 200, data: { available: false, reason: 'no-ip' } })
+  if (!librenmsReady()) return res.json({ code: 200, data: { available: false, reason: 'disabled' } })
+
+  const cached = getDeviceInfoCached(id)
+  if (cached) return res.json({ code: 200, data: { available: true, info: cached } })
+
+  try {
+    const info = await fetchDeviceInfo(row.ip)
+    if (!info) return res.json({ code: 200, data: { available: false, reason: 'not-found' } })
+    // 仅启用监控的设备由采集器刷新缓存；未启用时直接返回，不写缓存（避免陈旧）
+    if (row.monitor_enabled) setDeviceInfoCached(id, info)
+    res.json({ code: 200, data: { available: true, info } })
+  } catch (e: any) {
+    console.warn(`[device-monitor] 设备 ${row.ip} 基础信息查询失败: ${e.message}`)
+    res.json({ code: 200, data: { available: false, reason: 'unreachable' } })
+  }
 })
 
 // GET /api/v1/devices/:id/monitor/ports — 最新采集的 up 端口列表（豁免弹窗用）

@@ -26,6 +26,7 @@ const menuItems: MenuItem[] = [
     children: [
       { key: 'devices/types', label: '设备类型', route: '/admin/devices/types' },
       { key: 'devices/models', label: '设备型号库', route: '/admin/devices/models' },
+      { key: 'devices/alerts-config', label: '设备告警配置', route: '/admin/devices/alerts-config' },
     ],
   },
   {

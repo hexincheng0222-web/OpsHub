@@ -11,6 +11,23 @@ export async function fetchRacks(floor?: string): Promise<{ racks: any[]; stats:
   return request(BASE_RACKS + qs)
 }
 
+// 设备列表（含 monitor_enabled，供后台监控管理面板用）
+export interface DeviceListItem {
+  id: number
+  name: string
+  type: string
+  model: string
+  ip: string | null
+  status: string
+  monitor_enabled: number
+  u: number
+  ports: number
+}
+
+export async function fetchAllDevices(): Promise<DeviceListItem[]> {
+  return request(BASE_DEVICES)
+}
+
 // 2. 创建机柜
 export async function createRack(data: { name: string; floor: string; totalU?: number }): Promise<any> {
   return request(BASE_RACKS, { method: 'POST', body: JSON.stringify(data) })
@@ -67,7 +84,9 @@ export interface DeviceSnapshot {
   memUsedMb: number | null
   memTotalMb: number | null
   temperature: number | null
-  ports: { name: string; status: 'up' | 'down'; rxBps: number; txBps: number }[]
+  totalRxBps: number
+  totalTxBps: number
+  ports: { name: string; status: 'up' | 'down'; rxBps: number; txBps: number; speedBps: number | null }[]
   collectedAt: string
 }
 
@@ -85,6 +104,48 @@ export async function fetchDeviceSnapshot(id: number): Promise<MonitorSnapshotRe
 // 历史趋势（查表）
 export async function fetchDeviceHistory(id: number, hours = 24): Promise<{ points: { collectedAt: string; cpuUsage: number | null; memUsage: number | null; temperature: number | null }[] }> {
   return request(`${BASE_DEVICES}/${id}/monitor/history?hours=${hours}`)
+}
+
+// 设备基础信息（uptime/os 等，独立于监控开关）
+export interface DeviceInfoData {
+  uptime: number | null
+  os: string | null
+  version: string | null
+  hardware: string | null
+  location: string | null
+  lastPolled: string | null
+}
+
+export interface MonitorInfoResult {
+  available: boolean
+  reason?: 'no-ip' | 'disabled' | 'not-found' | 'unreachable'
+  info?: DeviceInfoData
+}
+
+export async function fetchDeviceInfo(id: number): Promise<MonitorInfoResult> {
+  return request(`${BASE_DEVICES}/${id}/monitor/info`)
+}
+
+// 设备告警（本地自建，采集器判定）
+export interface DeviceAlert {
+  id: number
+  device_id: number
+  device_name: string
+  device_ip: string | null
+  device_type: string
+  rule_type: string
+  severity: 'critical' | 'warning' | 'info'
+  status: 'active' | 'recovered'
+  target: string
+  message: string
+  detail: any
+  first_seen: string
+  last_seen: string
+  recovered_at: string | null
+}
+
+export async function fetchDeviceAlerts(status: 'active' | 'recovered' | 'all' = 'active'): Promise<DeviceAlert[]> {
+  return request(`${BASE_DEVICES}/alerts?status=${status}`)
 }
 
 // 端口豁免白名单

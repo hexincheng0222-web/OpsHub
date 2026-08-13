@@ -7,7 +7,7 @@
 // 端口速率基于两次采样的 octets counter 差值计算（counter 翻转安全）。
 import cron from 'node-cron'
 import db from './db'
-import { fetchHealth, fetchPorts, librenmsReady, type DeviceSnapshot } from './librenms'
+import { fetchDeviceInfo, fetchHealth, fetchPorts, librenmsReady, type DeviceInfo, type DeviceSnapshot } from './librenms'
 import {
   evaluateOfflineAlerts, evaluatePortAlerts, evaluateThresholdAlerts,
   readAlertConfig, readPortWhitelist, type PortSnap,
@@ -16,6 +16,9 @@ import {
 // 内存缓存：实时快照（与轮询间隔一致，5 分钟过期）
 const snapshotCache = new Map<number, { data: DeviceSnapshot; ts: number }>()
 const CACHE_TTL_MS = 5 * 60_000
+
+// 设备基础信息缓存（uptime/os 等，随采集周期刷新）
+const infoCache = new Map<number, { data: DeviceInfo; ts: number }>()
 
 // 端口速率计算基线：device_id -> Map<ifIndex, { in, out, ts }>
 const octetsBaseline = new Map<number, Map<number, { in: number; out: number; ts: number }>>()
@@ -72,12 +75,19 @@ export async function runCollect(): Promise<void> {
       })
       octetsBaseline.set(d.id, base)
 
+      // 总速率只对 up 端口求和（down 端口速率无意义）
+      const upPorts = enriched.filter((p) => p.status === 'up')
+      const totalRxBps = upPorts.reduce((a, p) => a + p.rxBps, 0)
+      const totalTxBps = upPorts.reduce((a, p) => a + p.txBps, 0)
+
       const snap: DeviceSnapshot = {
         cpuUsage: health.cpuUsage,
         memUsage: health.memUsage,
         memUsedMb: health.memUsedMb,
         memTotalMb: health.memTotalMb,
         temperature: health.temperature,
+        totalRxBps,
+        totalTxBps,
         ports: enriched,
         collectedAt: new Date().toISOString(),
       }
@@ -95,6 +105,11 @@ export async function runCollect(): Promise<void> {
 
       insert.run(d.id, snap.cpuUsage, snap.memUsedMb, snap.memTotalMb, snap.memUsage, snap.temperature, JSON.stringify(snap.ports))
       snapshotCache.set(d.id, { data: snap, ts: Date.now() })
+
+      // 并行刷新基础信息缓存（uptime 每 5 分钟才变化，TTL 与采集周期一致）
+      fetchDeviceInfo(d.ip).then((info) => {
+        if (info) infoCache.set(d.id, { data: info, ts: Date.now() })
+      }).catch(() => { /* 基础信息采集失败静默，下次采集再试 */ })
     } catch (e: any) {
       console.warn(`[device-monitor] 设备 ${d.ip} 采集失败: ${e.message}`)
       // 失败不清空旧缓存，保留上次数据
@@ -127,4 +142,16 @@ export function getDeviceSnapshot(id: number): DeviceSnapshot | null {
   const hit = snapshotCache.get(id)
   if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return hit.data
   return null
+}
+
+/** 读基础信息缓存；无缓存或过期返回 null */
+export function getDeviceInfoCached(id: number): DeviceInfo | null {
+  const hit = infoCache.get(id)
+  if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return hit.data
+  return null
+}
+
+/** 写入基础信息缓存（未启用监控的设备由路由在查询成功后写入，避免重复查库） */
+export function setDeviceInfoCached(id: number, info: DeviceInfo): void {
+  infoCache.set(id, { data: info, ts: Date.now() })
 }

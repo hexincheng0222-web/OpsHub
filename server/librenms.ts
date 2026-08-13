@@ -75,6 +75,8 @@ export interface PortData {
   status: 'up' | 'down'
   ifInOctets: number
   ifOutOctets: number
+  /** 端口速率能力（bit/s，如 1G=1e9、10G=1e10）；虚拟口/未上报可能为 0 或 null */
+  ifSpeed: number | null
 }
 
 export interface DeviceSnapshot {
@@ -83,7 +85,9 @@ export interface DeviceSnapshot {
   memUsedMb: number | null
   memTotalMb: number | null
   temperature: number | null
-  ports: Array<{ ifIndex: number; name: string; status: 'up' | 'down'; rxBps: number; txBps: number }>
+  totalRxBps: number
+  totalTxBps: number
+  ports: Array<{ ifIndex: number; name: string; status: 'up' | 'down'; rxBps: number; txBps: number; speedBps: number | null }>
   collectedAt: string
 }
 
@@ -129,10 +133,10 @@ export async function fetchHealth(host: string): Promise<HealthData> {
   return { cpuUsage, memUsage, memUsedMb, memTotalMb, temperature }
 }
 
-/** 查询单个设备的端口状态 + 累计 octets（counter，用于速率差值计算） */
+/** 查询单个设备的端口状态 + 累计 octets（counter，用于速率差值计算）+ 速率能力 */
 export async function fetchPorts(host: string): Promise<PortData[]> {
-  const rows = await query<{ ifIndex: number; ifName: string; ifOperStatus: string; ifInOctets: number | null; ifOutOctets: number | null }>(
-    `SELECT p.ifIndex, p.ifName, p.ifOperStatus, p.ifInOctets, p.ifOutOctets FROM ports p
+  const rows = await query<{ ifIndex: number; ifName: string; ifOperStatus: string; ifInOctets: number | null; ifOutOctets: number | null; ifSpeed: number | null }>(
+    `SELECT p.ifIndex, p.ifName, p.ifOperStatus, p.ifInOctets, p.ifOutOctets, p.ifSpeed FROM ports p
      JOIN devices d ON d.device_id = p.device_id WHERE d.hostname = ? ORDER BY p.ifIndex ASC`,
     [host]
   )
@@ -142,7 +146,40 @@ export async function fetchPorts(host: string): Promise<PortData[]> {
     status: r.ifOperStatus === 'up' ? 'up' as const : 'down' as const,
     ifInOctets: r.ifInOctets ?? 0,
     ifOutOctets: r.ifOutOctets ?? 0,
+    ifSpeed: r.ifSpeed != null && r.ifSpeed > 0 ? r.ifSpeed : null,
   }))
+}
+
+export interface DeviceInfo {
+  uptime: number | null
+  os: string | null
+  version: string | null
+  hardware: string | null
+  sysDescr: string | null
+  location: string | null
+  lastPolled: string | null
+}
+
+/** 查询单个设备的静态信息（uptime/os/version/hardware 等），LibreNMS 查无此设备返回 null */
+export async function fetchDeviceInfo(host: string): Promise<DeviceInfo | null> {
+  // 用 SELECT * 取整行再按列名安全取，避免对列名做假设
+  const rows = await query<Record<string, unknown>>(
+    'SELECT * FROM devices WHERE hostname = ? LIMIT 1',
+    [host]
+  )
+  if (!rows.length) return null
+  const r = rows[0]
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.length ? v : null)
+  const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null)
+  return {
+    uptime: num(r['uptime']),
+    os: str(r['os']),
+    version: str(r['version']),
+    hardware: str(r['hardware']),
+    sysDescr: str(r['sysDescr']),
+    location: str(r['location']),
+    lastPolled: str(r['last_polled']),
+  }
 }
 
 /** 探测某 IP 是否在 LibreNMS 中存在 */

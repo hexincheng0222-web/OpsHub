@@ -29,3 +29,34 @@ export function truncateText(text: string | undefined | null, maxLen = 80): stri
   if (!text) return ''
   return text.length <= maxLen ? text : text.slice(0, maxLen) + '...'
 }
+
+/**
+ * 格式化运行时间（秒）为 "x天 x小时 x分" 逐级降档
+ * @param sec 秒数；0/负数/null → '—'
+ */
+export function formatUptime(sec: number | null | undefined): string {
+  if (sec == null || !isFinite(sec) || sec <= 0) return '—'
+  const d = Math.floor(sec / 86400)
+  const h = Math.floor((sec % 86400) / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = Math.floor(sec % 60)
+  if (d > 0) return `${d}天 ${h}小时${m ? ' ' + m + '分' : ''}`
+  if (h > 0) return `${h}小时 ${m}分`
+  if (m > 0) return `${m}分 ${s}秒`
+  return `${s}秒`
+}
+
+/**
+ * 生成趋势图 X 轴时间标签（本地时区）
+ * @param ts 毫秒时间戳
+ * @param rangeHours 时间段档位：6/24 → HH:00，168(7天) → MM-DD
+ */
+export function formatAxisTime(ts: number, rangeHours: number): string {
+  const d = new Date(ts)
+  if (rangeHours >= 168) {
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${mm}-${dd}`
+  }
+  return String(d.getHours()).padStart(2, '0') + ':00'
+}
