@@ -492,11 +492,20 @@ router.put('/:id/remark', async (req: Request, res: Response) => {
 // ATCOM 话机 API 封装（带 Digest Auth）
 // #29: 凭据从 getConfig() 统一读取，不再硬编码 'admin' 默认回退
 function atcomGet(ip: string, command: string, username?: string, password?: string): Promise<any> {
-  return atcomRequest(ip, command, 'GET', '', username, password)
+  const cred = resolveAtcomCred(username, password)
+  return atcomRequest(ip, command, 'GET', '', cred.user, cred.pass)
 }
 
 function atcomPost(ip: string, command: string, data: string, username?: string, password?: string): Promise<any> {
-  return atcomRequest(ip, command, 'POST', data, username, password)
+  const cred = resolveAtcomCred(username, password)
+  return atcomRequest(ip, command, 'POST', data, cred.user, cred.pass)
+}
+
+/** 未显式传凭据时从系统配置（atcom_* 表）读取；调用点不必各自重复传 */
+function resolveAtcomCred(username?: string, password?: string): { user: string; pass: string } {
+  if (username !== undefined && password !== undefined) return { user: username, pass: password }
+  const cfg = getConfig()
+  return { user: username ?? cfg.user, pass: password ?? cfg.pass }
 }
 
 // ========== 电话簿 ==========
